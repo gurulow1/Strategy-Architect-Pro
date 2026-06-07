@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Strategy Architect Pro — Trading System Lab</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#f4f6fa; --panel:rgba(255,255,255,.78); --panel-solid:#ffffff;
+      --text:#101828; --muted:#667085; --line:rgba(16,24,40,.10);
+      --shadow:0 20px 50px rgba(16,24,40,.08); --radius:22px;
+      --accent:#1d4ed8; --accent-2:#7c3aed; --good:#059669; --bad:#dc2626;
+      --warn:#d97706; --chip:#eef2ff; --info:#0ea5e9;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(29,78,216,.10), transparent 26%),
+        radial-gradient(circle at top right, rgba(124,58,237,.10), transparent 24%),
+        linear-gradient(180deg, #f8fafc 0%, var(--bg) 100%);
+    }
+    .app{
+      display:grid;
+      grid-template-columns: 380px 1fr;
+      min-height:100vh;
+      max-width:1920px;
+      margin:0 auto;
+    }
+    .sidebar{
+      position:sticky; top:0;
+      height:100vh;
+      padding:22px;
+      overflow:auto;
+      border-right:1px solid var(--line);
+      background:rgba(255,255,255,.68);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .brand{display:flex; flex-direction:column; gap:8px; margin-bottom:18px}
+    .brand h1{margin:0;font-size:20px;letter-spacing:-.04em;line-height:1.05}
+    .brand p{margin:0;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.16em}
+    .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 20px}
+    .pill{
+      padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.8);
+      border:1px solid var(--line);font-size:12px;color:var(--muted);
+    }
+    .section{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+    .section-title{margin:0 0 14px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+    .control{margin-bottom:14px}
+    .control-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:7px;font-size:13px}
+    .control-head .value{color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+    input[type="range"]{
+      width:100%;appearance:none;height:6px;border-radius:999px;
+      background:linear-gradient(90deg, rgba(29,78,216,.18), rgba(124,58,237,.18));outline:none;
+    }
+    input[type="range"]::-webkit-slider-thumb{
+      appearance:none;width:18px;height:18px;border-radius:50%;background:white;
+      border:1px solid rgba(16,24,40,.15);box-shadow:0 8px 20px rgba(16,24,40,.18);cursor:pointer;
+    }
+    .toggles{display:grid;gap:10px}
+    .toggle{
+      display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:16px;
+      background:rgba(255,255,255,.72);border:1px solid var(--line);transition:.2s ease;
+    }
+    .toggle:hover{transform:translateY(-1px);box-shadow:0 10px 25px rgba(16,24,40,.06)}
+    .toggle input{margin-top:3px;width:18px;height:18px;accent-color:var(--accent)}
+    .toggle strong{display:block;font-size:13px;margin-bottom:3px}
+    .toggle span{display:block;font-size:12px;color:var(--muted);line-height:1.35}
+    .btns{display:grid;gap:10px;margin-top:18px}
+    button{
+      border:0;border-radius:16px;padding:13px 14px;font-weight:700;cursor:pointer;
+      transition:.2s ease;font-size:14px;
+    }
+    .btn-primary{color:white;background:linear-gradient(135deg, var(--accent), var(--accent-2));box-shadow:0 16px 30px rgba(29,78,216,.20)}
+    .btn-secondary{background:rgba(255,255,255,.85);border:1px solid var(--line);color:var(--text)}
+    .btn-success{background:rgba(5,150,105,.10);color:var(--good);border:1px solid rgba(5,150,105,.20)}
+    .btn-warn{background:rgba(217,119,6,.10);color:var(--warn);border:1px solid rgba(217,119,6,.20)}
+    .btn-primary:hover,.btn-secondary:hover,.btn-success:hover,.btn-warn:hover{transform:translateY(-1px)}
+    .main{padding:24px;padding-bottom:74px}
+    .hero{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:18px}
+    .hero h2{margin:0;font-size:30px;line-height:1.05;letter-spacing:-.05em}
+    .hero p{margin:8px 0 0;color:var(--muted);max-width:780px}
+    .status{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;
+      background:rgba(255,255,255,.82);border:1px solid var(--line);box-shadow:var(--shadow);
+      font-size:13px;color:var(--muted);white-space:nowrap}
+    .dot{width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 4px rgba(5,150,105,.12)}
+    .dot.warn{background:var(--warn);box-shadow:0 0 0 4px rgba(217,119,6,.12)}
+    .dot.bad{background:var(--bad);box-shadow:0 0 0 4px rgba(220,38,38,.12)}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+    .card{
+      background:var(--panel);border:1px solid var(--line);backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);border-radius:var(--radius);box-shadow:var(--shadow);
+    }
+    .kpi{padding:18px;min-height:110px;display:flex;flex-direction:column;justify-content:space-between}
+    .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-weight:700}
+    .kpi .num{font-size:26px;font-weight:800;letter-spacing:-.05em;font-variant-numeric:tabular-nums;line-height:1;margin-top:10px}
+    .kpi .sub{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.35}
+    .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .info{color:var(--info)}
+    .grid{display:grid;grid-template-columns:1.35fr .95fr;gap:16px;margin-bottom:16px}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+    .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+    .stack{display:grid;gap:16px}
+    .panel{padding:18px}
+    .panel h3{margin:0 0 14px;font-size:14px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+    .chart-wrap{height:300px}
+    .chart-wrap.tall{height:350px}
+    .matrix{display:grid;gap:4px;width:100%;overflow:auto;padding-bottom:2px}
+    .matrix-grid{display:grid;gap:4px;min-width:600px}
+    .cell{min-height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;padding:8px;font-size:12px;text-align:center;font-weight:700;line-height:1.1}
+    .cell.head{background:transparent;color:var(--muted);font-weight:700;font-size:11px}
+    .legend{display:flex;align-items:center;gap:12px;margin-top:12px;color:var(--muted);font-size:12px}
+    .gradient{width:180px;height:10px;border-radius:999px;background:linear-gradient(90deg, #dc2626, #f59e0b, #059669)}
+    .foot{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.45}
+    .mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .mini{padding:14px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.82)}
+    .mini b{display:block;margin-bottom:6px;font-size:13px}
+    .mini span{font-size:12px;color:var(--muted);line-height:1.35;display:block}
+    .badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;margin-left:6px}
+    .badge-good{background:rgba(5,150,105,.12);color:var(--good)}
+    .badge-warn{background:rgba(217,119,6,.12);color:var(--warn)}
+    .badge-bad{background:rgba(220,38,38,.12);color:var(--bad)}
+    .badge-info{background:rgba(14,165,233,.12);color:var(--info)}
+    .detector-result{padding:16px;border-radius:16px;background:rgba(255,255,255,.9);border:1px solid var(--line);margin-top:12px}
+    .detector-score{font-size:42px;font-weight:800;letter-spacing:-.04em;line-height:1}
+    .detector-bar{height:8px;border-radius:999px;background:linear-gradient(90deg, var(--bad), var(--warn), var(--good));margin-top:10px;position:relative}
+    .detector-marker{position:absolute;top:-4px;width:16px;height:16px;border-radius:50%;background:white;border:2px solid var(--text);transform:translateX(-50%)}
+    .prop-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+    .prop-card{padding:14px;border-radius:16px;background:rgba(255,255,255,.85);border:1px solid var(--line)}
+    .prop-card b{display:block;font-size:13px;margin-bottom:4px}
+    .prop-card span{font-size:12px;color:var(--muted)}
+    .risk-ladder-table{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:13px}
+    .risk-ladder-table th{text-align:left;padding:8px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+    .risk-ladder-table td{padding:10px 12px;background:rgba(255,255,255,.7);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .risk-ladder-table td:first-child{border-left:1px solid var(--line);border-radius:12px 0 0 12px}
+    .risk-ladder-table td:last-child{border-right:1px solid var(--line);border-radius:0 12px 12px 0}
+    .csv-drop{border:2px dashed var(--line);border-radius:16px;padding:20px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;transition:.2s}
+    .csv-drop:hover{border-color:var(--accent);color:var(--accent)}
+    .tab-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+    .tab{padding:8px 14px;border-radius:12px;background:rgba(255,255,255,.7);border:1px solid var(--line);font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);transition:.2s}
+    .tab.active{background:var(--accent);color:white;border-color:var(--accent)}
+    .tab:hover:not(.active){color:var(--text)}
+    .advanced-section{display:none;margin-top:18px;padding-top:18px;border-top:2px solid var(--line)}
+    .advanced-section.open{display:block}
+    .advanced-toggle{width:100%;margin-top:12px}
+    .lang-btn.active{background:linear-gradient(135deg, var(--accent), var(--accent-2));color:white;border-color:transparent}
+    @media (max-width: 1280px){
+      .app{grid-template-columns:1fr}
+      .sidebar{position:relative;height:auto}
+      .kpis{grid-template-columns:repeat(2,1fr)}
+      .grid{grid-template-columns:1fr}
+      .grid-2{grid-template-columns:1fr}
+      .grid-3{grid-template-columns:1fr}
+    }
+    @media (max-width: 760px){
+      .main{padding:16px}
+      .kpis{grid-template-columns:1fr 1fr}
+      .mini-grid{grid-template-columns:1fr}
+      .hero h2{font-size:24px}
+      .prop-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Strategy Architect <span style="color:var(--accent)">Pro</span></h1>
+        <p data-i18n="brand_sub">Профессиональный симулятор торговых систем</p>
+      </div>
+<div class="lang-switch" style="display:flex;gap:6px;align-items:center;margin-top:10px">
+  <button onclick="setLang('ru')" class="lang-btn" id="btn-ru" style="padding:5px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.9);cursor:pointer;font-size:12px;font-weight:700;transition:.2s">🇷🇺 RU</button>
+  <button onclick="setLang('en')" class="lang-btn" id="btn-en" style="padding:5px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.9);cursor:pointer;font-size:12px;font-weight:700;transition:.2s">🇬🇧 EN</button>
+</div>
+      <div class="pill-row">
+        <div class="pill">Monte Carlo</div><div class="pill">Kelly</div><div class="pill">Prop Firm</div>
+        <div class="pill">Edge Test</div><div class="pill">Risk Ladder</div><div class="pill">CSV</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" data-i18n="strategy_a_params">Strategy A — Параметры</div>
+        <div class="control">
+          <div class="control-head"><span>Win rate</span><span class="value" id="val-winrate">50%</span></div>
+          <input id="winrate" type="range" min="1" max="95" step="1" value="50">
+        </div>
+        <div class="control">
+          <div class="control-head"><span>Risk / trade</span><span class="value" id="val-risk">1.0%</span></div>
+          <input id="risk" type="range" min="0.1" max="10" step="0.1" value="1.0">
+        </div>
+        <div class="control">
+          <div class="control-head"><span>Reward / risk</span><span class="value" id="val-rr">2.0</span></div>
+          <input id="rr" type="range" min="0.5" max="5" step="0.1" value="2.0">
+        </div>
+        <div class="control">
+          <div class="control-head"><span>Capital</span><span class="value" id="val-capital">$10,000</span></div>
+          <input id="capital" type="range" min="1000" max="100000" step="1000" value="10000">
+        </div>
+        <div class="control">
+          <div class="control-head"><span>Trades</span><span class="value" id="val-trades">100</span></div>
+          <input id="trades" type="range" min="20" max="500" step="10" value="100">
+        </div>
+        <div class="control">
+          <div class="control-head"><span>Simulations</span><span class="value" id="val-sims">1500</span></div>
+          <input id="sims" type="range" min="300" max="5000" step="100" value="1500">
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" data-i18n="execution_costs">Execution Costs</div>
+        <div class="control">
+          <div class="control-head"><span>Round-trip fees + slippage</span><span class="value" id="val-fee">0.16%</span></div>
+          <input id="fee" type="range" min="0" max="1" step="0.01" value="0.16">
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" data-i18n="kelly_criterion">Kelly Criterion</div>
+        <div class="control">
+          <div class="control-head"><span>Mode</span><span class="value" id="val-kellyMode">Half Kelly</span></div>
+          <select id="kellyMode" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--line);font-size:13px;margin-top:6px">
+            <option value="full" data-i18n-opt="kelly_full">Full Kelly (опасно)</option>
+            <option value="half" selected data-i18n-opt="kelly_half">Half Kelly</option>
+            <option value="quarter" data-i18n-opt="kelly_quarter">Quarter Kelly</option>
+            <option value="fixed" data-i18n-opt="kelly_fixed">Fixed Fractional</option>
+          </select>
+        </div>
+        <div class="control" id="fixedFractionControl" style="display:none">
+          <div class="control-head"><span>Fixed fraction</span><span class="value" id="val-fixedFrac">1.0%</span></div>
+          <input id="fixedFrac" type="range" min="0.1" max="5" step="0.1" value="1.0">
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5">
+          <span id="kelly-info">Optimal Kelly: — | Recommended: —</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" data-i18n="strategy_b_title">Strategy B — Comparison</div>
+        <label class="toggle" style="margin-bottom:12px"><input id="compareOn" type="checkbox"><div><strong data-i18n="enable_ab">Включить сравнение A/B</strong><span data-i18n="ab_desc">Активирует вторую стратегию для прямого сравнения.</span></div></label>
+        <div id="strategyB-controls" style="opacity:0.4;pointer-events:none;transition:opacity 0.2s">
+          <div class="control">
+            <div class="control-head"><span>Win rate B</span><span class="value" id="val-winrate-b">55%</span></div>
+            <input id="winrate-b" type="range" min="1" max="95" step="1" value="55">
+          </div>
+          <div class="control">
+            <div class="control-head"><span>Risk B</span><span class="value" id="val-risk-b">1.5%</span></div>
+            <input id="risk-b" type="range" min="0.1" max="10" step="0.1" value="1.5">
+          </div>
+          <div class="control">
+            <div class="control-head"><span>R:R B</span><span class="value" id="val-rr-b">1.5</span></div>
+            <input id="rr-b" type="range" min="0.5" max="5" step="0.1" value="1.5">
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" data-i18n="prop_firm_title">Prop Firm Challenge</div>
+        <label class="toggle" style="margin-bottom:12px"><input id="propOn" type="checkbox"><div><strong data-i18n="prop_analysis">Анализ пропа</strong><span data-i18n="prop_desc">Оценка вероятности прохождения челленджа.</span></div></label>
+        <div id="prop-controls" style="opacity:0.4;pointer-events:none;transition:opacity 0.2s">
+          <div class="control">
+            <div class="control-head"><span data-i18n="prop_firm_select">Проп-фирма</span></div>
+            <select id="propFirm" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--line);font-size:13px;margin-top:6px">
+              <option value="ftmo">FTMO</option>
+              <option value="the5ers">The5ers</option>
+              <option value="fundednext">FundedNext</option>
+              <option value="e8">E8 Funding</option>
+              <option value="custom" data-i18n-opt="prop_custom">Custom</option>
+            </select>
+          </div>
+          <div class="control">
+            <div class="control-head"><span>Daily DD Limit</span><span class="value" id="val-propDaily">5%</span></div>
+            <input id="propDaily" type="range" min="1" max="10" step="0.5" value="5">
+          </div>
+          <div class="control">
+            <div class="control-head"><span>Max DD Limit</span><span class="value" id="val-propMax">10%</span></div>
+            <input id="propMax" type="range" min="3" max="20" step="0.5" value="10">
+          </div>
+          <div class="control">
+            <div class="control-head"><span>Profit Target</span><span class="value" id="val-propTarget">10%</span></div>
+            <input id="propTarget" type="range" min="5" max="20" step="0.5" value="10">
+          </div>
+          <div class="control">
+            <div class="control-head"><span>Trading Days</span><span class="value" id="val-propDays">30</span></div>
+            <input id="propDays" type="range" min="7" max="60" step="1" value="30">
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" data-i18n="import_trades">Import Real Trades</div>
+        <div class="csv-drop" id="csvDrop">
+          <div data-i18n="csv_drop">📁 Перетащите CSV или нажмите для загрузки</div>
+          <div style="font-size:11px;margin-top:6px" data-i18n="csv_cols">Колонки: date, pnl, r_multiple (опц.)</div>
+          <input type="file" id="csvInput" accept=".csv" style="display:none">
+        </div>
+        <div id="csvStats" style="margin-top:10px;font-size:12px;color:var(--muted);line-height:1.5"></div>
+      </div>
+
+      <div class="btns">
+        <button class="btn-primary" id="runBtn">Запустить симуляцию</button>
+        <button class="btn-secondary" id="autoBtn">Авто-обновление: выкл</button>
+        <button class="btn-secondary" id="seedBtn">Случайная seed</button>
+        <button class="btn-success" id="csvBtn">Экспорт CSV</button>
+      </div>
+
+      <button class="btn-secondary advanced-toggle" id="advancedBtn">t('advanced_settings')</button>
+
+      <div class="advanced-section" id="advancedSection">
+        <div class="section-title" style="margin-top:0">Advanced Settings</div>
+
+        <div class="section" style="margin-top:0;border-top:none;padding-top:0">
+          <div class="section-title" data-i18n="mc_mode_title">Monte Carlo Mode</div>
+          <div class="toggles">
+            <label class="toggle"><input id="mcSimple" type="radio" name="mcMode" value="simple" checked><div><strong data-i18n="simple_mc">Simple MC</strong><span data-i18n="simple_mc_desc">Классический независимый метод.</span></div></label>
+            <label class="toggle"><input id="mcRegime" type="radio" name="mcMode" value="regime"><div><strong data-i18n="regime_mc">Regime MC</strong><span data-i18n="regime_mc_desc">Рыночные режимы с переключениями.</span></div></label>
+            <label class="toggle"><input id="mcCorrelated" type="radio" name="mcMode" value="correlated"><div><strong data-i18n="correlated_mc">Correlated MC</strong><span data-i18n="correlated_mc_desc">Автокорреляция результатов сделок.</span></div></label>
+            <label class="toggle"><input id="mcStress" type="radio" name="mcMode" value="stress"><div><strong data-i18n="stress_mc">Stress Test MC</strong><span data-i18n="stress_mc_desc">Гэпы, шоки, экстремальная волатильность.</span></div></label>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="market_regimes">Market Regimes</div>
+          <label class="toggle" style="margin-bottom:12px"><input id="regimeOn" type="checkbox"><div><strong data-i18n="enable_regimes">Включить рыночные режимы</strong><span data-i18n="regimes_desc">Рынок переключается между Bull, Bear, Range, High/Low Vol.</span></div></label>
+          <div id="regime-controls" style="opacity:0.4;pointer-events:none;transition:opacity 0.2s">
+            <div class="control">
+              <div class="control-head"><span data-i18n="regime_prob">Вероятность смены режима</span><span class="value" id="val-regimeProb">8%</span></div>
+              <input id="regimeProb" type="range" min="1" max="30" step="1" value="8">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="regime_vol">Влияние волатильности</span><span class="value" id="val-regimeVol">1.0</span></div>
+              <input id="regimeVol" type="range" min="0.5" max="2.0" step="0.1" value="1.0">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="autocorr_title">Autocorrelation</div>
+          <label class="toggle" style="margin-bottom:12px"><input id="autocorrOn" type="checkbox"><div><strong data-i18n="enable_autocorr">Включить автокорреляцию</strong><span data-i18n="autocorr_desc">Результат сделки зависит от предыдущих.</span></div></label>
+          <div id="autocorr-controls" style="opacity:0.4;pointer-events:none;transition:opacity 0.2s">
+            <div class="control">
+              <div class="control-head"><span data-i18n="autocorr_strength">Сила автокорреляции</span><span class="value" id="val-autocorr">0.30</span></div>
+              <input id="autocorr" type="range" min="0" max="0.9" step="0.05" value="0.30">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="autocorr_max">Макс. смещение WR</span><span class="value" id="val-autocorrMax">12%</span></div>
+              <input id="autocorrMax" type="range" min="0" max="30" step="1" value="12">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="psychology_title">Psychology — Probability Model</div>
+          <label class="toggle" style="margin-bottom:12px"><input id="psychologyOn" type="checkbox" checked><div><strong data-i18n="enable_psych">Включить психологические эффекты</strong><span data-i18n="psych_desc">Fear, greed, tilt, recovery, overconfidence.</span></div></label>
+          <div id="psychology-controls">
+            <div class="control">
+              <div class="control-head"><span data-i18n="fear_prob">Fear probability</span><span class="value" id="val-fearProb">70%</span></div>
+              <input id="fearProb" type="range" min="0" max="100" step="5" value="70">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="fear_strength">Fear risk reduction</span><span class="value" id="val-fearStrength">50%</span></div>
+              <input id="fearStrength" type="range" min="0" max="90" step="5" value="50">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="greed_prob">Greed probability</span><span class="value" id="val-greedProb">60%</span></div>
+              <input id="greedProb" type="range" min="0" max="100" step="5" value="60">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="greed_strength">Greed risk increase</span><span class="value" id="val-greedStrength">25%</span></div>
+              <input id="greedStrength" type="range" min="0" max="100" step="5" value="25">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="greed_wr">Greed WR penalty</span><span class="value" id="val-greedWR">8%</span></div>
+              <input id="greedWR" type="range" min="0" max="30" step="1" value="8">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="tilt_prob">Tilt probability</span><span class="value" id="val-tiltProb">50%</span></div>
+              <input id="tiltProb" type="range" min="0" max="100" step="5" value="50">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="tilt_strength">Tilt WR penalty</span><span class="value" id="val-tiltStrength">18%</span></div>
+              <input id="tiltStrength" type="range" min="0" max="50" step="1" value="18">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="recovery_prob">Recovery probability</span><span class="value" id="val-recoveryProb">80%</span></div>
+              <input id="recoveryProb" type="range" min="0" max="100" step="5" value="80">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="recovery_cap">Recovery risk cap</span><span class="value" id="val-recoveryCap">0.3%</span></div>
+              <input id="recoveryCap" type="range" min="0.1" max="2.0" step="0.1" value="0.3">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="overconf_prob">Overconfidence probability</span><span class="value" id="val-overconfProb">40%</span></div>
+              <input id="overconfProb" type="range" min="0" max="100" step="5" value="40">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="overconf_skip">Overconfidence skip rate</span><span class="value" id="val-overconfSkip">30%</span></div>
+              <input id="overconfSkip" type="range" min="0" max="80" step="5" value="30">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="edge_decay">Edge decay after loss streak</span><span class="value" id="val-decay">15%</span></div>
+              <input id="decay" type="range" min="0" max="50" step="1" value="15">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" data-i18n="detailed_costs_title">Execution Costs (Detailed)</div>
+          <label class="toggle" style="margin-bottom:12px"><input id="useDetailedCosts" type="checkbox"><div><strong data-i18n="override_costs">Override with detailed costs</strong><span data-i18n="costs_desc">Раздельные commission, spread, slippage, impact.</span></div></label>
+          <div id="detailed-costs-controls" style="opacity:0.4;pointer-events:none;transition:opacity 0.2s">
+            <div class="control">
+              <div class="control-head"><span data-i18n="commission">Commission (one way)</span><span class="value" id="val-commission">0.04%</span></div>
+              <input id="commission" type="range" min="0" max="0.25" step="0.01" value="0.04">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="spread">Spread</span><span class="value" id="val-spread">0.02%</span></div>
+              <input id="spread" type="range" min="0" max="0.2" step="0.01" value="0.02">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="slippage">Slippage (one way)</span><span class="value" id="val-slippage">0.05%</span></div>
+              <input id="slippage" type="range" min="0" max="0.5" step="0.01" value="0.05">
+            </div>
+            <div class="control">
+              <div class="control-head"><span data-i18n="impact">Market Impact</span><span class="value" id="val-impact">0.01%</span></div>
+              <input id="impact" type="range" min="0" max="0.1" step="0.005" value="0.01">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="foot">
+        <span data-i18n="footer">Профессиональный инструмент для количественной оценки торговых систем. Модель учитывает издержки, психологические эффекты, рыночные режимы и случайность через метод Монте-Карло.</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="hero">
+        <div>
+          <h2 data-i18n="hero_title">Аналитическая панель</h2>
+          <p data-i18n="hero_desc">Количественная оценка торговой системы: диапазон исходов, просадка, чувствительность к параметрам, оптимизация риска по Келли и сравнение стратегий.</p>
+        </div>
+        <div class="status"><span class="dot" id="statusDot"></span><span id="statusText" data-i18n="status_ready">Готов к запуску</span></div>
+      </div>
+
+      <div class="kpis">
+        <div class="card kpi"><div class="label" data-i18n="kpi_expected_return">Expected return</div><div class="num" id="m-return">—</div><div class="sub" id="m-return-sub">—</div></div>
+        <div class="card kpi"><div class="label" data-i18n="kpi_median">Median result</div><div class="num" id="m-median">—</div><div class="sub" id="m-median-sub">—</div></div>
+        <div class="card kpi"><div class="label" data-i18n="kpi_pop">Probability of profit</div><div class="num" id="m-pop">—</div><div class="sub" id="m-pop-sub">—</div></div>
+        <div class="card kpi"><div class="label" data-i18n="kpi_dd">Avg max drawdown</div><div class="num" id="m-dd">—</div><div class="sub" id="m-dd-sub">—</div></div>
+        <div class="card kpi"><div class="label" data-i18n="kpi_ruin">Risk of ruin</div><div class="num" id="m-ruin">—</div><div class="sub" id="m-ruin-sub">—</div></div>
+        <div class="card kpi"><div class="label" data-i18n="kpi_pf">Profit Factor</div><div class="num" id="m-pf">—</div><div class="sub" id="m-pf-sub">—</div></div>
+        <div class="card kpi"><div class="label" data-i18n="kpi_ev">Expectancy</div><div class="num" id="m-ev">—</div><div class="sub" id="m-ev-sub">—</div></div>
+        <div class="card kpi"><div class="label" data-i18n="kpi_kelly">Kelly optimal</div><div class="num" id="m-kelly">—</div><div class="sub" id="m-kelly-sub">—</div></div>
+      </div>
+
+      <div class="mini-grid" style="margin-bottom:16px">
+        <div class="mini card"><b data-i18n="sensitivity_costs">Чувствительность к издержкам</b><span id="sensitivityA" data-i18n="sensitivity_costs_default">Рассчитывается после симуляции.</span></div>
+        <div class="mini card"><b data-i18n="sensitivity_models">Сравнение моделей</b><span id="sensitivityB" data-i18n="sensitivity_models_desc">Сравнивает идеальную модель и реальную с учётом издержек.</span></div>
+        <div class="mini card"><b data-i18n="sensitivity_risk">Рекомендация по риску</b><span id="sensitivityC" data-i18n="sensitivity_risk_desc">Оценивает соответствие текущего риска критерию Келли.</span></div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <section class="card panel">
+          <h3>🚨 <span data-i18n="bs_detector">Bullshit Detector</span></h3>
+          <div class="detector-result">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="detector-score" id="bsScore">—</div>
+              <div>
+                <div style="font-size:13px;font-weight:700" id="bsLabel" data-i18n="bs_waiting">Ожидание данных...</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px" id="bsSub" data-i18n="bs_run_sim">Запустите симуляцию для оценки реалистичности</div>
+              </div>
+            </div>
+            <div class="detector-bar"><div class="detector-marker" id="bsMarker" style="left:50%"></div></div>
+            <div style="margin-top:12px;font-size:12px;color:var(--muted);line-height:1.6" id="bsDetails"></div>
+          </div>
+        </section>
+        <section class="card panel">
+          <h3>📊 <span data-i18n="edge_validation">Edge Validation</span></h3>
+          <div class="prop-grid" id="edgeGrid">
+            <div class="prop-card"><b data-i18n="ev">Expected Value</b><span id="evVal">—</span></div>
+            <div class="prop-card"><b data-i18n="ci">95% CI (WR)</b><span id="ciVal">—</span></div>
+            <div class="prop-card"><b data-i18n="pvalue">P-value</b><span id="pVal">—</span></div>
+            <div class="prop-card"><b data-i18n="significance">Significance</b><span id="sigVal">—</span></div>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--muted);line-height:1.5" id="edgeComment"></div>
+        </section>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px">
+        <section class="card panel">
+          <h3>📏 <span data-i18n="sample_size">Sample Size Analyzer</span></h3>
+          <div class="prop-grid">
+            <div class="prop-card"><b data-i18n="sample_reliability">Надёжность выборки</b><span id="sampleReliability">—</span></div>
+            <div class="prop-card"><b data-i18n="sample_width">95% CI ширина</b><span id="sampleWidth">—</span></div>
+            <div class="prop-card"><b data-i18n="sample_min">Мин. сделок для WR</b><span id="sampleMin">—</span></div>
+            <div class="prop-card"><b data-i18n="sample_rec">Рекомендация</b><span id="sampleRec">—</span></div>
+          </div>
+        </section>
+        <section class="card panel" id="propPanel">
+          <h3>🏢 <span data-i18n="prop_analyzer">Prop Firm Analyzer</span></h3>
+          <div class="prop-grid">
+            <div class="prop-card"><b data-i18n="prop_pass">Вероятность прохождения</b><span id="propPass">—</span></div>
+            <div class="prop-card"><b data-i18n="prop_fail">Вероятность слива</b><span id="propFail">—</span></div>
+            <div class="prop-card"><b data-i18n="prop_attempts">Средних попыток</b><span id="propAttempts">—</span></div>
+            <div class="prop-card"><b data-i18n="prop_roi">Ожидаемый ROI</b><span id="propROI">—</span></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid">
+        <section class="card panel">
+          <h3 data-i18n="chart_equity">Кривая капитала: 10–90 перцентили</h3>
+          <div class="chart-wrap tall"><canvas id="equityChart"></canvas></div>
+        </section>
+        <section class="stack">
+          <section class="card panel">
+            <h3 data-i18n="chart_final">Финальные результаты</h3>
+            <div class="chart-wrap"><canvas id="distChart"></canvas></div>
+          </section>
+          <section class="card panel">
+            <h3 data-i18n="chart_dd">Max drawdown</h3>
+            <div class="chart-wrap"><canvas id="ddChart"></canvas></div>
+          </section>
+        </section>
+      </div>
+
+      <div class="grid-2">
+        <section class="card panel">
+          <h3 data-i18n="chart_target">Вероятность достижения целей</h3>
+          <div class="chart-wrap"><canvas id="targetChart"></canvas></div>
+        </section>
+        <section class="card panel">
+          <h3 data-i18n="chart_streak">Анализ серий (стопов подряд)</h3>
+          <div class="chart-wrap"><canvas id="streakChart"></canvas></div>
+        </section>
+      </div>
+
+      <div class="grid-2">
+        <section class="card panel">
+          <h3 data-i18n="chart_compare">Идеал vs реальность</h3>
+          <div class="chart-wrap"><canvas id="compareChart"></canvas></div>
+        </section>
+        <section class="card panel">
+          <h3 data-i18n="chart_ab">Strategy A vs Strategy B</h3>
+          <div class="chart-wrap"><canvas id="abChart"></canvas></div>
+        </section>
+      </div>
+
+      <div class="grid-2">
+        <section class="card panel">
+          <h3 data-i18n="chart_scenario">Сценарный анализ (Монте-Карло)</h3>
+          <div class="chart-wrap"><canvas id="scenarioChart"></canvas></div>
+        </section>
+        <section class="card panel">
+          <h3 data-i18n="chart_kelly">Kelly Curve: доходность vs fraction</h3>
+          <div class="chart-wrap"><canvas id="kellyChart"></canvas></div>
+        </section>
+      </div>
+
+      <section class="card panel" style="margin-bottom:16px">
+        <h3>🪜 <span data-i18n="risk_ladder">Risk Ladder — сравнение уровней риска</span></h3>
+        <div style="overflow:auto">
+          <table class="risk-ladder-table" id="riskLadderTable">
+            <thead>
+              <tr><th data-i18n="rl_risk">Риск</th><th data-i18n="rl_exp">Ожид. доход</th><th data-i18n="rl_med">Медиана</th><th data-i18n="rl_dd">Средняя просадка</th><th data-i18n="rl_ruin">Риск слива</th><th data-i18n="rl_kelly">Kelly</th><th data-i18n="rl_grade">Оценка</th></tr>
+            </thead>
+            <tbody id="riskLadderBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card panel" style="margin-bottom:16px">
+        <h3 data-i18n="heatmap_title">Тепловая карта: win rate × R:R</h3>
+        <div class="tab-bar">
+          <div class="tab active" data-view="mean" onclick="setHeatmapView('mean')" data-i18n="heatmap_mean">Средняя</div>
+          <div class="tab" data-view="median" onclick="setHeatmapView('median')" data-i18n="heatmap_median">Медиана</div>
+          <div class="tab" data-view="pop" onclick="setHeatmapView('pop')" data-i18n="heatmap_pop">Вер-ть прибыли</div>
+        </div>
+        <div class="matrix">
+          <div id="heatmap" class="matrix-grid"></div>
+        </div>
+        <div class="legend"><span data-i18n="heatmap_loss">Loss</span><div class="gradient"></div><span data-i18n="heatmap_profit">Profit</span></div>
+        <div style="margin-top:8px;font-size:12px;color:var(--muted)"><span data-i18n="heatmap_footer">200+ симуляций на ячейку. Режим:</span> <span id="heatmapModeLabel">Simple MC</span></div>
+      </section>
+
+      <section class="card panel">
+        <h3 data-i18n="methodology">Методология</h3>
+        <div class="mini-grid">
+          <div class="mini"><b data-i18n="method_avg">Средняя доходность</b><span data-i18n="method_avg_desc">Усреднение по тысячам случайных путей. Медиана устойчивее к выбросам.</span></div>
+          <div class="mini"><b data-i18n="method_pct">Перцентили</b><span data-i18n="method_pct_desc">10-й и 90-й перцентили показывают реалистичный диапазон исходов.</span></div>
+          <div class="mini"><b data-i18n="method_ruin">Risk of ruin</b><span data-i18n="method_ruin_desc">Вероятность потери 95%+ капитала. Критический показатель при выборе размера позиции.</span></div>
+          <div class="mini"><b data-i18n="method_pf">Profit Factor</b><span data-i18n="method_pf_desc">Отношение суммы прибылей к сумме убытков. >1.5 — хорошо, >2 — отлично.</span></div>
+          <div class="mini"><b data-i18n="method_ev">Expectancy</b><span data-i18n="method_ev_desc">Средний результат сделки в единицах R. Положительный = система имеет edge.</span></div>
+          <div class="mini"><b data-i18n="method_autocorr">Автокорреляция</b><span data-i18n="method_autocorr_desc">Скрытый моментум влияет на вероятность следующей сделки.</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+<script>
+
+// ==================== I18N ====================
+let currentLang = localStorage.getItem('sap_lang') || 'ru';
+const i18n = {"ru": {"brand_sub": "Профессиональный симулятор торговых систем", "strategy_a_params": "Strategy A — Параметры", "execution_costs": "Execution Costs", "round_trip_fees": "Round-trip fees + slippage", "kelly_criterion": "Kelly Criterion", "kelly_mode": "Mode", "kelly_full": "Full Kelly (опасно)", "kelly_half": "Half Kelly", "kelly_quarter": "Quarter Kelly", "kelly_fixed": "Fixed Fractional", "fixed_fraction": "Fixed fraction", "strategy_b_title": "Strategy B — Сравнение", "enable_ab": "Включить сравнение A/B", "ab_desc": "Активирует вторую стратегию для прямого сравнения.", "prop_firm_title": "Prop Firm Challenge", "prop_analysis": "Анализ пропа", "prop_desc": "Оценка вероятности прохождения челленджа.", "prop_firm_select": "Проп-фирма", "prop_custom": "Custom", "import_trades": "Import Real Trades", "csv_drop": "📁 Перетащите CSV или нажмите для загрузки", "csv_cols": "Колонки: date, pnl, r_multiple (опц.)", "run_sim": "Запустить симуляцию", "auto_off": "Авто-обновление: выкл", "auto_on": "Авто-обновление: вкл", "random_seed": "Случайная seed", "export_csv": "Экспорт CSV", "advanced_settings": "⚙️ Advanced Settings", "hide_advanced": "t('hide_advanced')", "mc_mode_title": "Monte Carlo Mode", "simple_mc": "Simple MC", "simple_mc_desc": "Классический независимый метод.", "regime_mc": "Regime MC", "regime_mc_desc": "Рыночные режимы с переключениями.", "correlated_mc": "Correlated MC", "correlated_mc_desc": "Автокорреляция результатов сделок.", "stress_mc": "Stress Test MC", "stress_mc_desc": "Гэпы, шоки, экстремальная волатильность.", "market_regimes": "Market Regimes", "enable_regimes": "Включить рыночные режимы", "regimes_desc": "Рынок переключается между Bull, Bear, Range, High/Low Vol.", "regime_prob": "Вероятность смены режима", "regime_vol": "Влияние волатильности", "autocorr_title": "Autocorrelation", "enable_autocorr": "Включить автокорреляцию", "autocorr_desc": "Результат сделки зависит от предыдущих.", "autocorr_strength": "Сила автокорреляции", "autocorr_max": "Макс. смещение WR", "psychology_title": "Psychology — Probability Model", "enable_psych": "Включить психологические эффекты", "psych_desc": "Fear, greed, tilt, recovery, overconfidence.", "fear_prob": "Fear probability", "fear_strength": "Fear risk reduction", "greed_prob": "Greed probability", "greed_strength": "Greed risk increase", "greed_wr": "Greed WR penalty", "tilt_prob": "Tilt probability", "tilt_strength": "Tilt WR penalty", "recovery_prob": "Recovery probability", "recovery_cap": "Recovery risk cap", "overconf_prob": "Overconfidence probability", "overconf_skip": "Overconfidence skip rate", "edge_decay": "Edge decay after loss streak", "detailed_costs_title": "Execution Costs (Detailed)", "override_costs": "Override with detailed costs", "costs_desc": "Раздельные commission, spread, slippage, impact.", "commission": "Commission (one way)", "spread": "Spread", "slippage": "Slippage (one way)", "impact": "Market Impact", "footer": "Профессиональный инструмент для количественной оценки торговых систем. Модель учитывает издержки, психологические эффекты, рыночные режимы и случайность через метод Монте-Карло.", "hero_title": "Аналитическая панель", "hero_desc": "Количественная оценка торговой системы: диапазон исходов, просадка, чувствительность к параметрам, оптимизация риска по Келли и сравнение стратегий.", "status_ready": "Готов к запуску", "status_calc": "Считаю...", "kpi_expected_return": "Expected return", "kpi_median": "Median result", "kpi_pop": "Probability of profit", "kpi_dd": "Avg max drawdown", "kpi_ruin": "Risk of ruin", "kpi_pf": "Profit Factor", "kpi_ev": "Expectancy", "kpi_kelly": "Kelly optimal", "sensitivity_costs": "Чувствительность к издержкам", "sensitivity_costs_default": "Рассчитывается после симуляции.", "sensitivity_models": "Сравнение моделей", "sensitivity_models_desc": "Сравнивает идеальную модель и реальную с учётом издержек.", "sensitivity_risk": "Рекомендация по риску", "sensitivity_risk_desc": "Оценивает соответствие текущего риска критерию Келли.", "bs_detector": "Bullshit Detector", "bs_waiting": "Ожидание данных...", "bs_run_sim": "Запустите симуляцию для оценки реалистичности", "edge_validation": "Edge Validation", "ev": "Expected Value", "ci": "95% CI (WR)", "pvalue": "P-value", "significance": "Significance", "sample_size": "Sample Size Analyzer", "sample_reliability": "Надёжность выборки", "sample_width": "95% CI ширина", "sample_min": "Мин. сделок для WR", "sample_rec": "Рекомендация", "prop_analyzer": "Prop Firm Analyzer", "prop_pass": "Вероятность прохождения", "prop_fail": "Вероятность слива", "prop_attempts": "Средних попыток", "prop_roi": "Ожидаемый ROI", "chart_equity": "Кривая капитала: 10–90 перцентили", "chart_final": "Финальные результаты", "chart_dd": "Max drawdown", "chart_target": "Вероятность достижения целей", "chart_streak": "Анализ серий (стопов подряд)", "chart_compare": "Идеал vs реальность", "chart_ab": "Strategy A vs Strategy B", "chart_scenario": "Сценарный анализ (Монте-Карло)", "chart_kelly": "Kelly Curve: доходность vs fraction", "risk_ladder": "Risk Ladder — сравнение уровней риска", "rl_risk": "Риск", "rl_exp": "Ожид. доход", "rl_med": "Медиана", "rl_dd": "Средняя просадка", "rl_ruin": "Риск слива", "rl_kelly": "Kelly", "rl_grade": "Оценка", "heatmap_title": "Тепловая карта: win rate × R:R", "heatmap_mean": "Средняя", "heatmap_median": "Медиана", "heatmap_pop": "Вер-ть прибыли", "heatmap_loss": "Loss", "heatmap_profit": "Profit", "heatmap_footer": "200+ симуляций на ячейку. Режим:", "methodology": "Методология", "method_avg": "Средняя доходность", "method_avg_desc": "Усреднение по тысячам случайных путей. Медиана устойчивее к выбросам.", "method_pct": "Перцентили", "method_pct_desc": "10-й и 90-й перцентили показывают реалистичный диапазон исходов.", "method_ruin": "Risk of ruin", "method_ruin_desc": "Вероятность потери 95%+ капитала. Критический показатель при выборе размера позиции.", "method_pf": "Profit Factor", "method_pf_desc": "Отношение суммы прибылей к сумме убытков. >1.5 — хорошо, >2 — отлично.", "method_ev": "Expectancy", "method_ev_desc": "Средний результат сделки в единицах R. Положительный = система имеет edge.", "method_autocorr": "Автокорреляция", "method_autocorr_desc": "Скрытый моментум влияет на вероятность следующей сделки.", "calculating": "Считаю..."}, "en": {"brand_sub": "Professional Trading System Simulator", "strategy_a_params": "Strategy A — Parameters", "execution_costs": "Execution Costs", "round_trip_fees": "Round-trip fees + slippage", "kelly_criterion": "Kelly Criterion", "kelly_mode": "Mode", "kelly_full": "Full Kelly (dangerous)", "kelly_half": "Half Kelly", "kelly_quarter": "Quarter Kelly", "kelly_fixed": "Fixed Fractional", "fixed_fraction": "Fixed fraction", "strategy_b_title": "Strategy B — Comparison", "enable_ab": "Enable A/B comparison", "ab_desc": "Activates second strategy for direct comparison.", "prop_firm_title": "Prop Firm Challenge", "prop_analysis": "Prop analysis", "prop_desc": "Probability assessment of passing the challenge.", "prop_firm_select": "Prop Firm", "prop_custom": "Custom", "import_trades": "Import Real Trades", "csv_drop": "📁 Drop CSV or click to upload", "csv_cols": "Columns: date, pnl, r_multiple (opt.)", "run_sim": "Run Simulation", "auto_off": "Auto-update: off", "auto_on": "Auto-update: on", "random_seed": "Random seed", "export_csv": "Export CSV", "advanced_settings": "⚙️ Advanced Settings", "hide_advanced": "⚙️ Hide Advanced", "mc_mode_title": "Monte Carlo Mode", "simple_mc": "Simple MC", "simple_mc_desc": "Classic independent method.", "regime_mc": "Regime MC", "regime_mc_desc": "Market regimes with transitions.", "correlated_mc": "Correlated MC", "correlated_mc_desc": "Autocorrelation of trade results.", "stress_mc": "Stress Test MC", "stress_mc_desc": "Gaps, shocks, extreme volatility.", "market_regimes": "Market Regimes", "enable_regimes": "Enable market regimes", "regimes_desc": "Market switches between Bull, Bear, Range, High/Low Vol.", "regime_prob": "Regime transition probability", "regime_vol": "Volatility impact", "autocorr_title": "Autocorrelation", "enable_autocorr": "Enable autocorrelation", "autocorr_desc": "Trade result depends on previous ones.", "autocorr_strength": "Autocorrelation strength", "autocorr_max": "Max WR shift", "psychology_title": "Psychology — Probability Model", "enable_psych": "Enable psychological effects", "psych_desc": "Fear, greed, tilt, recovery, overconfidence.", "fear_prob": "Fear probability", "fear_strength": "Fear risk reduction", "greed_prob": "Greed probability", "greed_strength": "Greed risk increase", "greed_wr": "Greed WR penalty", "tilt_prob": "Tilt probability", "tilt_strength": "Tilt WR penalty", "recovery_prob": "Recovery probability", "recovery_cap": "Recovery risk cap", "overconf_prob": "Overconfidence probability", "overconf_skip": "Overconfidence skip rate", "edge_decay": "Edge decay after loss streak", "detailed_costs_title": "Execution Costs (Detailed)", "override_costs": "Override with detailed costs", "costs_desc": "Separate commission, spread, slippage, impact.", "commission": "Commission (one way)", "spread": "Spread", "slippage": "Slippage (one way)", "impact": "Market Impact", "footer": "Professional tool for quantitative evaluation of trading systems. The model accounts for costs, psychological effects, market regimes, and randomness via Monte Carlo method.", "hero_title": "Analytics Dashboard", "hero_desc": "Quantitative evaluation of a trading system: outcome range, drawdown, parameter sensitivity, Kelly risk optimization, and strategy comparison.", "status_ready": "Ready to run", "status_calc": "Calculating...", "kpi_expected_return": "Expected return", "kpi_median": "Median result", "kpi_pop": "Probability of profit", "kpi_dd": "Avg max drawdown", "kpi_ruin": "Risk of ruin", "kpi_pf": "Profit Factor", "kpi_ev": "Expectancy", "kpi_kelly": "Kelly optimal", "sensitivity_costs": "Cost Sensitivity", "sensitivity_costs_default": "Calculated after simulation.", "sensitivity_models": "Model Comparison", "sensitivity_models_desc": "Compares ideal model vs real with costs.", "sensitivity_risk": "Risk Recommendation", "sensitivity_risk_desc": "Evaluates current risk against Kelly criterion.", "bs_detector": "Bullshit Detector", "bs_waiting": "Waiting for data...", "bs_run_sim": "Run simulation to assess realism", "edge_validation": "Edge Validation", "ev": "Expected Value", "ci": "95% CI (WR)", "pvalue": "P-value", "significance": "Significance", "sample_size": "Sample Size Analyzer", "sample_reliability": "Sample reliability", "sample_width": "95% CI width", "sample_min": "Min trades for WR", "sample_rec": "Recommendation", "prop_analyzer": "Prop Firm Analyzer", "prop_pass": "Pass probability", "prop_fail": "Fail probability", "prop_attempts": "Expected attempts", "prop_roi": "Expected ROI", "chart_equity": "Equity Curve: 10–90 Percentiles", "chart_final": "Final Results", "chart_dd": "Max drawdown", "chart_target": "Target Probability", "chart_streak": "Streak Analysis (consecutive stops)", "chart_compare": "Ideal vs Reality", "chart_ab": "Strategy A vs Strategy B", "chart_scenario": "Scenario Analysis (Monte Carlo)", "chart_kelly": "Kelly Curve: Return vs Fraction", "risk_ladder": "Risk Ladder — Risk Level Comparison", "rl_risk": "Risk", "rl_exp": "Exp. Return", "rl_med": "Median", "rl_dd": "Avg Drawdown", "rl_ruin": "Ruin Risk", "rl_kelly": "Kelly", "rl_grade": "Grade", "heatmap_title": "Heatmap: Win Rate × R:R", "heatmap_mean": "Mean", "heatmap_median": "Median", "heatmap_pop": "Profit Prob", "heatmap_loss": "Loss", "heatmap_profit": "Profit", "heatmap_footer": "200+ simulations per cell. Mode:", "methodology": "Methodology", "method_avg": "Average Return", "method_avg_desc": "Averaging over thousands of random paths. Median is more robust to outliers.", "method_pct": "Percentiles", "method_pct_desc": "10th and 90th percentiles show a realistic range of outcomes.", "method_ruin": "Risk of ruin", "method_ruin_desc": "Probability of losing 95%+ of capital. Critical metric for position sizing.", "method_pf": "Profit Factor", "method_pf_desc": "Ratio of gross profit to gross loss. >1.5 good, >2 excellent.", "method_ev": "Expectancy", "method_ev_desc": "Average trade result in R units. Positive = system has edge.", "method_autocorr": "Autocorrelation", "method_autocorr_desc": "Hidden momentum affects probability of next trade.", "calculating": "Calculating..."}};
+
+const js_i18n = {
+  ru: {"Seed: ": "Seed: ", "Round-trip издержки: ": "Round-trip издержки: ", " на сделку.": " на сделку.", "Без издержек: ": "Без издержек: ", ". С издержками: ": ". С издержками: ", ". Разница: ": ". Разница: ", "По Келли система убыточна. Edge отсутствует даже в идеальных условиях.": "По Келли система убыточна. Edge отсутствует даже в идеальных условиях.", "Текущий риск ": "Текущий риск ", " превышает Kelly ": " превышает Kelly ", ". Рекомендуется снизить до ": ". Рекомендуется снизить до ", "Риск слива >5%. Снизьте размер позиции или увеличьте edge.": "Риск слива >5%. Снизьте размер позиции или увеличьте edge.", "Просадка >30% требует психологической устойчивости. Убедитесь, что вы выдержите.": "Просадка >30% требует психологической устойчивости. Убедитесь, что вы выдержите.", "Вероятность прибыли <45%. Система недостаточно консистентна.": "Вероятность прибыли <45%. Система недостаточно консистентна.", "Параметры в разумных пределах. Система проходит базовые проверки.": "Параметры в разумных пределах. Система проходит базовые проверки.", "Реалистичные параметры": "Реалистичные параметры", "Требует проверки": "Требует проверки", "Высокая вероятность переоценки": "Высокая вероятность переоценки", "• Win rate >75% встречается редко без скальпинга микро-движений. ": "• Win rate >75% встречается редко без скальпинга микро-движений. ", "• R:R >3 требует либо трендового рынка, либо очень широких стопов. ": "• R:R >3 требует либо трендового рынка, либо очень широких стопов. ", "• Средняя доходность >200% за период аномально высока. ": "• Средняя доходность >200% за период аномально высока. ", "• Низкая просадка при высокой доходности — классический признак overfitting. ": "• Низкая просадка при высокой доходности — классический признак overfitting. ", "Параметры находятся в пределах типичных рыночных систем. Рекомендуется всё равно проверить на реальных данных.": "Параметры находятся в пределах типичных рыночных систем. Рекомендуется всё равно проверить на реальных данных.", "Параметры выглядят реалистично.": "Параметры выглядят реалистично.", "Обнаружены признаки, требующие дополнительной проверки.": "Обнаружены признаки, требующие дополнительной проверки.", "Ожидаемое преимущество ": "Ожидаемое преимущество ", "При ": "При ", " сделках доверительный интервал шириной ": " сделках доверительный интервал шириной ", "Отрицательное ожидание. Система убыточна в долгосрочной перспективе.": "Отрицательное ожидание. Система убыточна в долгосрочной перспективе.", "Низкая": "Низкая", "Высокая": "Высокая", "Средняя": "Средняя", "Нужно больше данных": "Нужно больше данных", "Приемлемо, но осторожно": "Приемлемо, но осторожно", "Достаточно для выводов": "Достаточно для выводов", "Ожидание данных...": "Ожидание данных...", "Запустите симуляцию для оценки реалистичности": "Запустите симуляцию для оценки реалистичности", " симуляций × ": " симуляций × ", " сделок · ": " сделок · ", " ms · seed ": " ms · seed ", "Ошибка: ": "Ошибка: ", "Сначала запустите симуляцию.": "Сначала запустите симуляцию.", "CSV слишком короткий": "CSV слишком короткий", "Колонка pnl не найдена": "Колонка pnl не найдена", "Недостаточно данных": "Недостаточно данных", "Импортировано:": "Импортировано:", " сделок": " сделок", "Win Rate: ": "Win Rate: ", " | R:R: ": " | R:R: ", " | PF: ": " | PF: ", "Max DD: ": "Max DD: ", "R | Средний: ": "R | Средний: ", "10–90%: ": "10–90%: ", " … ": " … ", " из ": " из ", " в плюсе": " в плюсе", "Худшая: ": "Худшая: ", "Высокий риск слива": "Высокий риск слива", "Риск слива низкий": "Риск слива низкий", "Отличный PF": "Отличный PF", "Хороший PF": "Хороший PF", "Маржинальный": "Маржинальный", "Убыточный": "Убыточный", "Положительное ожидание": "Положительное ожидание", "Отрицательное ожидание": "Отрицательное ожидание", "Система убыточна по Келли": "Система убыточна по Келли", "Рекомендуемый риск (": "Рекомендуемый риск (", "Optimal Kelly: ": "Optimal Kelly: ", " | ": " | ", "отрицательный — система неприбыльна": "отрицательный — система неприбыльна", "Оптимальный Келли: ": "Оптимальный Келли: ", " | Рекомендуемый: ": " | Рекомендуемый: ", "Significant": "Significant", "Weak": "Weak", "Pass": "Pass", "Fail": "Fail", "С издержками и психологией": "С издержками и психологией", "Идеальная модель": "Идеальная модель", "Средняя доходность": "Средняя доходность", "Профитные серии": "Профитные серии", "Убыточные серии": "Убыточные серии", "WR −5%": "WR −5%", "WR база": "WR база", "WR +5%": "WR +5%", "R:R −0.5": "R:R −0.5", "R:R база": "R:R база", "R:R +0.5": "R:R +0.5", "Доходность": "Доходность", "WR ": "WR ", " / R:R ": " / R:R ", " => ": " => ", "вер-ть прибыли": "вер-ть прибыли", "средняя доходность": "средняя доходность", " (200 прогонов)": " (200 прогонов)", "Опасно": "Опасно", "Осторожно": "Осторожно", "Консервативно": "Консервативно", "Приемлемо": "Приемлемо", "Median устойчивее среднего": "Median устойчивее среднего"},
+  en: {"Seed: ": "Seed: ", "Round-trip издержки: ": "Round-trip издержки: ", " на сделку.": " на сделку.", "Без издержек: ": "Без издержек: ", ". С издержками: ": ". С издержками: ", ". Разница: ": ". Разница: ", "По Келли система убыточна. Edge отсутствует даже в идеальных условиях.": "По Келли система убыточна. Edge отсутствует даже в идеальных условиях.", "Текущий риск ": "Текущий риск ", " превышает Kelly ": " превышает Kelly ", ". Рекомендуется снизить до ": ". Рекомендуется снизить до ", "Риск слива >5%. Снизьте размер позиции или увеличьте edge.": "Риск слива >5%. Снизьте размер позиции или увеличьте edge.", "Просадка >30% требует психологической устойчивости. Убедитесь, что вы выдержите.": "Просадка >30% требует психологической устойчивости. Убедитесь, что вы выдержите.", "Вероятность прибыли <45%. Система недостаточно консистентна.": "Вероятность прибыли <45%. Система недостаточно консистентна.", "Параметры в разумных пределах. Система проходит базовые проверки.": "Параметры в разумных пределах. Система проходит базовые проверки.", "Реалистичные параметры": "Реалистичные параметры", "Требует проверки": "Требует проверки", "Высокая вероятность переоценки": "Высокая вероятность переоценки", "• Win rate >75% встречается редко без скальпинга микро-движений. ": "• Win rate >75% встречается редко без скальпинга микро-движений. ", "• R:R >3 требует либо трендового рынка, либо очень широких стопов. ": "• R:R >3 требует либо трендового рынка, либо очень широких стопов. ", "• Средняя доходность >200% за период аномально высока. ": "• Средняя доходность >200% за период аномально высока. ", "• Низкая просадка при высокой доходности — классический признак overfitting. ": "• Низкая просадка при высокой доходности — классический признак overfitting. ", "Параметры находятся в пределах типичных рыночных систем. Рекомендуется всё равно проверить на реальных данных.": "Параметры находятся в пределах типичных рыночных систем. Рекомендуется всё равно проверить на реальных данных.", "Параметры выглядят реалистично.": "Параметры выглядят реалистично.", "Обнаружены признаки, требующие дополнительной проверки.": "Обнаружены признаки, требующие дополнительной проверки.", "Ожидаемое преимущество ": "Ожидаемое преимущество ", "При ": "При ", " сделках доверительный интервал шириной ": " сделках доверительный интервал шириной ", "Отрицательное ожидание. Система убыточна в долгосрочной перспективе.": "Отрицательное ожидание. Система убыточна в долгосрочной перспективе.", "Низкая": "Низкая", "Высокая": "Высокая", "Средняя": "Средняя", "Нужно больше данных": "Нужно больше данных", "Приемлемо, но осторожно": "Приемлемо, но осторожно", "Достаточно для выводов": "Достаточно для выводов", "Ожидание данных...": "Ожидание данных...", "Запустите симуляцию для оценки реалистичности": "Запустите симуляцию для оценки реалистичности", " симуляций × ": " симуляций × ", " сделок · ": " сделок · ", " ms · seed ": " ms · seed ", "Ошибка: ": "Ошибка: ", "Сначала запустите симуляцию.": "Сначала запустите симуляцию.", "CSV слишком короткий": "CSV слишком короткий", "Колонка pnl не найдена": "Колонка pnl не найдена", "Недостаточно данных": "Недостаточно данных", "Импортировано:": "Импортировано:", " сделок": " сделок", "Win Rate: ": "Win Rate: ", " | R:R: ": " | R:R: ", " | PF: ": " | PF: ", "Max DD: ": "Max DD: ", "R | Средний: ": "R | Средний: ", "10–90%: ": "10–90%: ", " … ": " … ", " из ": " из ", " в плюсе": " в плюсе", "Худшая: ": "Худшая: ", "Высокий риск слива": "Высокий риск слива", "Риск слива низкий": "Риск слива низкий", "Отличный PF": "Отличный PF", "Хороший PF": "Хороший PF", "Маржинальный": "Маржинальный", "Убыточный": "Убыточный", "Положительное ожидание": "Положительное ожидание", "Отрицательное ожидание": "Отрицательное ожидание", "Система убыточна по Келли": "Система убыточна по Келли", "Рекомендуемый риск (": "Рекомендуемый риск (", "Optimal Kelly: ": "Optimal Kelly: ", " | ": " | ", "отрицательный — система неприбыльна": "отрицательный — система неприбыльна", "Оптимальный Келли: ": "Оптимальный Келли: ", " | Рекомендуемый: ": " | Рекомендуемый: ", "Significant": "Significant", "Weak": "Weak", "Pass": "Pass", "Fail": "Fail", "С издержками и психологией": "С издержками и психологией", "Идеальная модель": "Идеальная модель", "Средняя доходность": "Средняя доходность", "Профитные серии": "Профитные серии", "Убыточные серии": "Убыточные серии", "WR −5%": "WR −5%", "WR база": "WR база", "WR +5%": "WR +5%", "R:R −0.5": "R:R −0.5", "R:R база": "R:R база", "R:R +0.5": "R:R +0.5", "Доходность": "Доходность", "WR ": "WR ", " / R:R ": " / R:R ", " => ": " => ", "вер-ть прибыли": "вер-ть прибыли", "средняя доходность": "средняя доходность", " (200 прогонов)": " (200 прогонов)", "Опасно": "Опасно", "Осторожно": "Осторожно", "Консервативно": "Консервативно", "Приемлемо": "Приемлемо", "Median устойчивее среднего": "Median устойчивее среднего"}
+};
+
+function setLang(lang){
+  currentLang = lang;
+  localStorage.setItem('sap_lang', lang);
+  applyLanguage();
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    b.classList.toggle('active', b.id === 'btn-'+lang);
+  });
+}
+
+function t(key){
+  if(!key) return '';
+  const jsVal = js_i18n[currentLang] && js_i18n[currentLang][key];
+  if(jsVal !== undefined) return jsVal;
+  const val = i18n[currentLang] && i18n[currentLang][key];
+  return val !== undefined ? val : key;
+}
+
+function applyLanguage(){
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    if(el.tagName === 'SELECT'){
+      Array.from(el.options).forEach(function(opt){
+        const optKey = opt.getAttribute('data-i18n-opt');
+        if(optKey) opt.textContent = t(optKey);
+      });
+    } else {
+      el.textContent = val;
+    }
+  });
+  if(typeof updateLabels === 'function') updateLabels();
+  if(lastResults && lastResults.p && lastResults.results){
+    updateKPIs(lastResults.p, lastResults.results);
+    updateCharts(lastResults.p, lastResults.results);
+  }
+}
+
+// ==================== RNG ====================
+let seed = Math.floor(Date.now() % 1000000000);
+let rand = rngFactory(seed);
+
+function rngFactory(s){
+  let t = s >>> 0;
+  return function(){
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ t >>> 15, 1 | t);
+    r ^= r + Math.imul(r ^ r >>> 7, 61 | r);
+    return ((r ^ r >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+function setSeed(newSeed){
+  seed = newSeed >>> 0;
+  rand = rngFactory(seed);
+  document.getElementById('statusText').textContent = t('Seed: ') + seed;
+}
+
+// ==================== UTILS ====================
+function pctl(arr, p){
+  if(!arr.length) return 0;
+  const a = [...arr].sort((x,y)=>x-y);
+  const i = Math.min(a.length-1, Math.max(0, Math.floor((a.length-1)*p)));
+  return a[i];
+}
+function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function std(arr){
+  if(!arr.length) return 0;
+  const m = mean(arr);
+  return Math.sqrt(arr.reduce((s,v)=>s+(v-m)**2,0)/arr.length);
+}
+function fmtPct(v, d){
+  d = d || 1;
+  return (v*100).toFixed(d)+'%';
+}
+function fmtMoney(v){ return '$' + Math.round(v).toLocaleString('en-US'); }
+function fmtNum(v, d){ d = d || 2; return v.toFixed(d); }
+
+// ==================== ERROR FUNCTION (replaces Math.erf) ====================
+function erf(x) {
+  // Save the sign of x
+  var sign = (x >= 0) ? 1 : -1;
+  x = Math.abs(x);
+  // Constants
+  var a1 =  0.254829592;
+  var a2 = -0.284496736;
+  var a3 =  1.421413741;
+  var a4 = -1.453152027;
+  var a5 =  1.061405429;
+  var p  =  0.3275911;
+  // A&S formula 7.1.26
+  var t = 1.0 / (1.0 + p * x);
+  var y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return sign * y;
+}
+
+function normalCDF(x) {
+  return 0.5 * (1 + erf(x / Math.sqrt(2)));
+}
+
+// ==================== CHARTS ====================
+let charts = {};
+let autoMode = false;
+let lastResults = null;
+let heatmapView = 'mean';
+let isRunning = false;
+
+function initCharts(){
+  const common = {
+    responsive:true,
+    maintainAspectRatio:false,
+    animation:{duration:400},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'rgba(16,24,40,.96)',
+        padding:12,
+        cornerRadius:12,
+        displayColors:false,
+        titleFont:{size:12,weight:'700'},
+        bodyFont:{size:12},
+      }
+    },
+    scales:{
+      x:{grid:{color:'rgba(16,24,40,.05)'}, ticks:{color:'#667085',font:{size:11}}},
+      y:{grid:{color:'rgba(16,24,40,.05)'}, ticks:{color:'#667085',font:{size:11}}}
+    }
+  };
+
+  charts.equity = new Chart(document.getElementById('equityChart'), {
+    type:'line',
+    data:{labels:[], datasets:[]},
+    options:{
+      ...common,
+      scales:{...common.scales, y:{...common.scales.y, ticks:{...common.scales.y.ticks, callback:function(v){return fmtMoney(v);}}}}
+    }
+  });
+  charts.dist = new Chart(document.getElementById('distChart'), {type:'bar', data:{labels:[], datasets:[]}, options:{...common}});
+  charts.dd = new Chart(document.getElementById('ddChart'), {
+    type:'bar', data:{labels:[], datasets:[]},
+    options:{...common, scales:{...common.scales, y:{...common.scales.y, ticks:{...common.scales.y.ticks, callback:function(v){return Math.round(v)+'%';}}}}}
+  });
+  charts.target = new Chart(document.getElementById('targetChart'), {
+    type:'bar', data:{labels:[], datasets:[]},
+    options:{...common, scales:{...common.scales, y:{max:100, ticks:{...common.scales.y.ticks, callback:function(v){return Math.round(v)+'%';}}}}}
+  });
+  charts.streak = new Chart(document.getElementById('streakChart'), {
+    type:'bar', data:{labels:[], datasets:[]},
+    options:{...common, plugins:{...common.plugins, legend:{display:true, position:'bottom', labels:{usePointStyle:true}}}}
+  });
+  charts.compare = new Chart(document.getElementById('compareChart'), {
+    type:'bar', data:{labels:[], datasets:[]},
+    options:{...common, plugins:{...common.plugins, legend:{display:true, position:'bottom'}}, scales:{...common.scales, y:{...common.scales.y, ticks:{...common.scales.y.ticks, callback:function(v){return Math.round(v)+'%';}}}}}
+  });
+  charts.ab = new Chart(document.getElementById('abChart'), {
+    type:'bar', data:{labels:[], datasets:[]},
+    options:{...common, plugins:{...common.plugins, legend:{display:true, position:'bottom'}}, scales:{...common.scales, y:{...common.scales.y, ticks:{...common.scales.y.ticks, callback:function(v){return Math.round(v)+'%';}}}}}
+  });
+  charts.scenario = new Chart(document.getElementById('scenarioChart'), {
+    type:'bar', data:{labels:[], datasets:[]},
+    options:{...common, plugins:{...common.plugins, legend:{display:false}}, scales:{...common.scales, y:{...common.scales.y, ticks:{...common.scales.y.ticks, callback:function(v){return Math.round(v)+'%';}}}}}
+  });
+  charts.kelly = new Chart(document.getElementById('kellyChart'), {
+    type:'line', data:{labels:[], datasets:[]},
+    options:{...common, plugins:{...common.plugins, legend:{display:false}}, scales:{...common.scales, y:{...common.scales.y, ticks:{...common.scales.y.ticks, callback:function(v){return Math.round(v)+'%';}}}}}
+  });
+}
+
+// ==================== PARAMS ====================
+function updateLabels(){
+  const ids = [
+    ['winrate','%'],['risk','%'],['rr',''],['capital','$'],['trades',''],['sims',''],
+    ['fee','%'],
+    ['winrate-b','%'],['risk-b','%'],['rr-b',''],
+    ['propDaily','%'],['propMax','%'],['propTarget','%'],['propDays',''],
+    ['regimeProb','%'],['regimeVol',''],
+    ['autocorr',''],['autocorrMax','%'],
+    ['fearProb','%'],['fearStrength','%'],['greedProb','%'],['greedStrength','%'],['greedWR','%'],
+    ['tiltProb','%'],['tiltStrength','%'],['recoveryProb','%'],['recoveryCap','%'],
+    ['overconfProb','%'],['overconfSkip','%'],['decay','%'],
+    ['commission','%'],['spread','%'],['slippage','%'],['impact','%']
+  ];
+  for(let i=0;i<ids.length;i++){
+    var id = ids[i][0], suf = ids[i][1];
+    var el = document.getElementById('val-'+id);
+    if(!el) continue;
+    var v = document.getElementById(id).value;
+    if(suf==='$') el.textContent = fmtMoney(parseInt(v,10));
+    else if(suf==='%'){
+      var dec = (id==='regimeVol'||id==='autocorr'||id==='recoveryCap')?1:2;
+      el.textContent = parseFloat(v).toFixed(dec)+'%';
+    }
+    else el.textContent = v;
+  }
+  var km = document.getElementById('kellyMode');
+  document.getElementById('val-kellyMode').textContent = km.options[km.selectedIndex].text;
+  document.getElementById('val-fixedFrac').textContent = parseFloat(document.getElementById('fixedFrac').value).toFixed(1)+'%';
+  document.getElementById('fixedFractionControl').style.display = km.value==='fixed'?'block':'none';
+}
+
+function buildParams(){
+  var useDetailed = document.getElementById('useDetailedCosts').checked;
+  var totalCost;
+  if(useDetailed){
+    totalCost = (parseFloat(document.getElementById('commission').value) * 2 
+               + parseFloat(document.getElementById('spread').value) 
+               + parseFloat(document.getElementById('slippage').value) * 2 
+               + parseFloat(document.getElementById('impact').value)) / 100;
+  } else {
+    totalCost = parseFloat(document.getElementById('fee').value) / 100;
+  }
+
+  return {
+    winRate: parseInt(document.getElementById('winrate').value,10)/100,
+    risk: parseFloat(document.getElementById('risk').value)/100,
+    rr: parseFloat(document.getElementById('rr').value),
+    capital: parseInt(document.getElementById('capital').value,10),
+    trades: parseInt(document.getElementById('trades').value,10),
+    sims: parseInt(document.getElementById('sims').value,10),
+    totalCost: totalCost,
+    impact: useDetailed ? parseFloat(document.getElementById('impact').value)/100 : 0,
+    missed: 0.04,
+    decay: parseInt(document.getElementById('decay').value,10)/100,
+    psychologyOn: document.getElementById('psychologyOn').checked,
+    fearProb: parseInt(document.getElementById('fearProb').value,10)/100,
+    fearStrength: parseInt(document.getElementById('fearStrength').value,10)/100,
+    greedProb: parseInt(document.getElementById('greedProb').value,10)/100,
+    greedStrength: parseInt(document.getElementById('greedStrength').value,10)/100,
+    greedWR: parseInt(document.getElementById('greedWR').value,10)/100,
+    tiltProb: parseInt(document.getElementById('tiltProb').value,10)/100,
+    tiltStrength: parseInt(document.getElementById('tiltStrength').value,10)/100,
+    recoveryProb: parseInt(document.getElementById('recoveryProb').value,10)/100,
+    recoveryCap: parseFloat(document.getElementById('recoveryCap').value)/100,
+    overconfProb: parseInt(document.getElementById('overconfProb').value,10)/100,
+    overconfSkip: parseInt(document.getElementById('overconfSkip').value,10)/100,
+    regimeOn: document.getElementById('regimeOn').checked,
+    regimeProb: parseInt(document.getElementById('regimeProb').value,10)/100,
+    regimeVol: parseFloat(document.getElementById('regimeVol').value),
+    autocorrOn: document.getElementById('autocorrOn').checked,
+    autocorr: parseFloat(document.getElementById('autocorr').value),
+    autocorrMax: parseInt(document.getElementById('autocorrMax').value,10)/100,
+    mcMode: document.querySelector('input[name="mcMode"]:checked').value,
+    kellyMode: document.getElementById('kellyMode').value,
+    fixedFrac: parseFloat(document.getElementById('fixedFrac').value)/100,
+    compareOn: document.getElementById('compareOn').checked,
+    winRateB: parseInt(document.getElementById('winrate-b').value,10)/100,
+    riskB: parseFloat(document.getElementById('risk-b').value)/100,
+    rrB: parseFloat(document.getElementById('rr-b').value),
+    propOn: document.getElementById('propOn').checked,
+    propFirm: document.getElementById('propFirm').value,
+    propDaily: parseFloat(document.getElementById('propDaily').value)/100,
+    propMax: parseFloat(document.getElementById('propMax').value)/100,
+    propTarget: parseFloat(document.getElementById('propTarget').value)/100,
+    propDays: parseInt(document.getElementById('propDays').value,10),
+  };
+}
+
+// ==================== REGIMES ====================
+const REGIMES = {
+  bull:   { name:'Bull', wrMul:1.12, rrMul:1.05, volMul:1.0 },
+  bear:   { name:'Bear', wrMul:0.78, rrMul:0.85, volMul:1.3 },
+  range:  { name:'Range', wrMul:0.92, rrMul:0.65, volMul:0.8 },
+  highVol:{ name:'HighVol', wrMul:0.88, rrMul:1.25, volMul:1.6 },
+  lowVol: { name:'LowVol', wrMul:1.04, rrMul:0.75, volMul:0.5 }
+};
+const REGIME_KEYS = Object.keys(REGIMES);
+
+function generateRegimeSequence(trades, transitionProb, rng){
+  let current = REGIME_KEYS[Math.floor(rng() * REGIME_KEYS.length)];
+  const seq = [];
+  for(let i=0;i<trades;i++){
+    if(rng() < transitionProb){
+      const others = REGIME_KEYS.filter(k=>k!==current);
+      current = others[Math.floor(rng() * others.length)];
+    }
+    seq.push(current);
+  }
+  return seq;
+}
+
+// ==================== SIMULATION CORE ====================
+function simulate(p, simCount, customRng){
+  const rng = customRng || rand;
+  const results = {
+    equityCurves: [], returns: [], dds: [], longestLossStreaks: [],
+    tradeLog: [], winRates: [], streaks: {wins: new Array(16).fill(0), losses: new Array(16).fill(0)},
+    dailyCurves: [], pnls: []
+  };
+
+  for(let s=0; s<simCount; s++){
+    let equity = p.capital;
+    let peak = equity;
+    let maxDD = 0;
+    let wins = 0, losses = 0;
+    let lossStreak = 0, winStreak = 0;
+    let longestLoss = 0;
+    let curve = [equity];
+    let momentum = 0;
+    let dailyEquity = [equity];
+    let dayTrades = 0;
+    const tradesPerDay = Math.max(1, Math.round(p.trades / p.propDays));
+    const simPnls = [];
+
+    const regimes = p.regimeOn ? generateRegimeSequence(p.trades, p.regimeProb, rng) : null;
+
+    for(let t=0; t<p.trades; t++){
+      let effWin = p.winRate;
+      let effRisk = p.risk;
+      let effRR = p.rr;
+      let edgePenalty = 0;
+
+      // Regime
+      if(p.regimeOn && regimes){
+        const reg = REGIMES[regimes[t]];
+        effWin = Math.min(0.99, Math.max(0.01, effWin * reg.wrMul));
+        effRR = Math.max(0.1, effRR * reg.rrMul);
+      }
+
+      // Autocorrelation
+      if(p.autocorrOn){
+        momentum = momentum * p.autocorr + (lossStreak > winStreak ? -1 : 1) * (1 - p.autocorr) * 0.3;
+        momentum = Math.max(-1, Math.min(1, momentum));
+        effWin = Math.min(0.99, Math.max(0.01, effWin + momentum * p.autocorrMax));
+      }
+
+      // Psychology
+      if(p.psychologyOn){
+        if(lossStreak >= 3 && rng() < p.fearProb) effRisk *= (1 - p.fearStrength);
+        if(winStreak >= 3 && rng() < p.greedProb){ effRisk *= (1 + p.greedStrength); effWin *= (1 - p.greedWR); }
+        if((peak - equity)/peak > 0.15 && rng() < p.tiltProb) effWin *= (1 - p.tiltStrength);
+        if((peak - equity)/peak > 0.20 && rng() < p.recoveryProb) effRisk = Math.min(effRisk, p.recoveryCap);
+        if(winStreak >= 5 && rng() < p.overconfProb){
+          curve.push(equity); winStreak = 0; lossStreak = 0;
+          results.tradeLog.push({sim:s, trade:t, equity:equity, tradePnl:0, skipped:true, win:false, effWin:effWin, netRisk:effRisk, regime: regimes ? REGIMES[regimes[t]].name : '—'});
+          continue;
+        }
+      }
+      if(lossStreak >= 4) edgePenalty += p.decay;
+      effWin *= (1 - edgePenalty);
+
+      // Costs
+      const impactCost = p.impact * (effRisk / 0.01);
+      const executionCost = p.totalCost + impactCost;
+      const netRisk = Math.max(0.0001, Math.min(effRisk, 0.5));
+      const effWinClamped = Math.max(0.01, Math.min(0.99, effWin));
+      const missed = rng() < p.missed;
+
+      let tradePnl = 0;
+      let tradeWin = false;
+      if(!missed){
+        let shock = 1;
+        if(p.mcMode === 'stress' && rng() < 0.03) shock = 1 + rng() * 2;
+        const isWin = rng() < effWinClamped;
+        const riskAmt = equity * netRisk;
+        const friction = equity * executionCost;
+        if(isWin){
+          tradePnl = riskAmt * effRR * shock - friction;
+          tradeWin = true; wins++; winStreak++; lossStreak = 0;
+          if(winStreak <= 15) results.streaks.wins[winStreak]++;
+        }else{
+          tradePnl = -riskAmt * shock - friction;
+          losses++; lossStreak++; winStreak = 0;
+          if(lossStreak <= 15) results.streaks.losses[lossStreak]++;
+          longestLoss = Math.max(longestLoss, lossStreak);
+        }
+        equity += tradePnl;
+        if(equity > 0) simPnls.push(tradePnl / (equity * netRisk || 1));
+      }else{
+        winStreak = 0; lossStreak = 0;
+      }
+
+      peak = Math.max(peak, equity);
+      maxDD = Math.max(maxDD, (peak - equity) / peak);
+      curve.push(equity);
+      results.tradeLog.push({sim:s, trade:t, equity:equity, tradePnl:tradePnl, skipped:missed, win:tradeWin, effWin:effWinClamped, netRisk:netRisk, regime: regimes ? REGIMES[regimes[t]].name : '—'});
+
+      dayTrades++;
+      if(dayTrades >= tradesPerDay){
+        dailyEquity.push(equity);
+        dayTrades = 0;
+      }
+      if(equity <= 0) break;
+    }
+    if(dayTrades > 0) dailyEquity.push(equity);
+
+    results.equityCurves.push(curve);
+    results.returns.push((equity - p.capital) / p.capital);
+    results.dds.push(maxDD);
+    results.longestLossStreaks.push(longestLoss);
+    results.winRates.push(wins / Math.max(1, wins + losses));
+    results.dailyCurves.push(dailyEquity);
+    if(simPnls.length) results.pnls.push.apply(results.pnls, simPnls);
+  }
+  return results;
+}
+
+function simulateIdeal(p, simCount, customRng){
+  const rng = customRng || rand;
+  const ideal = [];
+  for(let s=0; s<simCount; s++){
+    let equity = p.capital;
+    for(let t=0; t<p.trades; t++){
+      const isWin = rng() < p.winRate;
+      const riskAmt = equity * p.risk;
+      equity += isWin ? riskAmt * p.rr : -riskAmt;
+      if(equity <= 0) break;
+    }
+    ideal.push((equity - p.capital) / p.capital);
+  }
+  return ideal;
+}
+
+// ==================== KELLY ====================
+function calculateKelly(p){
+  const b = p.rr;
+  const q = 1 - p.winRate;
+  const fStar = (p.winRate * b - q) / b;
+  let modeLabel = 'Full Kelly';
+  let fraction = 1;
+  if(p.kellyMode === 'half'){ fraction = 0.5; modeLabel = 'Half Kelly'; }
+  else if(p.kellyMode === 'quarter'){ fraction = 0.25; modeLabel = 'Quarter Kelly'; }
+  else if(p.kellyMode === 'fixed'){ fraction = 0; modeLabel = 'Fixed Fractional'; }
+
+  const optimalRisk = fStar * 100;
+  const recommendedRisk = p.kellyMode === 'fixed' ? p.fixedFrac * 100 : fStar * fraction * 100;
+  return {
+    fStar: fStar, optimalRisk: optimalRisk, recommendedRisk: recommendedRisk,
+    isProfitable: fStar > 0,
+    modeLabel: modeLabel,
+    fraction: fraction
+  };
+}
+
+// ==================== PROP FIRM ====================
+function evaluatePropFirm(dailyCurves, p){
+  let passed = 0, failed = 0;
+  for(const daily of dailyCurves){
+    let pass = true;
+    let peak = p.capital;
+    let hitTarget = false;
+    for(let d=0; d<daily.length; d++){
+      const eq = daily[d];
+      const dayDD = (peak - eq) / peak;
+      const totalDD = (p.capital - eq) / p.capital;
+      if(dayDD > p.propDaily || totalDD > p.propMax){ pass = false; break; }
+      if((eq - p.capital)/p.capital >= p.propTarget){ hitTarget = true; break; }
+      peak = Math.max(peak, eq);
+    }
+    if(pass && hitTarget) passed++;
+    else failed++;
+  }
+  const passRate = passed / dailyCurves.length;
+  const expectedAttempts = passRate > 0 ? 1 / passRate : 999;
+  return { passRate: passRate, failRate: 1 - passRate, expectedAttempts: expectedAttempts };
+}
+
+// ==================== STATISTICAL TESTS ====================
+function wilsonInterval(wins, total, z){
+  z = z || 1.96;
+  if(total === 0) return [0,0];
+  const p = wins / total;
+  const denom = 1 + z*z/total;
+  const centre = (p + z*z/(2*total)) / denom;
+  const width = z * Math.sqrt(p*(1-p)/total + z*z/(4*total*total)) / denom;
+  return [Math.max(0, centre - width), Math.min(1, centre + width)];
+}
+
+function binomialPValue(wins, total, baseline){
+  baseline = baseline || 0.5;
+  if(total === 0) return 1;
+  const p = wins / total;
+  const se = Math.sqrt(baseline * (1-baseline) / total);
+  const z = (p - baseline) / se;
+  // Two-tailed p-value using our custom normalCDF
+  const pval = 2 * (1 - normalCDF(Math.abs(z)));
+  return Math.max(0, Math.min(1, pval));
+}
+
+// ==================== BULLSHIT DETECTOR ====================
+function bullshitScore(p, avgRet, dd, pop){
+  let score = 50;
+  const wr = p.winRate;
+  const rr = p.rr;
+
+  if(wr > 0.75 && rr > 2) score += 25;
+  else if(wr > 0.65 && rr > 2.5) score += 20;
+  else if(wr > 0.80) score += 20;
+  else if(rr > 3.5 && wr > 0.50) score += 15;
+
+  const tradesPerYear = 250;
+  const years = p.trades / tradesPerYear;
+  const cagr = years > 0 ? Math.pow(1 + avgRet, 1/years) - 1 : 0;
+  if(cagr > 3) score += 20;
+  else if(cagr > 2) score += 10;
+  else if(cagr > 1) score += 5;
+
+  const calmar = dd > 0 ? avgRet / dd : 0;
+  if(calmar > 5) score += 15;
+  else if(calmar > 3) score += 8;
+
+  const avgWin = wr * rr;
+  const avgLoss = (1-wr) * 1;
+  const pf = avgLoss > 0 ? avgWin / avgLoss : 999;
+  if(pf > 4) score += 10;
+  else if(pf > 3) score += 5;
+
+  if(pop > 0.85 && rr > 2) score += 10;
+
+  return Math.min(100, Math.max(0, score));
+}
+
+// ==================== RISK LADDER ====================
+function buildRiskLadder(p){
+  const risks = [0.0025, 0.005, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05];
+  const tbody = document.getElementById('riskLadderBody');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Считаю...</td></tr>';
+
+  let idx = 0;
+  const rows = [];
+  function process(){
+    if(idx >= risks.length){
+      tbody.innerHTML = rows.map(function(row){
+        return '<tr>'+
+          '<td>'+fmtPct(row.r)+'</td>'+
+          '<td class="'+(row.avg>=0?'good':'bad')+'">'+fmtPct(row.avg)+'</td>'+
+          '<td class="'+(row.med>=0?'good':'bad')+'">'+fmtPct(row.med)+'</td>'+
+          '<td class="bad">'+fmtPct(row.dd)+'</td>'+
+          '<td class="'+(row.ruin>0.05?'bad':'good')+'">'+fmtPct(row.ruin)+'</td>'+
+          '<td>'+row.kelly.toFixed(2)+'%</td>'+
+          '<td>'+row.grade+'</td>'+
+        '</tr>';
+      }).join('');
+      return;
+    }
+    const r = risks[idx];
+    const rp = Object.assign({}, p, {risk: r});
+    const res = simulate(rp, 300, rand);
+    const avg = mean(res.returns);
+    const med = pctl(res.returns, 0.5);
+    const dd = mean(res.dds);
+    const ruin = res.returns.filter(function(x){return x<=-0.95;}).length / res.returns.length;
+    const k = calculateKelly(Object.assign({}, rp, {kellyMode: 'full'}));
+    let grade = '⚠️ Осторожно';
+    if(ruin > 0.1) grade = '❌ Опасно';
+    else if(ruin < 0.01 && dd < 0.2) grade = '✅ Консервативно';
+    else if(ruin < 0.05) grade = '✓ Приемлемо';
+    rows.push({r:r, avg:avg, med:med, dd:dd, ruin:ruin, kelly: k.optimalRisk, grade:grade});
+    idx++;
+    setTimeout(process, 5);
+  }
+  process();
+}
+
+// ==================== UPDATE KPIs ====================
+function updateKPIs(p, r){
+  const avg = mean(r.returns);
+  const med = pctl(r.returns, .5);
+  const pop = r.returns.filter(function(x){return x>0;}).length / r.returns.length;
+  const dd = mean(r.dds);
+  const ruin = r.returns.filter(function(x){return x<=-0.95;}).length / r.returns.length;
+  const p10 = pctl(r.returns,.1);
+  const p90 = pctl(r.returns,.9);
+  const idealAvg = mean(r.ideal);
+  const kelly = calculateKelly(p);
+
+  // Profit Factor & Expectancy
+  let pf = 0, ev = 0;
+  if(r.pnls && r.pnls.length){
+    const pos = r.pnls.filter(function(v){return v>0;});
+    const neg = r.pnls.filter(function(v){return v<0;});
+    const sumPos = pos.reduce(function(a,b){return a+b;},0);
+    const sumNeg = Math.abs(neg.reduce(function(a,b){return a+b;},0));
+    pf = sumNeg > 0 ? sumPos / sumNeg : (sumPos > 0 ? 999 : 0);
+    ev = mean(r.pnls);
+  }
+  if(pf === 0){
+    const avgWin = p.winRate * p.rr;
+    const avgLoss = (1-p.winRate) * 1;
+    pf = avgLoss > 0 ? avgWin / avgLoss : 999;
+  }
+  if(ev === 0){
+    ev = p.winRate * p.rr - (1 - p.winRate);
+  }
+
+  const set = function(id, text, cls){
+    const el = document.getElementById(id);
+    el.textContent = text;
+    if(cls) el.className = 'num ' + cls;
+  };
+  set('m-return', fmtPct(avg), avg>=0 ? 'good':'bad');
+  document.getElementById('m-return-sub').textContent = t('10–90%: ') + fmtPct(p10) + t(' … ') + fmtPct(p90);
+
+  set('m-median', fmtPct(med), med>=0 ? 'good':'bad');
+  document.getElementById('m-median-sub').textContent = t('Median устойчивее среднего');
+
+  set('m-pop', fmtPct(pop), pop>=0.55 ? 'good' : pop<0.4 ? 'bad':'warn');
+  document.getElementById('m-pop-sub').textContent = Math.round(pop * r.returns.length) + t(' из ') + r.returns.length + t(' в плюсе');
+
+  set('m-dd', fmtPct(dd), 'bad');
+  document.getElementById('m-dd-sub').textContent = t('Худшая: ') + fmtPct(Math.max.apply(null, r.dds));
+
+  set('m-ruin', fmtPct(ruin), ruin>0.10 ? 'bad' : 'good');
+  document.getElementById('m-ruin-sub').textContent = ruin>0.05 ? t('Высокий риск слива') : t('Риск слива низкий');
+
+  set('m-pf', pf > 100 ? '>100' : pf.toFixed(2), pf >= 1.5 ? 'good' : pf >= 1 ? 'warn' : 'bad');
+  document.getElementById('m-pf-sub').textContent = pf >= 2 ? t('Отличный PF') : pf >= 1.5 ? t('Хороший PF') : pf >= 1 ? t('Маржинальный') : t('Убыточный');
+
+  set('m-ev', (ev >= 0 ? '+' : '') + ev.toFixed(2) + 'R', ev >= 0 ? 'good' : 'bad');
+  document.getElementById('m-ev-sub').textContent = ev > 0 ? t('Положительное ожидание') : t('Отрицательное ожидание');
+
+  const kellyText = kelly.isProfitable ? fmtPct(kelly.fStar, 2) : 'N/A';
+  set('m-kelly', kellyText, kelly.isProfitable ? 'good' : 'bad');
+  document.getElementById('m-kelly-sub').textContent = kelly.isProfitable
+    ? t('Рекомендуемый риск (') + kelly.modeLabel + '): ' + fmtPct(kelly.recommendedRisk/100, 2)
+    : t('Система убыточна по Келли');
+
+  document.getElementById('kelly-info').textContent = kelly.isProfitable
+    ? t('Optimal Kelly: ') + fmtPct(kelly.fStar, 2) + t(' | ') + kelly.modeLabel + ': ' + fmtPct(kelly.recommendedRisk/100, 2)
+    : t('Optimal Kelly: ') + t('отрицательный — система неприбыльна');
+
+  document.getElementById('sensitivityA').textContent = t('Round-trip издержки: ') + (p.totalCost*100).toFixed(2) + '%' + t(' на сделку.');
+  document.getElementById('sensitivityB').textContent = t('Без издержек: ') + fmtPct(idealAvg) + t('. С издержками: ') + fmtPct(avg) + t('. Разница: ') + fmtPct(idealAvg - avg) + '.';
+
+  let recText = '';
+  if(!kelly.isProfitable) recText = t('По Келли система убыточна. Edge отсутствует даже в идеальных условиях.');
+  else if(p.risk > kelly.fStar * 1.5) recText = t('Текущий риск ') + fmtPct(p.risk) + t(' превышает Kelly ') + fmtPct(kelly.fStar, 2) + t('. Рекомендуется снизить до ') + fmtPct(kelly.recommendedRisk/100, 2) + '.';
+  else if(ruin > 0.05) recText = t('Риск слива >5%. Снизьте размер позиции или увеличьте edge.');
+  else if(dd > 0.30) recText = t('Просадка >30% требует психологической устойчивости. Убедитесь, что вы выдержите.');
+  else if(pop < 0.45) recText = t('Вероятность прибыли <45%. Система недостаточно консистентна.');
+  else recText = t('Параметры в разумных пределах. Система проходит базовые проверки.');
+  document.getElementById('sensitivityC').textContent = recText;
+
+  // Bullshit Detector
+  const bs = bullshitScore(p, avg, dd, pop);
+  const bsEl = document.getElementById('bsScore');
+  const bsLabel = document.getElementById('bsLabel');
+  const bsSub = document.getElementById('bsSub');
+  const bsMarker = document.getElementById('bsMarker');
+  const bsDetails = document.getElementById('bsDetails');
+
+  bsEl.textContent = bs;
+  bsMarker.style.left = bs + '%';
+  if(bs < 30){ bsEl.className='detector-score good'; bsLabel.textContent=t('Реалистичные параметры'); bsLabel.className='good'; }
+  else if(bs < 60){ bsEl.className='detector-score warn'; bsLabel.textContent=t('Требует проверки'); bsLabel.className='warn'; }
+  else { bsEl.className='detector-score bad'; bsLabel.textContent=t('Высокая вероятность переоценки'); bsLabel.className='bad'; }
+
+  let bsDetailText = '';
+  if(p.winRate > 0.75) bsDetailText += t('• Win rate >75% встречается редко без скальпинга микро-движений. ');
+  if(p.rr > 3) bsDetailText += t('• R:R >3 требует либо трендового рынка, либо очень широких стопов. ');
+  if(avg > 2) bsDetailText += t('• Средняя доходность >200% за период аномально высока. ');
+  if(dd < 0.1 && avg > 0.5) bsDetailText += t('• Низкая просадка при высокой доходности — классический признак overfitting. ');
+  if(bsDetailText === '') bsDetailText = t('Параметры находятся в пределах типичных рыночных систем. Рекомендуется всё равно проверить на реальных данных.');
+  bsSub.textContent = bs < 30 ? t('Параметры выглядят реалистично.') : t('Обнаружены признаки, требующие дополнительной проверки.');
+  bsDetails.textContent = bsDetailText;
+
+  // Edge Validation
+  const totalTrades = p.trades;
+  const winsEst = Math.round(totalTrades * p.winRate);
+  const ci = wilsonInterval(winsEst, totalTrades);
+  const pval = binomialPValue(winsEst, totalTrades, 0.5);
+  const evEdge = p.winRate * p.rr - (1 - p.winRate);
+
+  document.getElementById('evVal').innerHTML = evEdge.toFixed(3) + 'R <span class="badge ' + (evEdge>0?'badge-good':'badge-bad') + '">' + (evEdge>0?'+':'—') + '</span>';
+  document.getElementById('ciVal').textContent = fmtPct(ci[0],1) + ' – ' + fmtPct(ci[1],1);
+  document.getElementById('pVal').textContent = pval < 0.001 ? '<0.001' : pval.toFixed(3);
+  const sig = pval < 0.01 ? t('Высокая') : pval < 0.05 ? t('Средняя') : t('Низкая');
+  document.getElementById('sigVal').innerHTML = sig + ' <span class="badge ' + (pval<0.05?'badge-good':'badge-warn') + '">' + (pval<0.05?t('Significant'):t('Weak')) + '</span>';
+  document.getElementById('edgeComment').textContent = evEdge > 0 
+    ? t('Ожидаемое преимущество ') + evEdge.toFixed(2) + 'R. ' + t('При ') + totalTrades + t(' сделках доверительный интервал шириной ') + fmtPct(ci[1]-ci[0],1) + '.'
+    : t('Отрицательное ожидание. Система убыточна в долгосрочной перспективе.');
+
+  // Sample Size
+  const ciWidth = ci[1] - ci[0];
+  let reliability = 'Низкая';
+  if(totalTrades >= 300 && ciWidth < 0.1) reliability = 'Высокая';
+  else if(totalTrades >= 100 && ciWidth < 0.15) reliability = 'Средняя';
+  const minTrades = Math.ceil((1.96*1.96 * 0.5*0.5) / (0.05*0.05));
+  document.getElementById('sampleReliability').innerHTML = reliability + ' <span class="badge ' + (reliability==='Высокая'?'badge-good':reliability==='Средняя'?'badge-warn':'badge-bad') + '">' + reliability + '</span>';
+  document.getElementById('sampleWidth').textContent = fmtPct(ciWidth, 1);
+  document.getElementById('sampleMin').textContent = '~' + minTrades;
+  document.getElementById('sampleRec').textContent = totalTrades < 100 ? t('Нужно больше данных') : totalTrades < 300 ? t('Приемлемо, но осторожно') : t('Достаточно для выводов');
+
+  // Prop Firm
+  if(p.propOn && r.dailyCurves.length > 0){
+    const prop = evaluatePropFirm(r.dailyCurves, p);
+    document.getElementById('propPass').innerHTML = fmtPct(prop.passRate) + ' <span class="badge ' + (prop.passRate>0.3?'badge-good':'badge-warn') + '">Pass</span>';
+    document.getElementById('propFail').innerHTML = fmtPct(prop.failRate) + ' <span class="badge ' + (prop.failRate>0.7?'badge-bad':'badge-good') + '">Fail</span>';
+    document.getElementById('propAttempts').textContent = prop.expectedAttempts < 10 ? prop.expectedAttempts.toFixed(1) : '>10';
+    const roi = prop.passRate > 0 ? (p.propTarget / prop.expectedAttempts) : 0;
+    document.getElementById('propROI').textContent = fmtPct(roi);
+    document.getElementById('propPanel').style.display = 'block';
+  }else{
+    document.getElementById('propPanel').style.display = 'none';
+  }
+}
+
+// ==================== UPDATE CHARTS ====================
+function updateCharts(p, r){
+  // 1. Equity curve
+  const maxLen = Math.max.apply(null, r.equityCurves.map(function(x){return x.length;}));
+  const labels = Array.from({length:maxLen}, function(_,i){return i+1;});
+  const p10=[], p25=[], p50=[], p75=[], p90=[], avg=[];
+  for(let i=0;i<maxLen;i++){
+    const vals = r.equityCurves.map(function(c){return c[Math.min(i, c.length-1)];}).sort(function(a,b){return a-b;});
+    p10.push(vals[Math.floor(vals.length*0.10)]);
+    p25.push(vals[Math.floor(vals.length*0.25)]);
+    p50.push(vals[Math.floor(vals.length*0.50)]);
+    p75.push(vals[Math.floor(vals.length*0.75)]);
+    p90.push(vals[Math.floor(vals.length*0.90)]);
+    avg.push(mean(vals));
+  }
+  charts.equity.data = {
+    labels: labels,
+    datasets:[
+      {label:'90%', data:p90, borderColor:'rgba(29,78,216,.18)', backgroundColor:'rgba(29,78,216,.04)', pointRadius:0, borderWidth:1, fill:false, order:5},
+      {label:'75%', data:p75, borderColor:'rgba(29,78,216,.30)', backgroundColor:'rgba(29,78,216,.06)', pointRadius:0, borderWidth:1, fill:'-1', order:4},
+      {label:'Median', data:p50, borderColor:'rgba(29,78,216,.95)', backgroundColor:'rgba(29,78,216,.10)', pointRadius:0, borderWidth:2, tension:.3, fill:'-1', order:3},
+      {label:'25%', data:p25, borderColor:'rgba(29,78,216,.30)', backgroundColor:'rgba(29,78,216,.06)', pointRadius:0, borderWidth:1, fill:'-1', order:2},
+      {label:'10%', data:p10, borderColor:'rgba(29,78,216,.18)', backgroundColor:'rgba(29,78,216,.03)', pointRadius:0, borderWidth:1, fill:'-1', order:1},
+      {label:'Average', data:avg, borderColor:'rgba(124,58,237,.85)', pointRadius:0, borderWidth:2, tension:.25, fill:false, order:0}
+    ]
+  };
+  charts.equity.update();
+
+  // 2. Distribution
+  const bins = 28;
+  const minR = Math.min.apply(null, r.returns), maxR = Math.max.apply(null, r.returns);
+  const step = (maxR - minR) / bins || 0.01;
+  const hist = Array(bins).fill(0);
+  r.returns.forEach(function(v){
+    const idx = Math.min(bins-1, Math.max(0, Math.floor((v-minR)/step)));
+    hist[idx]++;
+  });
+  charts.dist.data = {
+    labels: hist.map(function(_,i){return ((minR+i*step)*100).toFixed(0)+'%';}),
+    datasets:[{data: hist, backgroundColor: hist.map(function(_,i){return (minR+i*step) >= 0 ? 'rgba(5,150,105,.76)' : 'rgba(220,38,38,.76)';}), borderRadius: 10, borderSkipped:false}]
+  };
+  charts.dist.update();
+
+  // 3. Max DD
+  const ddBins = 18;
+  const ddMax = Math.max.apply(null, r.dds.concat([0.01]));
+  const ddStep = ddMax/ddBins;
+  const ddHist = Array(ddBins).fill(0);
+  r.dds.forEach(function(v){
+    const idx = Math.min(ddBins-1, Math.max(0, Math.floor(v/ddStep)));
+    ddHist[idx]++;
+  });
+  charts.dd.data = {
+    labels: ddHist.map(function(_,i){return (i*ddStep*100).toFixed(0)+'%';}),
+    datasets:[{data:ddHist, backgroundColor:'rgba(217,119,6,.78)', borderRadius:10, borderSkipped:false}]
+  };
+  charts.dd.update();
+
+  // 4. Target probabilities
+  const targets = [0.1, 0.25, 0.5, 1.0, 2.0];
+  const targetProbs = targets.map(function(t){return r.returns.filter(function(x){return x >= t;}).length / r.returns.length;});
+  charts.target.data = {
+    labels: targets.map(function(t){return '+' + (t*100).toFixed(0) + '%';}),
+    datasets:[{data: targetProbs.map(function(x){return x*100;}), backgroundColor: targetProbs.map(function(x){return x >= 0.3 ? 'rgba(5,150,105,.85)' : x >= 0.1 ? 'rgba(217,119,6,.85)' : 'rgba(220,38,38,.85)';}), borderRadius: 10, borderSkipped:false}]
+  };
+  charts.target.update();
+
+  // 5. Streak analysis
+  const maxShow = 10;
+  charts.streak.data = {
+    labels: Array.from({length:maxShow}, function(_,i){return (i+1)+' подряд';}),
+    datasets:[
+      {label:t('Профитные серии'), data: r.streaks.wins.slice(1, maxShow+1), backgroundColor:'rgba(5,150,105,.70)', borderRadius:6},
+      {label:t('Убыточные серии'), data: r.streaks.losses.slice(1, maxShow+1), backgroundColor:'rgba(220,38,38,.70)', borderRadius:6}
+    ]
+  };
+  charts.streak.update();
+
+  // 6. Compare ideal vs reality
+  charts.compare.data = {
+    labels:[t('С издержками и психологией'),t('Идеальная модель')],
+    datasets:[{label:t('Средняя доходность'), data:[mean(r.returns)*100, mean(r.ideal)*100], backgroundColor:['rgba(220,38,38,.78)','rgba(5,150,105,.78)'], borderRadius:12, borderSkipped:false}]
+  };
+  charts.compare.update();
+
+  // 7. Strategy A vs B
+  if(p.compareOn && r.resultsB){
+    charts.ab.data = {
+      labels:['Strategy A','Strategy B'],
+      datasets:[
+        {label:'Средняя доходность', data:[mean(r.returns)*100, mean(r.resultsB.returns)*100], backgroundColor:['rgba(29,78,216,.78)','rgba(124,58,237,.78)'], borderRadius:12, borderSkipped:false},
+        {label:'Median', data:[pctl(r.returns,.5)*100, pctl(r.resultsB.returns,.5)*100], backgroundColor:['rgba(29,78,216,.50)','rgba(124,58,237,.50)'], borderRadius:12, borderSkipped:false}
+      ]
+    };
+  } else {
+    charts.ab.data = {
+      labels:['Strategy A','Strategy B'],
+      datasets:[{label:'Средняя доходность', data:[mean(r.returns)*100, 0], backgroundColor:['rgba(29,78,216,.78)','rgba(200,200,200,.30)'], borderRadius:12, borderSkipped:false}]
+    };
+  }
+  charts.ab.update();
+
+  // 8. Scenario sensitivity
+  const scenLabels = [t('WR −5%'),t('WR база'),t('WR +5%'),t('R:R −0.5'),t('R:R база'),t('R:R +0.5')];
+  const scenParams = [
+    Object.assign({}, p, {winRate: Math.max(0.01, p.winRate - 0.05)}),
+    Object.assign({}, p),
+    Object.assign({}, p, {winRate: Math.min(0.99, p.winRate + 0.05)}),
+    Object.assign({}, p, {rr: Math.max(0.2, p.rr - 0.5)}),
+    Object.assign({}, p),
+    Object.assign({}, p, {rr: p.rr + 0.5})
+  ];
+  const scenVals = scenParams.map(function(sp){return mean(simulate(sp, 200, rand).returns) * 100;});
+  charts.scenario.data = {
+    labels: scenLabels,
+    datasets:[{data: scenVals, backgroundColor: scenVals.map(function(x){return x>=0 ? 'rgba(5,150,105,.80)' : 'rgba(220,38,38,.80)';}), borderRadius:12, borderSkipped:false}]
+  };
+  charts.scenario.update();
+
+  // 9. Kelly Curve
+  const kellyPoints = [], kellyLabels = [];
+  const kellyBase = calculateKelly(p);
+  if(kellyBase.isProfitable){
+    for(let frac = 0.1; frac <= 1.0; frac += 0.1){
+      const kellyP = Object.assign({}, p, {risk: Math.max(0.0001, kellyBase.fStar * frac)});
+      const kellyR = simulate(kellyP, 100, rand);
+      kellyPoints.push(mean(kellyR.returns) * 100);
+      kellyLabels.push((frac * 100).toFixed(0) + '%');
+    }
+  }
+  charts.kelly.data = {
+    labels: kellyLabels.length ? kellyLabels : ['—'],
+    datasets:[{label:t('Доходность'), data: kellyPoints.length ? kellyPoints : [0], borderColor:'rgba(29,78,216,.90)', backgroundColor:'rgba(29,78,216,.12)', pointRadius:4, pointBackgroundColor:'rgba(29,78,216,1)', fill:true, tension:0.4, borderWidth:2}]
+  };
+  charts.kelly.update();
+
+  // 10. Heatmap
+  buildHeatmap(p);
+  // 11. Risk Ladder
+  buildRiskLadder(p);
+}
+
+// ==================== HEATMAP ====================
+function setHeatmapView(view){
+  heatmapView = view;
+  document.querySelectorAll('.tab-bar .tab').forEach(function(t){t.classList.toggle('active', t.dataset.view===view);});
+  buildHeatmap(buildParams());
+}
+
+function buildHeatmap(p){
+  const wrs = [30,35,40,45,50,55,60,65,70];
+  const rrs = [1.0,1.5,2.0,2.5,3.0,3.5];
+  const grid = document.getElementById('heatmap');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = 'repeat(' + (rrs.length + 1) + ', minmax(58px, 1fr))';
+  document.getElementById('heatmapModeLabel').textContent = p.mcMode === 'simple' ? 'Simple MC' : p.mcMode === 'regime' ? 'Regime MC' : p.mcMode === 'correlated' ? 'Correlated MC' : 'Stress Test MC';
+
+  const head = document.createElement('div'); head.className='cell head'; head.textContent='WR \\ R:R'; grid.appendChild(head);
+  rrs.forEach(function(rr){
+    const c=document.createElement('div'); c.className='cell head'; c.textContent=rr.toFixed(1); grid.appendChild(c);
+  });
+
+  let rowIdx = 0;
+  function processRow(){
+    if(rowIdx >= wrs.length) return;
+    const wr = wrs[rowIdx];
+    const rlabel=document.createElement('div'); rlabel.className='cell head'; rlabel.textContent=wr+'%'; grid.appendChild(rlabel);
+
+    for(let ri=0; ri<rrs.length; ri++){
+      const rr = rrs[ri];
+      const sp = Object.assign({}, p, {winRate: wr/100, rr: rr});
+      const res = simulate(sp, 200, rand);
+      let displayVal, intensity;
+      if(heatmapView === 'mean'){ displayVal = mean(res.returns); intensity = Math.max(-0.5, Math.min(0.5, displayVal)) / 0.5; }
+      else if(heatmapView === 'median'){ displayVal = pctl(res.returns, 0.5); intensity = Math.max(-0.5, Math.min(0.5, displayVal)) / 0.5; }
+      else { displayVal = res.returns.filter(function(x){return x>0;}).length / res.returns.length; intensity = (displayVal - 0.5) / 0.5; }
+
+      let bg, fg='#0f172a';
+      if(intensity >= 0){
+        const a = intensity;
+        bg = 'rgba(' + Math.round(5 + 10*a) + ', ' + Math.round(150 + (105-150)*a) + ', ' + Math.round(105 + (69-105)*a) + ', 0.92)';
+        fg = 'white';
+      }else{
+        const a2 = Math.abs(intensity);
+        bg = 'rgba(' + Math.round(220 + (38-220)*a2) + ', ' + Math.round(38 + (38-38)*a2) + ', ' + Math.round(38 + (38-38)*a2) + ', 0.92)';
+        fg = 'white';
+      }
+      const c=document.createElement('div');
+      c.className='cell';
+      c.style.background = bg;
+      c.style.color = fg;
+      c.textContent = heatmapView === 'pop' ? (displayVal*100).toFixed(0) + '%' : (displayVal*100).toFixed(0) + '%';
+      c.title = 'WR ' + wr + '% / R:R ' + rr.toFixed(1) + ' => ' + (heatmapView==='pop'?t('вер-ть прибыли'):t('средняя доходность')) + ' ' + (displayVal*100).toFixed(1) + '% (200 прогонов)';
+      grid.appendChild(c);
+    }
+    rowIdx++;
+    if(rowIdx < wrs.length) setTimeout(processRow, 10);
+  }
+  processRow();
+}
+
+// ==================== CSV IMPORT ====================
+function handleCSV(file){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const text = e.target.result;
+    const lines = text.split('\n').filter(function(l){return l.trim();});
+    if(lines.length < 2){ alert(t('CSV слишком короткий')); return; }
+    const headers = lines[0].split(',').map(function(h){return h.trim().toLowerCase();});
+    const pnlIdx = headers.indexOf('pnl');
+    if(pnlIdx < 0){ alert(t('Колонка pnl не найдена')); return; }
+
+    const pnls = [];
+    for(let i=1;i<lines.length;i++){
+      const cols = lines[i].split(',');
+      if(cols.length > pnlIdx){
+        const v = parseFloat(cols[pnlIdx]);
+        if(!isNaN(v)) pnls.push(v);
+      }
+    }
+    if(pnls.length < 5){ alert(t('Недостаточно данных')); return; }
+
+    const wins = pnls.filter(function(v){return v>0;}).length;
+    const losses = pnls.filter(function(v){return v<0;}).length;
+    const winRate = wins / pnls.length;
+    const avgWin = mean(pnls.filter(function(v){return v>0;}));
+    const avgLoss = mean(pnls.filter(function(v){return v<0;}).map(function(v){return Math.abs(v);}));
+    const rr = avgLoss > 0 ? avgWin / avgLoss : 0;
+    const pf = avgLoss > 0 ? (wins * avgWin) / (losses * avgLoss) : 0;
+
+    let peak = 0, cum = 0, maxDD = 0;
+    for(let j=0;j<pnls.length;j++){ cum += pnls[j]; peak = Math.max(peak, cum); maxDD = Math.max(maxDD, peak - cum); }
+
+    document.getElementById('csvStats').innerHTML = 
+      '<b>' + t('Импортировано:') + '</b> ' + pnls.length + t(' сделок') + '<br>' +
+      t('Win Rate: ') + (winRate*100).toFixed(1) + '% | R:R: ' + rr.toFixed(2) + ' | PF: ' + pf.toFixed(2) + '<br>' +
+      t('Max DD: ') + maxDD.toFixed(2) + t('R | Средний: ') + mean(pnls).toFixed(2) + 'R';
+
+    document.getElementById('winrate').value = Math.round(winRate * 100);
+    document.getElementById('rr').value = Math.min(5, Math.max(0.5, rr)).toFixed(1);
+    document.getElementById('trades').value = pnls.length;
+    updateLabels();
+    if(autoMode) run();
+  };
+  reader.readAsText(file);
+}
+
+// ==================== MAIN RUN ====================
+function run(){
+  if(isRunning) return;
+  isRunning = true;
+  document.getElementById('statusText').textContent = t('calculating');
+  document.getElementById('statusDot').className = 'dot warn';
+
+  setTimeout(function(){
+    try {
+      rand = rngFactory(seed);
+      const t0 = performance.now();
+      const p = buildParams();
+      const results = simulate(p, p.sims, rand);
+      results.ideal = simulateIdeal(p, Math.min(500, p.sims), rand);
+
+      if(p.compareOn){
+        const pB = Object.assign({}, p, {winRate: p.winRateB, risk: p.riskB, rr: p.rrB});
+        results.resultsB = simulate(pB, p.sims, rand);
+      }
+
+      const t1 = performance.now();
+      lastResults = {p:p, results:results};
+      updateKPIs(p, results);
+      updateCharts(p, results);
+      document.getElementById('statusText').textContent = p.sims + t(' симуляций × ') + p.trades + t(' сделок · ') + (t1-t0).toFixed(0) + t(' ms · seed ') + seed + ' · ' + p.mcMode;
+      document.getElementById('statusDot').className = 'dot';
+    } catch(e) {
+      console.error(e);
+      document.getElementById('statusText').textContent = t('Ошибка: ') + e.message;
+      document.getElementById('statusDot').className = 'dot bad';
+    }
+    isRunning = false;
+  }, 30);
+}
+
+function downloadCSV(){
+  if(!lastResults){ alert(t('Сначала запустите симуляцию.')); return; }
+  const rows = [['sim','trade','equity','trade_pnl','skipped','win','eff_win','net_risk','regime']];
+  for(let i=0;i<lastResults.results.tradeLog.length;i++){
+    const row = lastResults.results.tradeLog[i];
+    rows.push([
+      row.sim, row.trade, row.equity.toFixed(2), row.tradePnl.toFixed(2),
+      row.skipped ? 1:0, row.win ? 1:0, row.effWin.toFixed(4), row.netRisk.toFixed(4),
+      row.regime || '—'
+    ]);
+  }
+  const csv = rows.map(function(r){return r.join(',');}).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'strategy_architect_' + seed + '.csv';
+  a.click();
+}
+
+// ==================== EVENTS ====================
+document.addEventListener('DOMContentLoaded', function(){
+  initCharts();
+  updateLabels();
+  buildHeatmap(buildParams());
+  applyLanguage();
+  run();
+
+  const sliderIds = ['winrate','risk','rr','capital','trades','sims','fee',
+    'winrate-b','risk-b','rr-b','propDaily','propMax','propTarget','propDays',
+    'regimeProb','regimeVol','autocorr','autocorrMax',
+    'fearProb','fearStrength','greedProb','greedStrength','greedWR','tiltProb','tiltStrength','recoveryProb','recoveryCap',
+    'overconfProb','overconfSkip','decay','commission','spread','slippage','impact','fixedFrac'];
+  sliderIds.forEach(function(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('input', function(){
+      updateLabels();
+      if(['commission','spread','slippage','impact'].indexOf(id) >= 0){
+        const c = parseFloat(document.getElementById('commission').value);
+        const sp = parseFloat(document.getElementById('spread').value);
+        const sl = parseFloat(document.getElementById('slippage').value);
+        const im = parseFloat(document.getElementById('impact').value);
+        const total = (c*2 + sp + sl*2 + im).toFixed(2);
+        document.getElementById('fee').value = total;
+        document.getElementById('val-fee').textContent = total + '%';
+      }
+      if(autoMode) run();
+    });
+  });
+
+  ['regimeOn','autocorrOn','compareOn','propOn','psychologyOn','useDetailedCosts'].forEach(function(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change', function(){
+      const on = document.getElementById(id).checked;
+      let ctrlId = id.replace('On','') + '-controls';
+      if(id === 'useDetailedCosts') ctrlId = 'detailed-costs-controls';
+      const ctrl = document.getElementById(ctrlId);
+      if(ctrl){ ctrl.style.opacity = on ? '1' : '0.4'; ctrl.style.pointerEvents = on ? 'auto' : 'none'; }
+      if(autoMode) run();
+    });
+  });
+
+  document.querySelectorAll('input[name="mcMode"]').forEach(function(r){
+    r.addEventListener('change', function(){ if(autoMode) run(); });
+  });
+  document.getElementById('kellyMode').addEventListener('change', function(){ updateLabels(); if(autoMode) run(); });
+
+  document.getElementById('runBtn').addEventListener('click', run);
+  document.getElementById('csvBtn').addEventListener('click', downloadCSV);
+  document.getElementById('seedBtn').addEventListener('click', function(){ setSeed(Math.floor(Math.random()*1e9)); if(autoMode) run(); });
+  document.getElementById('autoBtn').addEventListener('click', function(){
+    autoMode = !autoMode;
+    document.getElementById('autoBtn').textContent = autoMode ? t('auto_on') : t('auto_off');
+    if(autoMode) run();
+  });
+
+  // Advanced toggle
+  document.getElementById('advancedBtn').addEventListener('click', function(){
+    const sec = document.getElementById('advancedSection');
+    const btn = document.getElementById('advancedBtn');
+    const on = !sec.classList.contains('open');
+    sec.classList.toggle('open', on);
+    btn.textContent = on ? '⚙️ Скрыть Advanced' : '⚙️ Advanced Settings';
+  });
+
+  // CSV drag & drop
+  const csvDrop = document.getElementById('csvDrop');
+  const csvInput = document.getElementById('csvInput');
+  csvDrop.addEventListener('click', function(){ csvInput.click(); });
+  csvDrop.addEventListener('dragover', function(e){ e.preventDefault(); csvDrop.style.borderColor='var(--accent)'; });
+  csvDrop.addEventListener('dragleave', function(){ csvDrop.style.borderColor=''; });
+  csvDrop.addEventListener('drop', function(e){ e.preventDefault(); csvDrop.style.borderColor=''; if(e.dataTransfer.files.length) handleCSV(e.dataTransfer.files[0]); });
+  csvInput.addEventListener('change', function(e){ if(e.target.files.length) handleCSV(e.target.files[0]); });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="title">Strategy Architect Pro — Руководство пользователя</title>
+  <style>
+    :root{
+      --bg:#f4f6fa; --panel:#ffffff; --text:#101828; --muted:#667085;
+      --line:rgba(16,24,40,.10); --accent:#1d4ed8; --good:#059669; --bad:#dc2626; --warn:#d97706;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      color:var(--text); background:var(--bg); line-height:1.6;
+    }
+    .container{max-width:900px; margin:0 auto; padding:40px 24px}
+    h1{font-size:32px; letter-spacing:-.03em; margin-bottom:8px}
+    .subtitle{color:var(--muted); font-size:16px; margin-bottom:32px}
+    h2{font-size:22px; margin-top:36px; margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid var(--line)}
+    h3{font-size:18px; margin-top:24px; color:var(--accent)}
+    p{margin:12px 0}
+    ul,ol{margin:12px 0; padding-left:24px}
+    li{margin:6px 0}
+    code{
+      background:rgba(29,78,216,.08); padding:2px 6px; border-radius:4px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:14px;
+    }
+    .card{
+      background:var(--panel); border:1px solid var(--line); border-radius:16px;
+      padding:20px; margin:16px 0; box-shadow:0 4px 12px rgba(16,24,40,.04);
+    }
+    .card h4{margin:0 0 8px; font-size:16px}
+    .card p{margin:0; color:var(--muted); font-size:14px}
+    .badge{
+      display:inline-block; padding:3px 10px; border-radius:6px; font-size:12px;
+      font-weight:700; margin-right:6px;
+    }
+    .badge-good{background:rgba(5,150,105,.12); color:var(--good)}
+    .badge-warn{background:rgba(217,119,6,.12); color:var(--warn)}
+    .badge-bad{background:rgba(220,38,38,.12); color:var(--bad)}
+    .badge-info{background:rgba(29,78,216,.12); color:var(--accent)}
+    table{width:100%; border-collapse:collapse; margin:16px 0; font-size:14px}
+    th,td{padding:10px 12px; text-align:left; border-bottom:1px solid var(--line)}
+    th{background:rgba(16,24,40,.03); font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted)}
+    tr:hover{background:rgba(16,24,40,.02)}
+    .formula{
+      background:rgba(16,24,40,.04); padding:12px 16px; border-radius:10px;
+      font-family:ui-monospace,monospace; font-size:14px; margin:12px 0;
+      overflow-x:auto;
+    }
+    .toc{
+      position:sticky; top:20px; background:var(--panel); border:1px solid var(--line);
+      border-radius:16px; padding:20px; margin-bottom:32px;
+    }
+    .toc h3{margin:0 0 12px; font-size:16px}
+    .toc a{display:block; color:var(--accent); text-decoration:none; padding:6px 0; font-size:14px; border-bottom:1px solid var(--line)}
+    .toc a:last-child{border-bottom:none}
+    .toc a:hover{text-decoration:underline}
+    .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+    .lang-switch{display:flex;gap:6px;align-items:center;margin-bottom:20px}
+    .lang-btn{padding:5px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.9);cursor:pointer;font-size:12px;font-weight:700;transition:.2s}
+    .lang-btn.active{background:linear-gradient(135deg, var(--accent), #7c3aed);color:white;border-color:transparent}
+    @media(max-width:760px){
+      .grid-2{grid-template-columns:1fr}
+      .toc{position:relative}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="lang-switch">
+      <button onclick="setLang('ru')" class="lang-btn" id="btn-ru">🇷🇺 RU</button>
+      <button onclick="setLang('en')" class="lang-btn" id="btn-en">🇬🇧 EN</button>
+    </div>
+
+    <h1>Strategy Architect <span style="color:var(--accent)">Pro</span></h1>
+    <p class="subtitle" data-i18n="subtitle">Полное руководство пользователя. Версия 1.0</p>
+
+    <div class="toc">
+      <h3 data-i18n="toc_title">Содержание</h3>
+      <a href="#what" data-i18n="toc_what">1. Что это за проект</a>
+      <a href="#quick" data-i18n="toc_quick">2. Быстрый старт</a>
+      <a href="#params" data-i18n="toc_params">3. Параметры (основные)</a>
+      <a href="#kpi" data-i18n="toc_kpi">4. Ключевые метрики</a>
+      <a href="#advanced" data-i18n="toc_advanced">5. Advanced Settings (для профи)</a>
+      <a href="#charts" data-i18n="toc_charts">6. Графики и аналитика</a>
+      <a href="#method" data-i18n="toc_method">7. Методология и формулы</a>
+      <a href="#csv" data-i18n="toc_csv">8. Импорт CSV</a>
+      <a href="#faq" data-i18n="toc_faq">9. FAQ и типичные ошибки</a>
+    </div>
+
+    <h2 id="what" data-i18n="what_title">1. Что это за проект</h2>
+    <p data-i18n="what_p1">Strategy Architect Pro — это профессиональный веб-симулятор для количественной оценки торговых систем. Он позволяет «проиграть» вашу стратегию тысячи раз в разных рыночных условиях, учитывая издержки, психологию и случайность.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4 data-i18n="for_who">🎯 Для кого</h4>
+        <p data-i18n="for_who_desc">Трейдеры, алгоритмические разработчики, управляющие капиталом и проп-трейдеры, которые хотят объективно оценить robustness системы до выхода на реальный рынок.</p>
+      </div>
+      <div class="card">
+        <h4 data-i18n="key_idea">🧠 Ключевая идея</h4>
+        <p data-i18n="key_idea_desc">Вместо того чтобы верить «красивой кривой эквити» на истории, вы моделируете будущее через метод Монте-Карло: случайные пути с заданной вероятностью и риском.</p>
+      </div>
+    </div>
+
+    <h2 id="quick" data-i18n="quick_title">2. Быстрый старт</h2>
+    <ol>
+      <li data-i18n="quick_li1">Откройте файл <code>strategy_architect_pro.html</code> в браузере (Chrome, Firefox, Safari, Edge).</li>
+      <li data-i18n="quick_li2">В левой панели задайте 3 главных параметра: <strong>Win Rate</strong>, <strong>Risk per trade</strong>, <strong>Reward/Risk</strong>.</li>
+      <li data-i18n="quick_li3">Нажмите <strong>«Запустить симуляцию»</strong> или включите <strong>«Авто-обновление»</strong>.</li>
+      <li data-i18n="quick_li4">Смотрите KPI и графики. Если <span class="badge badge-good">Bullshit Score</span> низкий — система реалистична. Если высокий — переосцениваете edge.</li>
+    </ol>
+
+    <h2 id="params" data-i18n="params_title">3. Параметры (основные)</h2>
+    <p data-i18n="params_desc">Эти параметры видны сразу и не требуют профильных знаний.</p>
+    <table>
+      <tr><th data-i18n="param_wr">Параметр</th><th data-i18n="param_wr_desc">Что означает</th><th data-i18n="param_wr_val">Типичное значение</th></tr>
+      <tr><td><strong>Win rate</strong></td><td data-i18n="param_wr_desc">Процент прибыльных сделок. Не путайте с accuracy — это доля +сделок от общего числа.</td><td data-i18n="param_wr_val">35–55% для трендовых систем, 60–75% для скальпинга.</td></tr>
+      <tr><td><strong>Risk / trade</strong></td><td data-i18n="param_risk_desc">Сколько капитала ставится под риск в одной сделке (в %). Размер позиции пересчитывается от текущего equity (геометрический рост).</td><td data-i18n="param_risk_val">0.5–2%. Больше 2% — агрессивно, меньше 0.5% — консервативно.</td></tr>
+      <tr><td><strong>Reward / risk</strong></td><td data-i18n="param_rr_desc">Соотношение цели к стопу. Если стоп 1R, а цель 2R — здесь 2.0.</td><td data-i18n="param_rr_val">1.5–3.0. Меньше 1.0 — система убыточна даже при 50% WR.</td></tr>
+      <tr><td><strong>Capital</strong></td><td data-i18n="param_cap_desc">Стартовый капитал для симуляции.</td><td data-i18n="param_cap_val">$10 000 для пропа, $100 000+ для личного счёта.</td></tr>
+      <tr><td><strong>Trades</strong></td><td data-i18n="param_trades_desc">Количество сделок в одном прогоне. Это горизонт планирования.</td><td data-i18n="param_trades_val">100 сделок ≈ 2–4 месяца активного трейдинга.</td></tr>
+      <tr><td><strong>Simulations</strong></td><td data-i18n="param_sims_desc">Сколько случайных путей сгенерировать. Чем больше, тем точнее оценка, но дольше счёт.</td><td data-i18n="param_sims_val">1500–3000 оптимально для браузера.</td></tr>
+      <tr><td><strong>Round-trip fees</strong></td><td data-i18n="param_fees_desc">Общие издержки на вход+выход: комиссия + спред + проскальзывание. Одним слайдером для простоты.</td><td data-i18n="param_fees_val">0.08–0.2% для Forex/крипты, 0.02–0.05% для фьючерсов.</td></tr>
+    </table>
+
+    <h2 id="kpi" data-i18n="kpi_title">4. Ключевые метрики (KPI)</h2>
+    <p data-i18n="kpi_desc">После запуска в верхней панели появляются 8 карточек:</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Expected Return <span class="badge badge-info" data-i18n="kpi_exp_tag">Среднее</span></h4>
+        <p data-i18n="kpi_exp_desc">Средняя доходность по всем симуляциям. Может завышаться выбросами (один удачный прогон). Смотрите в паре с Median.</p>
+      </div>
+      <div class="card">
+        <h4>Median Result <span class="badge badge-info" data-i18n="kpi_med_tag">Robust</span></h4>
+        <p data-i18n="kpi_med_desc">Медиана — доходность, которую вы получите с вероятностью 50%. Устойчива к выбросам. Если Expected >> Median — распределение скошено вправо (редкие большие выигрыши).</p>
+      </div>
+      <div class="card">
+        <h4>Probability of Profit <span class="badge badge-good" data-i18n="kpi_pop_tag">Важно</span></h4>
+        <p data-i18n="kpi_pop_desc">Доля прогонов, которые закончились в плюс. >60% — хорошо, <40% — система нестабильна.</p>
+      </div>
+      <div class="card">
+        <h4>Avg Max Drawdown <span class="badge badge-bad" data-i18n="kpi_dd_tag">Риск</span></h4>
+        <p data-i18n="kpi_dd_desc">Средняя максимальная просадка внутри одного прогона. Просадка 30%+ требует железных нервов.</p>
+      </div>
+      <div class="card">
+        <h4>Risk of Ruin <span class="badge badge-bad" data-i18n="kpi_ruin_tag">Критично</span></h4>
+        <p data-i18n="kpi_ruin_desc">Вероятность потери 95%+ капитала. >5% — опасно, >10% — неприемлемо для серьёзного трейдинга.</p>
+      </div>
+      <div class="card">
+        <h4>Profit Factor <span class="badge badge-good" data-i18n="kpi_pf_tag">Классика</span></h4>
+        <p data-i18n="kpi_pf_desc">Сумма прибылей / сумма убытков. >1.5 — хорошо, >2.0 — отлично, <1.0 — убыточно.</p>
+      </div>
+      <div class="card">
+        <h4>Expectancy <span class="badge badge-info" data-i18n="kpi_ev_tag">Edge</span></h4>
+        <p data-i18n="kpi_ev_desc">Средний результат одной сделки в единицах R. +0.5R означает, что в среднем каждая сделка даёт половину риска в прибыль.</p>
+      </div>
+      <div class="card">
+        <h4>Kelly Optimal <span class="badge badge-warn" data-i18n="kpi_kelly_tag">Осторожно</span></h4>
+        <p data-i18n="kpi_kelly_desc">Оптимальный размер позиции по формуле Келли. Full Kelly слишком волатилен — рекомендуется Half Kelly (половина).</p>
+      </div>
+    </div>
+
+    <h2 id="advanced" data-i18n="advanced_title">5. Advanced Settings (для профи)</h2>
+    <p data-i18n="advanced_desc">Нажмите <strong>⚙️ Advanced Settings</strong>, чтобы раскрыть. Эти параметры влияют на реалистичность симуляции, но требуют понимания.</p>
+
+    <h3 data-i18n="mc_title">5.1. Monte Carlo Mode</h3>
+    <table>
+      <tr><th data-i18n="mc_simple">Режим</th><th data-i18n="mc_simple_desc">Что делает</th><th data-i18n="mc_simple_use">Когда использовать</th></tr>
+      <tr><td><strong data-i18n="mc_simple">Simple MC</strong></td><td data-i18n="mc_simple_desc">Каждая сделка независима. Бросок монетки.</td><td data-i18n="mc_simple_use">Базовая проверка. Если система не проходит здесь — она не пройдёт нигде.</td></tr>
+      <tr><td><strong data-i18n="mc_regime">Regime MC</strong></td><td data-i18n="mc_regime_desc">Рынок переключается между 5 режимами (Bull, Bear, Range, High/Low Vol). В каждом режиме свои мультипликаторы WR и R:R.</td><td data-i18n="mc_regime_use">Когда вы знаете, что система работает по-разному в тренде и флете.</td></tr>
+      <tr><td><strong data-i18n="mc_corr">Correlated MC</strong></td><td data-i18n="mc_corr_desc">Вероятность следующей сделки зависит от предыдущих через скрытый моментум-фактор.</td><td data-i18n="mc_corr_use">Для mean-reversion и momentum-систем, где серии не случайны.</td></tr>
+      <tr><td><strong data-i18n="mc_stress">Stress Test MC</strong></td><td data-i18n="mc_stress_desc">3% вероятность экстремального гэпа/шока на сделку.</td><td data-i18n="mc_stress_use">Проверка на «чёрных лебедей» и кризисы.</td></tr>
+    </table>
+
+    <h3 data-i18n="psych_title">5.2. Psychology — Probability Model</h3>
+    <p data-i18n="psych_desc">Вместо жёстких правил («после 3 стопов всегда паникуем») используется вероятностная модель. Каждый эффект имеет <strong>вероятность срабатывания</strong> и <strong>силу влияния</strong>.</p>
+    <ul>
+      <li data-i18n="psych_fear"><strong>Fear</strong> — после 3+ стопов подряд с заданной вероятностью снижает риск. Имитирует консервативность после боли.</li>
+      <li data-i18n="psych_greed"><strong>Greed</strong> — после 3+ побед подряд с заданной вероятностью увеличивает риск и снижает WR (передержка позиций).</li>
+      <li data-i18n="psych_tilt"><strong>Tilt</strong> — при просадке >15% с заданной вероятностью снижает WR (месть рынку, импульсивные сделки).</li>
+      <li data-i18n="psych_recovery"><strong>Recovery</strong> — при просадке >20% с заданной вероятностью жёстко ограничивает риск (режим «выживания»).</li>
+      <li data-i18n="psych_overconf"><strong>Overconfidence</strong> — после 5+ побед подряд с заданной вероятностью пропускает сделки («я уже всё знаю»).</li>
+      <li data-i18n="psych_decay"><strong>Edge Decay</strong> — после 4+ стопов подряд WR падает на заданный % (усталость, деградация дисциплины).</li>
+    </ul>
+
+    <h3 data-i18n="regimes_title">5.3. Market Regimes</h3>
+    <p data-i18n="regimes_desc">Марковская модель: рынок находится в одном из 5 состояний и с заданной вероятностью переключается в другое.</p>
+    <table>
+      <tr><th data-i18n="regime_bull">Режим</th><th data-i18n="regime_bull_wr">WR мультипликатор</th><th data-i18n="regime_bull_rr">R:R мультипликатор</th><th data-i18n="regime_bull_desc">Смысл</th></tr>
+      <tr><td data-i18n="regime_bull">Bull</td><td data-i18n="regime_bull_wr">×1.12</td><td data-i18n="regime_bull_rr">×1.05</td><td data-i18n="regime_bull_desc">Тренд вверх. Легче зарабатывать лонг.</td></tr>
+      <tr><td data-i18n="regime_bear">Bear</td><td data-i18n="regime_bear_wr">×0.78</td><td data-i18n="regime_bear_rr">×0.85</td><td data-i18n="regime_bear_desc">Тренд вниз. Сложнее, больше ложных пробоев.</td></tr>
+      <tr><td data-i18n="regime_range">Range</td><td data-i18n="regime_range_wr">×0.92</td><td data-i18n="regime_range_rr">×0.65</td><td data-i18n="regime_range_desc">Флет. Меньше движения, цели не достигаются.</td></tr>
+      <tr><td data-i18n="regime_high">High Vol</td><td data-i18n="regime_high_wr">×0.88</td><td data-i18n="regime_high_rr">×1.25</td><td data-i18n="regime_high_desc">Высокая волатильность. Широкие стопы, но и большие цели.</td></tr>
+      <tr><td data-i18n="regime_low">Low Vol</td><td data-i18n="regime_low_wr">×1.04</td><td data-i18n="regime_low_rr">×0.75</td><td data-i18n="regime_low_desc">Низкая волатильность. Мало движения, комиссии «съедают» профит.</td></tr>
+    </table>
+
+    <h3 data-i18n="autocorr_title">5.4. Autocorrelation</h3>
+    <p data-i18n="autocorr_desc">Скрытая переменная <code>momentum</code> обновляется по формуле:</p>
+    <div class="formula" data-i18n="autocorr_formula">momentum = momentum × ρ + sign(последних результатов) × (1 − ρ) × 0.3</div>
+    <p data-i18n="autocorr_desc2">где ρ — сила автокорреляции. Это создаёт «полосатость» результатов: серии побед и поражений кластеризуются, как в реальности.</p>
+
+    <h2 id="charts" data-i18n="charts_title">6. Графики и аналитика</h2>
+    <table>
+      <tr><th data-i18n="chart_equity">График</th><th data-i18n="chart_equity_desc">Что показывает</th><th data-i18n="chart_equity_read">Как читать</th></tr>
+      <tr><td><strong data-i18n="chart_equity">Equity Curves (10–90%)</strong></td><td data-i18n="chart_equity_desc">Диапазон кривых капитала от 10-го до 90-го перцентиля.</td><td data-i18n="chart_equity_read">Если 10-й перцентиль уходит в минус — даже «удачный» сценарий плох.</td></tr>
+      <tr><td><strong data-i18n="chart_final">Final Results</strong></td><td data-i18n="chart_final_desc">Гистограмма финальных доходностей.</td><td data-i18n="chart_final_read">Нормальное распределение — хорошо. Сильный хвост влево — высокий риск слива.</td></tr>
+      <tr><td><strong data-i18n="chart_dd">Max Drawdown</strong></td><td data-i18n="chart_dd_desc">Распределение максимальных просадок.</td><td data-i18n="chart_dd_read">Пик должен быть левее 20%. Если пик за 30% — готовьтесь к боли.</td></tr>
+      <tr><td><strong data-i18n="chart_target">Target Probabilities</strong></td><td data-i18n="chart_target_desc">Вероятность достижения целей (+10%, +25%, +50%, +100%, +200%).</td><td data-i18n="chart_target_read">Если +100% достижимо <10% — система слишком медленная для ваших целей.</td></tr>
+      <tr><td><strong data-i18n="chart_streak">Streak Analysis</strong></td><td data-i18n="chart_streak_desc">Частота серий прибылей и убытков подряд.</td><td data-i18n="chart_streak_read">6+ стопов подряд — нормально для WR 40%. Если не готовы морально — снижайте риск.</td></tr>
+      <tr><td><strong data-i18n="chart_compare">Ideal vs Reality</strong></td><td data-i18n="chart_compare_desc">Сравнение доходности без издержек и с издержками + психологией.</td><td data-i18n="chart_compare_read">Разница >30% — издержки критичны. Пора менять брокера или стратегию.</td></tr>
+      <tr><td><strong data-i18n="chart_ab">Strategy A vs B</strong></td><td data-i18n="chart_ab_desc">Прямое сравнение двух наборов параметров.</td><td data-i18n="chart_ab_read">Используйте для выбора между консервативным и агрессивным сетапом.</td></tr>
+      <tr><td><strong data-i18n="chart_scenario">Scenario Analysis</strong></td><td data-i18n="chart_scenario_desc">Чувствительность к ±5% WR и ±0.5 R:R.</td><td data-i18n="chart_scenario_read">Если система падает в минус при WR−5% — edge слишком хрупкий.</td></tr>
+      <tr><td><strong data-i18n="chart_kelly">Kelly Curve</strong></td><td data-i18n="chart_kelly_desc">Доходность vs доля Kelly.</td><td data-i18n="chart_kelly_read">Пик кривой — оптимальный риск. Спад после пика — overbetting разрушает капитал.</td></tr>
+      <tr><td><strong data-i18n="chart_ladder">Risk Ladder</strong></td><td data-i18n="chart_ladder_desc">Таблица: 8 уровней риска с оценкой.</td><td data-i18n="chart_ladder_read">Найдите строку с «✅ Консервативно» или «✓ Приемлемо» — это ваш риск.</td></tr>
+      <tr><td><strong data-i18n="chart_heatmap">Heatmap</strong></td><td data-i18n="chart_heatmap_desc">Тепловая карта WR × R:R.</td><td data-i18n="chart_heatmap_read">Зелёные ячейки — «зона прибыли». Ищите комбинации, где вы уверены.</td></tr>
+    </table>
+
+    <h2 id="method" data-i18n="method_title">7. Методология и формулы</h2>
+
+    <h3 data-i18n="mc_method">7.1. Метод Монте-Карло</h3>
+    <p data-i18n="mc_method_desc">Вместо одного «предсказания» генерируется <code>N</code> случайных путей. Каждый путь — это последовательность сделок, где результат каждой сделки определяется броском псевдослучайного числа (RNG) с заданной вероятностью.</p>
+
+    <h3 data-i18n="kelly_formula">7.2. Формула Келли</h3>
+    <div class="formula">f* = (p × b − q) / b</div>
+    <p data-i18n="kelly_formula_desc">где <code>p</code> — win rate, <code>q = 1 − p</code>, <code>b</code> — reward/risk. Full Kelly даёт максимальный геометрический рост, но с экстремальной волатильностью. Half Kelly — компромисс между ростом и просадкой.</p>
+
+    <h3 data-i18n="wilson">7.3. Wilson Score Interval</h3>
+    <p data-i18n="wilson_desc">Для оценки доверительного интервала win rate используется точный интервал Уилсона — он работает даже при малых выборках и не выходит за границы [0, 1], в отличие от нормального приближения.</p>
+
+    <h3 data-i18n="bs_title">7.4. Bullshit Detector</h3>
+    <p data-i18n="bs_desc">Скоринговая модель (0–100) проверяет комбинацию параметров на реалистичность:</p>
+    <ul>
+      <li data-i18n="bs_li1">WR >75% + R:R >2 — редко встречается без HFT.</li>
+      <li data-i18n="bs_li2">CAGR >200% — аномально для любого рынка.</li>
+      <li data-i18n="bs_li3">Calmar >5 (доходность/просадка) — классический признак overfitting.</li>
+      <li data-i18n="bs_li4">Низкая просадка (<10%) при высокой доходности (>50%) — подозрительно.</li>
+    </ul>
+
+    <h3 data-i18n="prop_title">7.5. Prop Firm Analyzer</h3>
+    <p data-i18n="prop_desc">Для каждой симуляции строится <strong>дневная</strong> кривая капитала (сделки равномерно распределены по дням). Проверяется:</p>
+    <ul>
+      <li data-i18n="prop_li1">Не превышен ли дневной лимит просадки.</li>
+      <li data-i18n="prop_li2">Не превышен ли общий лимит просадки.</li>
+      <li data-i18n="prop_li3">Достигнута ли цель прибыли за отведённые дни.</li>
+    </ul>
+
+    <h2 id="csv" data-i18n="csv_title">8. Импорт CSV</h2>
+    <p data-i18n="csv_desc">Вы можете загрузить реальные сделки из бэктеста или журнала трейдера.</p>
+    <h3 data-i18n="csv_format">Формат файла</h3>
+    <div class="formula">date,pnl,r_multiple<br>2024-01-01,125.50,1.5<br>2024-01-02,-80.00,-1.0<br>...</div>
+    <ul>
+      <li data-i18n="csv_li1"><code>date</code> — дата сделки (опционально, для справки).</li>
+      <li data-i18n="csv_li2"><code>pnl</code> — прибыль/убыток в валюте. <strong>Обязательная колонка.</strong></li>
+      <li data-i18n="csv_li3"><code>r_multiple</code> — результат в единицах R (опционально).</li>
+    </ul>
+    <p data-i18n="csv_desc2">После импорта приложение автоматически рассчитает Win Rate, R:R, Profit Factor, Max Drawdown и подставит параметры в симулятор.</p>
+
+    <h2 id="faq" data-i18n="faq_title">9. FAQ и типичные ошибки</h2>
+
+    <h3 data-i18n="faq_q1">Q: Графики не отображаются / пустые?</h3>
+    <p data-i18n="faq_a1">A: Убедитесь, что у вас стабильное интернет-соединение — Chart.js загружается из CDN. Если вы открываете файл локально без интернета, скачайте библиотеку и замените строку <code>&lt;script src="..."&gt;</code> на локальный путь.</p>
+
+    <h3 data-i18n="faq_q2">Q: Симуляция тормозит на телефоне?</h3>
+    <p data-i18n="faq_a2">A: Уменьшите <strong>Simulations</strong> до 500–800. Heatmap и Risk Ladder считаются асинхронно, но на слабом устройстве это может занимать 10–20 секунд.</p>
+
+    <h3 data-i18n="faq_q3">Q: Что значит «Kelly Optimal: 33.33%» — это нормально?</h3>
+    <p data-i18n="faq_a3">A: Это математически оптимальный риск для ваших параметров. Но Full Kelly при 33% риска даст просадку 60–80%. <strong>Никогда не используйте Full Kelly в реальности.</strong> Выберите Half Kelly (16.67%) или Quarter Kelly (8.33%).</p>
+
+    <h3 data-i18n="faq_q4">Q: Почему Expected Return и Median сильно отличаются?</h3>
+    <p data-i18n="faq_a4">A: Это означает скошенное распределение (редкие большие выигрыши). Median — более честная оценка того, что вы получите «в среднем».</p>
+
+    <h3 data-i18n="faq_q5">Q: Как использовать A/B сравнение?</h3>
+    <p data-i18n="faq_a5">A: Включите <strong>Strategy B</strong> и задайте альтернативные параметры. Например, сравните «WR 50%, R:R 2.0» vs «WR 40%, R:R 3.0». Часто более низкий WR с высоким R:R даёт лучшую просадку, но худшую консистентность.</p>
+
+    <h3 data-i18n="faq_q6">Q: Bullshit Score 75 — моя система плохая?</h3>
+    <p data-i18n="faq_a6">A: Не обязательно. Это означает, что параметры выглядят «слишком хорошо» и требуют дополнительной проверки на реальных данных. Проверьте: не overfit ли вы на истории? Не завышен ли WR? Загрузите реальный CSV — Bullshit Score пересчитается.</p>
+
+    <div class="card" style="margin-top:40px">
+      <h4 data-i18n="feedback">📬 Обратная связь</h4>
+      <p data-i18n="feedback_desc">Это open-source инструмент. Если вы нашли баг или хотите новую фичу (например, интеграцию с MT4/TradingView), сохраните параметры через «Экспорт CSV» и приложите к описанию проблемы.</p>
+    </div>
+  </div>
+
+<script>
+const i18n = {"ru": {"title": "Strategy Architect Pro — Руководство пользователя", "subtitle": "Полное руководство пользователя. Версия 1.0", "toc_what": "1. Что это за проект", "toc_quick": "2. Быстрый старт", "toc_params": "3. Параметры (основные)", "toc_kpi": "4. Ключевые метрики", "toc_advanced": "5. Advanced Settings (для профи)", "toc_charts": "6. Графики и аналитика", "toc_method": "7. Методология и формулы", "toc_csv": "8. Импорт CSV", "toc_faq": "9. FAQ и типичные ошибки", "what_title": "1. Что это за проект", "what_p1": "Strategy Architect Pro — это профессиональный веб-симулятор для количественной оценки торговых систем. Он позволяет «проиграть» вашу стратегию тысячи раз в разных рыночных условиях, учитывая издержки, психологию и случайность.", "for_who": "🎯 Для кого", "for_who_desc": "Трейдеры, алгоритмические разработчики, управляющие капиталом и проп-трейдеры, которые хотят объективно оценить robustness системы до выхода на реальный рынок.", "key_idea": "🧠 Ключевая идея", "key_idea_desc": "Вместо того чтобы верить «красивой кривой эквити» на истории, вы моделируете будущее через метод Монте-Карло: случайные пути с заданной вероятностью и риском.", "quick_title": "2. Быстрый старт", "quick_li1": "Откройте файл strategy_architect_pro.html в браузере (Chrome, Firefox, Safari, Edge).", "quick_li2": "В левой панели задайте 3 главных параметра: Win Rate, Risk per trade, Reward/Risk.", "quick_li3": "Нажмите «Запустить симуляцию» или включите «Авто-обновление».", "quick_li4": "Смотрите KPI и графики. Если Bullshit Score низкий — система реалистична. Если высокий — переосцениваете edge.", "params_title": "3. Параметры (основные)", "params_desc": "Эти параметры видны сразу и не требуют профильных знаний.", "param_wr": "Win rate", "param_wr_desc": "Процент прибыльных сделок. Не путайте с accuracy — это доля +сделок от общего числа.", "param_wr_val": "35–55% для трендовых систем, 60–75% для скальпинга.", "param_risk": "Risk / trade", "param_risk_desc": "Сколько капитала ставится под риск в одной сделке (в %). Размер позиции пересчитывается от текущего equity (геометрический рост).", "param_risk_val": "0.5–2%. Больше 2% — агрессивно, меньше 0.5% — консервативно.", "param_rr": "Reward / risk", "param_rr_desc": "Соотношение цели к стопу. Если стоп 1R, а цель 2R — здесь 2.0.", "param_rr_val": "1.5–3.0. Меньше 1.0 — система убыточна даже при 50% WR.", "param_cap": "Capital", "param_cap_desc": "Стартовый капитал для симуляции.", "param_cap_val": "$10 000 для пропа, $100 000+ для личного счёта.", "param_trades": "Trades", "param_trades_desc": "Количество сделок в одном прогоне. Это горизонт планирования.", "param_trades_val": "100 сделок ≈ 2–4 месяца активного трейдинга.", "param_sims": "Simulations", "param_sims_desc": "Сколько случайных путей сгенерировать. Чем больше, тем точнее оценка, но дольше счёт.", "param_sims_val": "1500–3000 оптимально для браузера.", "param_fees": "Round-trip fees", "param_fees_desc": "Общие издержки на вход+выход: комиссия + спред + проскальзывание. Одним слайдером для простоты.", "param_fees_val": "0.08–0.2% для Forex/крипты, 0.02–0.05% для фьючерсов.", "kpi_title": "4. Ключевые метрики (KPI)", "kpi_desc": "После запуска в верхней панели появляются 8 карточек:", "kpi_exp": "Expected Return", "kpi_exp_tag": "Среднее", "kpi_exp_desc": "Средняя доходность по всем симуляциям. Может завышаться выбросами (один удачный прогон). Смотрите в паре с Median.", "kpi_med": "Median Result", "kpi_med_tag": "Robust", "kpi_med_desc": "Медиана — доходность, которую вы получите с вероятностью 50%. Устойчива к выбросам. Если Expected >> Median — распределение скошено вправо (редкие большие выигрыши).", "kpi_pop": "Probability of Profit", "kpi_pop_tag": "Важно", "kpi_pop_desc": "Доля прогонов, которые закончились в плюс. >60% — хорошо, <40% — система нестабильна.", "kpi_dd": "Avg Max Drawdown", "kpi_dd_tag": "Риск", "kpi_dd_desc": "Средняя максимальная просадка внутри одного прогона. Просадка 30%+ требует железных нервов.", "kpi_ruin": "Risk of Ruin", "kpi_ruin_tag": "Критично", "kpi_ruin_desc": "Вероятность потери 95%+ капитала. >5% — опасно, >10% — неприемлемо для серьёзного трейдинга.", "kpi_pf": "Profit Factor", "kpi_pf_tag": "Классика", "kpi_pf_desc": "Сумма прибылей / сумма убытков. >1.5 — хорошо, >2.0 — отлично, <1.0 — убыточно.", "kpi_ev": "Expectancy", "kpi_ev_tag": "Edge", "kpi_ev_desc": "Средний результат одной сделки в единицах R. +0.5R означает, что в среднем каждая сделка даёт половину риска в прибыль.", "kpi_kelly": "Kelly Optimal", "kpi_kelly_tag": "Осторожно", "kpi_kelly_desc": "Оптимальный размер позиции по формуле Келли. Full Kelly слишком волатилен — рекомендуется Half Kelly (половина).", "advanced_title": "5. Advanced Settings (для профи)", "advanced_desc": "Нажмите ⚙️ Advanced Settings, чтобы раскрыть. Эти параметры влияют на реалистичность симуляции, но требуют понимания.", "mc_title": "5.1. Monte Carlo Mode", "mc_simple": "Simple MC", "mc_simple_desc": "Каждая сделка независима. Бросок монетки.", "mc_simple_use": "Базовая проверка. Если система не проходит здесь — она не пройдёт нигде.", "mc_regime": "Regime MC", "mc_regime_desc": "Рынок переключается между 5 режимами (Bull, Bear, Range, High/Low Vol). В каждом режиме свои мультипликаторы WR и R:R.", "mc_regime_use": "Когда вы знаете, что система работает по-разному в тренде и флете.", "mc_corr": "Correlated MC", "mc_corr_desc": "Вероятность следующей сделки зависит от предыдущих через скрытый моментум-фактор.", "mc_corr_use": "Для mean-reversion и momentum-систем, где серии не случайны.", "mc_stress": "Stress Test MC", "mc_stress_desc": "3% вероятность экстремального гэпа/шока на сделку.", "mc_stress_use": "Проверка на «чёрных лебедей» и кризисы.", "psych_title": "5.2. Psychology — Probability Model", "psych_desc": "Вместо жёстких правил («после 3 стопов всегда паникуем») используется вероятностная модель. Каждый эффект имеет вероятность срабатывания и силу влияния.", "psych_fear": "Fear — после 3+ стопов подряд с заданной вероятностью снижает риск. Имитирует консервативность после боли.", "psych_greed": "Greed — после 3+ побед подряд с заданной вероятностью увеличивает риск и снижает WR (передержка позиций).", "psych_tilt": "Tilt — при просадке >15% с заданной вероятностью снижает WR (месть рынку, импульсивные сделки).", "psych_recovery": "Recovery — при просадке >20% с заданной вероятностью жёстко ограничивает риск (режим «выживания»).", "psych_overconf": "Overconfidence — после 5+ побед подряд с заданной вероятностью пропускает сделки («я уже всё знаю»).", "psych_decay": "Edge Decay — после 4+ стопов подряд WR падает на заданный % (усталость, деградация дисциплины).", "regimes_title": "5.3. Market Regimes", "regimes_desc": "Марковская модель: рынок находится в одном из 5 состояний и с заданной вероятностью переключается в другое.", "regime_bull": "Bull", "regime_bull_wr": "×1.12", "regime_bull_rr": "×1.05", "regime_bull_desc": "Тренд вверх. Легче зарабатывать лонг.", "regime_bear": "Bear", "regime_bear_wr": "×0.78", "regime_bear_rr": "×0.85", "regime_bear_desc": "Тренд вниз. Сложнее, больше ложных пробоев.", "regime_range": "Range", "regime_range_wr": "×0.92", "regime_range_rr": "×0.65", "regime_range_desc": "Флет. Меньше движения, цели не достигаются.", "regime_high": "High Vol", "regime_high_wr": "×0.88", "regime_high_rr": "×1.25", "regime_high_desc": "Высокая волатильность. Широкие стопы, но и большие цели.", "regime_low": "Low Vol", "regime_low_wr": "×1.04", "regime_low_rr": "×0.75", "regime_low_desc": "Низкая волатильность. Мало движения, комиссии «съедают» профит.", "autocorr_title": "5.4. Autocorrelation", "autocorr_desc": "Скрытая переменная momentum обновляется по формуле:", "autocorr_formula": "momentum = momentum × ρ + sign(последних результатов) × (1 − ρ) × 0.3", "autocorr_desc2": "где ρ — сила автокорреляции. Это создаёт «полосатость» результатов: серии побед и поражений кластеризуются, как в реальности.", "charts_title": "6. Графики и аналитика", "chart_equity": "Equity Curves (10–90%)", "chart_equity_desc": "Диапазон кривых капитала от 10-го до 90-го перцентиля.", "chart_equity_read": "Если 10-й перцентиль уходит в минус — даже «удачный» сценарий плох.", "chart_final": "Final Results", "chart_final_desc": "Гистограмма финальных доходностей.", "chart_final_read": "Нормальное распределение — хорошо. Сильный хвост влево — высокий риск слива.", "chart_dd": "Max Drawdown", "chart_dd_desc": "Распределение максимальных просадок.", "chart_dd_read": "Пик должен быть левее 20%. Если пик за 30% — готовьтесь к боли.", "chart_target": "Target Probabilities", "chart_target_desc": "Вероятность достижения целей (+10%, +25%, +50%, +100%, +200%).", "chart_target_read": "Если +100% достижимо <10% — система слишком медленная для ваших целей.", "chart_streak": "Streak Analysis", "chart_streak_desc": "Частота серий прибылей и убытков подряд.", "chart_streak_read": "6+ стопов подряд — нормально для WR 40%. Если не готовы морально — снижайте риск.", "chart_compare": "Ideal vs Reality", "chart_compare_desc": "Сравнение доходности без издержек и с издержками + психологией.", "chart_compare_read": "Разница >30% — издержки критичны. Пора менять брокера или стратегию.", "chart_ab": "Strategy A vs B", "chart_ab_desc": "Прямое сравнение двух наборов параметров.", "chart_ab_read": "Используйте для выбора между консервативным и агрессивным сетапом.", "chart_scenario": "Scenario Analysis", "chart_scenario_desc": "Чувствительность к ±5% WR и ±0.5 R:R.", "chart_scenario_read": "Если система падает в минус при WR−5% — edge слишком хрупкий.", "chart_kelly": "Kelly Curve", "chart_kelly_desc": "Доходность vs доля Kelly.", "chart_kelly_read": "Пик кривой — оптимальный риск. Спад после пика — overbetting разрушает капитал.", "chart_ladder": "Risk Ladder", "chart_ladder_desc": "Таблица: 8 уровней риска с оценкой.", "chart_ladder_read": "Найдите строку с «✅ Консервативно» или «✓ Приемлемо» — это ваш риск.", "chart_heatmap": "Heatmap", "chart_heatmap_desc": "Тепловая карта WR × R:R.", "chart_heatmap_read": "Зелёные ячейки — «зона прибыли». Ищите комбинации, где вы уверены.", "method_title": "7. Методология и формулы", "mc_method": "7.1. Метод Монте-Карло", "mc_method_desc": "Вместо одного «предсказания» генерируется N случайных путей. Каждый путь — это последовательность сделок, где результат каждой сделки определяется броском псевдослучайного числа (RNG) с заданной вероятностью.", "kelly_formula": "7.2. Формула Келли", "kelly_formula_desc": "где p — win rate, q = 1 − p, b — reward/risk. Full Kelly даёт максимальный геометрический рост, но с экстремальной волатильностью. Half Kelly — компромисс между ростом и просадкой.", "wilson": "7.3. Wilson Score Interval", "wilson_desc": "Для оценки доверительного интервала win rate используется точный интервал Уилсона — он работает даже при малых выборках и не выходит за границы [0, 1], в отличие от нормального приближения.", "bs_title": "7.4. Bullshit Detector", "bs_desc": "Скоринговая модель (0–100) проверяет комбинацию параметров на реалистичность:", "bs_li1": "WR >75% + R:R >2 — редко встречается без HFT.", "bs_li2": "CAGR >200% — аномально для любого рынка.", "bs_li3": "Calmar >5 (доходность/просадка) — классический признак overfitting.", "bs_li4": "Низкая просадка (<10%) при высокой доходности (>50%) — подозрительно.", "prop_title": "7.5. Prop Firm Analyzer", "prop_desc": "Для каждой симуляции строится дневная кривая капитала (сделки равномерно распределены по дням). Проверяется:", "prop_li1": "Не превышен ли дневной лимит просадки.", "prop_li2": "Не превышен ли общий лимит просадки.", "prop_li3": "Достигнута ли цель прибыли за отведённые дни.", "csv_title": "8. Импорт CSV", "csv_desc": "Вы можете загрузить реальные сделки из бэктеста или журнала трейдера.", "csv_format": "Формат файла", "csv_li1": "date — дата сделки (опционально, для справки).", "csv_li2": "pnl — прибыль/убыток в валюте. Обязательная колонка.", "csv_li3": "r_multiple — результат в единицах R (опционально).", "csv_desc2": "После импорта приложение автоматически рассчитает Win Rate, R:R, Profit Factor, Max Drawdown и подставит параметры в симулятор.", "faq_title": "9. FAQ и типичные ошибки", "faq_q1": "Q: Графики не отображаются / пустые?", "faq_a1": "A: Убедитесь, что у вас стабильное интернет-соединение — Chart.js загружается из CDN. Если вы открываете файл локально без интернета, скачайте библиотеку и замените строку <script src=...> на локальный путь.", "faq_q2": "Q: Симуляция тормозит на телефоне?", "faq_a2": "A: Уменьшите Simulations до 500–800. Heatmap и Risk Ladder считаются асинхронно, но на слабом устройстве это может занимать 10–20 секунд.", "faq_q3": "Q: Что значит «Kelly Optimal: 33.33%» — это нормально?", "faq_a3": "A: Это математически оптимальный риск для ваших параметров. Но Full Kelly при 33% риска даст просадку 60–80%. Никогда не используйте Full Kelly в реальности. Выберите Half Kelly (16.67%) или Quarter Kelly (8.33%).", "faq_q4": "Q: Почему Expected Return и Median сильно отличаются?", "faq_a4": "A: Это означает скошенное распределение (редкие большие выигрыши). Median — более честная оценка того, что вы получите «в среднем».", "faq_q5": "Q: Как использовать A/B сравнение?", "faq_a5": "A: Включите Strategy B и задайте альтернативные параметры. Например, сравните «WR 50%, R:R 2.0» vs «WR 40%, R:R 3.0». Часто более низкий WR с высоким R:R даёт лучшую просадку, но худшую консистентность.", "faq_q6": "Q: Bullshit Score 75 — моя система плохая?", "faq_a6": "A: Не обязательно. Это означает, что параметры выглядят «слишком хорошо» и требуют дополнительной проверки на реальных данных. Проверьте: не overfit ли вы на истории? Не завышен ли WR? Загрузите реальный CSV — Bullshit Score пересчитается.", "feedback": "📬 Обратная связь", "feedback_desc": "Это open-source инструмент. Если вы нашли баг или хотите новую фичу (например, интеграцию с MT4/TradingView), сохраните параметры через «Экспорт CSV» и приложите к описанию проблемы.", "toc_title": "Содержание"}, "en": {"title": "Strategy Architect Pro — User Guide", "subtitle": "Complete user guide. Version 1.0", "toc_what": "1. What is this project", "toc_quick": "2. Quick Start", "toc_params": "3. Parameters (basic)", "toc_kpi": "4. Key Metrics", "toc_advanced": "5. Advanced Settings (pro)", "toc_charts": "6. Charts & Analytics", "toc_method": "7. Methodology & Formulas", "toc_csv": "8. CSV Import", "toc_faq": "9. FAQ & Common Mistakes", "what_title": "1. What is this project", "what_p1": "Strategy Architect Pro is a professional web simulator for quantitative evaluation of trading systems. It allows you to 'play out' your strategy thousands of times under different market conditions, accounting for costs, psychology, and randomness.", "for_who": "🎯 For whom", "for_who_desc": "Traders, algorithmic developers, capital managers, and prop traders who want to objectively assess system robustness before going live.", "key_idea": "🧠 Key idea", "key_idea_desc": "Instead of believing a 'beautiful equity curve' from backtesting, you model the future via Monte Carlo: random paths with given probability and risk.", "quick_title": "2. Quick Start", "quick_li1": "Open strategy_architect_pro.html in a browser (Chrome, Firefox, Safari, Edge).", "quick_li2": "In the left panel set 3 main parameters: Win Rate, Risk per trade, Reward/Risk.", "quick_li3": "Click 'Run Simulation' or enable 'Auto-update'.", "quick_li4": "Watch KPIs and charts. If Bullshit Score is low — the system is realistic. If high — you're overestimating edge.", "params_title": "3. Parameters (basic)", "params_desc": "These parameters are visible immediately and require no expert knowledge.", "param_wr": "Win rate", "param_wr_desc": "Percentage of winning trades. Don't confuse with accuracy — it's the share of +trades out of total.", "param_wr_val": "35–55% for trend systems, 60–75% for scalping.", "param_risk": "Risk / trade", "param_risk_desc": "How much capital is risked per trade (in %). Position size is recalculated from current equity (geometric growth).", "param_risk_val": "0.5–2%. Above 2% — aggressive, below 0.5% — conservative.", "param_rr": "Reward / risk", "param_rr_desc": "Target-to-stop ratio. If stop is 1R and target is 2R — this is 2.0.", "param_rr_val": "1.5–3.0. Below 1.0 — the system is losing even at 50% WR.", "param_cap": "Capital", "param_cap_desc": "Starting capital for simulation.", "param_cap_val": "$10,000 for prop, $100,000+ for personal account.", "param_trades": "Trades", "param_trades_desc": "Number of trades in one run. This is the planning horizon.", "param_trades_val": "100 trades ≈ 2–4 months of active trading.", "param_sims": "Simulations", "param_sims_desc": "How many random paths to generate. More = more accurate but slower.", "param_sims_val": "1500–3000 is optimal for a browser.", "param_fees": "Round-trip fees", "param_fees_desc": "Total costs for entry+exit: commission + spread + slippage. One slider for simplicity.", "param_fees_val": "0.08–0.2% for Forex/crypto, 0.02–0.05% for futures.", "kpi_title": "4. Key Metrics (KPI)", "kpi_desc": "After running, 8 cards appear in the top panel:", "kpi_exp": "Expected Return", "kpi_exp_tag": "Average", "kpi_exp_desc": "Average return across all simulations. Can be inflated by outliers (one lucky run). Check together with Median.", "kpi_med": "Median Result", "kpi_med_tag": "Robust", "kpi_med_desc": "Median — the return you will get with 50% probability. Robust to outliers. If Expected >> Median — distribution is right-skewed (rare big wins).", "kpi_pop": "Probability of Profit", "kpi_pop_tag": "Important", "kpi_pop_desc": "Share of runs that ended in profit. >60% — good, <40% — system is unstable.", "kpi_dd": "Avg Max Drawdown", "kpi_dd_tag": "Risk", "kpi_dd_desc": "Average maximum drawdown within one run. Drawdown 30%+ requires iron nerves.", "kpi_ruin": "Risk of Ruin", "kpi_ruin_tag": "Critical", "kpi_ruin_desc": "Probability of losing 95%+ of capital. >5% — dangerous, >10% — unacceptable for serious trading.", "kpi_pf": "Profit Factor", "kpi_pf_tag": "Classic", "kpi_pf_desc": "Gross profit / gross loss. >1.5 — good, >2.0 — excellent, <1.0 — losing.", "kpi_ev": "Expectancy", "kpi_ev_tag": "Edge", "kpi_ev_desc": "Average result of one trade in R units. +0.5R means on average each trade yields half the risk in profit.", "kpi_kelly": "Kelly Optimal", "kpi_kelly_tag": "Careful", "kpi_kelly_desc": "Optimal position size by Kelly formula. Full Kelly is too volatile — Half Kelly (half) is recommended.", "advanced_title": "5. Advanced Settings (for pros)", "advanced_desc": "Click ⚙️ Advanced Settings to expand. These affect simulation realism but require understanding.", "mc_title": "5.1. Monte Carlo Mode", "mc_simple": "Simple MC", "mc_simple_desc": "Each trade is independent. Coin flip.", "mc_simple_use": "Basic check. If the system fails here — it will fail everywhere.", "mc_regime": "Regime MC", "mc_regime_desc": "Market switches between 5 regimes (Bull, Bear, Range, High/Low Vol). Each regime has its own WR and R:R multipliers.", "mc_regime_use": "When you know the system works differently in trend and flat.", "mc_corr": "Correlated MC", "mc_corr_desc": "Probability of next trade depends on previous ones via hidden momentum factor.", "mc_corr_use": "For mean-reversion and momentum systems where streaks are not random.", "mc_stress": "Stress Test MC", "mc_stress_desc": "3% chance of extreme gap/shock per trade.", "mc_stress_use": "Testing for 'black swans' and crises.", "psych_title": "5.2. Psychology — Probability Model", "psych_desc": "Instead of hard rules ('after 3 stops we always panic'), a probabilistic model is used. Each effect has a trigger probability and impact strength.", "psych_fear": "Fear — after 3+ consecutive stops, with given probability reduces risk. Mimics conservatism after pain.", "psych_greed": "Greed — after 3+ consecutive wins, with given probability increases risk and reduces WR (overholding positions).", "psych_tilt": "Tilt — at drawdown >15%, with given probability reduces WR (revenge trading, impulsive trades).", "psych_recovery": "Recovery — at drawdown >20%, with given probability hard-caps risk ('survival mode').", "psych_overconf": "Overconfidence — after 5+ consecutive wins, with given probability skips trades ('I already know everything').", "psych_decay": "Edge Decay — after 4+ consecutive stops, WR drops by given % (fatigue, discipline degradation).", "regimes_title": "5.3. Market Regimes", "regimes_desc": "Markov model: market is in one of 5 states and with given probability switches to another.", "regime_bull": "Bull", "regime_bull_wr": "×1.12", "regime_bull_rr": "×1.05", "regime_bull_desc": "Uptrend. Easier to make money on longs.", "regime_bear": "Bear", "regime_bear_wr": "×0.78", "regime_bear_rr": "×0.85", "regime_bear_desc": "Downtrend. Harder, more false breakouts.", "regime_range": "Range", "regime_range_wr": "×0.92", "regime_range_rr": "×0.65", "regime_range_desc": "Flat. Less movement, targets not reached.", "regime_high": "High Vol", "regime_high_wr": "×0.88", "regime_high_rr": "×1.25", "regime_high_desc": "High volatility. Wide stops but also big targets.", "regime_low": "Low Vol", "regime_low_wr": "×1.04", "regime_low_rr": "×0.75", "regime_low_desc": "Low volatility. Little movement, commissions eat profit.", "autocorr_title": "5.4. Autocorrelation", "autocorr_desc": "Hidden variable momentum updates by formula:", "autocorr_formula": "momentum = momentum × ρ + sign(last results) × (1 − ρ) × 0.3", "autocorr_desc2": "where ρ is autocorrelation strength. This creates 'striped' results: win/loss streaks cluster as in reality.", "charts_title": "6. Charts & Analytics", "chart_equity": "Equity Curves (10–90%)", "chart_equity_desc": "Range of equity curves from 10th to 90th percentile.", "chart_equity_read": "If 10th percentile goes negative — even the 'lucky' scenario is bad.", "chart_final": "Final Results", "chart_final_desc": "Histogram of final returns.", "chart_final_read": "Normal distribution — good. Strong left tail — high ruin risk.", "chart_dd": "Max Drawdown", "chart_dd_desc": "Distribution of maximum drawdowns.", "chart_dd_read": "Peak should be left of 20%. If peak beyond 30% — prepare for pain.", "chart_target": "Target Probabilities", "chart_target_desc": "Probability of reaching targets (+10%, +25%, +50%, +100%, +200%).", "chart_target_read": "If +100% achievable <10% — system is too slow for your goals.", "chart_streak": "Streak Analysis", "chart_streak_desc": "Frequency of profit and loss streaks.", "chart_streak_read": "6+ consecutive stops is normal for 40% WR. If not mentally ready — reduce risk.", "chart_compare": "Ideal vs Reality", "chart_compare_desc": "Comparing returns without costs vs with costs + psychology.", "chart_compare_read": "Difference >30% — costs are critical. Time to change broker or strategy.", "chart_ab": "Strategy A vs B", "chart_ab_desc": "Direct comparison of two parameter sets.", "chart_ab_read": "Use to choose between conservative and aggressive setups.", "chart_scenario": "Scenario Analysis", "chart_scenario_desc": "Sensitivity to ±5% WR and ±0.5 R:R.", "chart_scenario_read": "If system goes negative at WR−5% — edge is too fragile.", "chart_kelly": "Kelly Curve", "chart_kelly_desc": "Return vs Kelly fraction.", "chart_kelly_read": "Peak of curve — optimal risk. Decline after peak — overbetting destroys capital.", "chart_ladder": "Risk Ladder", "chart_ladder_desc": "Table: 8 risk levels with assessment.", "chart_ladder_read": "Find the row with '✅ Conservative' or '✓ Acceptable' — that's your risk.", "chart_heatmap": "Heatmap", "chart_heatmap_desc": "Heatmap of WR × R:R.", "chart_heatmap_read": "Green cells — 'profit zone'. Find combinations you're confident in.", "method_title": "7. Methodology & Formulas", "mc_method": "7.1. Monte Carlo Method", "mc_method_desc": "Instead of one 'prediction', N random paths are generated. Each path is a sequence of trades where each trade's outcome is determined by a pseudo-random number (RNG) with given probability.", "kelly_formula": "7.2. Kelly Formula", "kelly_formula_desc": "where p is win rate, q = 1 − p, b is reward/risk. Full Kelly gives maximum geometric growth but with extreme volatility. Half Kelly is a compromise between growth and drawdown.", "wilson": "7.3. Wilson Score Interval", "wilson_desc": "For win rate confidence interval estimation, the exact Wilson interval is used — it works even with small samples and stays within [0, 1], unlike normal approximation.", "bs_title": "7.4. Bullshit Detector", "bs_desc": "Scoring model (0–100) checks parameter combination for realism:", "bs_li1": "WR >75% + R:R >2 — rarely seen without HFT.", "bs_li2": "CAGR >200% — anomalous for any market.", "bs_li3": "Calmar >5 (return/drawdown) — classic overfitting sign.", "bs_li4": "Low drawdown (<10%) with high return (>50%) — suspicious.", "prop_title": "7.5. Prop Firm Analyzer", "prop_desc": "For each simulation, a daily equity curve is built (trades evenly distributed across days). Checks:", "prop_li1": "Daily drawdown limit not exceeded.", "prop_li2": "Total drawdown limit not exceeded.", "prop_li3": "Profit target reached within allotted days.", "csv_title": "8. CSV Import", "csv_desc": "You can upload real trades from backtest or trader journal.", "csv_format": "File format", "csv_li1": "date — trade date (optional, for reference).", "csv_li2": "pnl — profit/loss in currency. Required column.", "csv_li3": "r_multiple — result in R units (optional).", "csv_desc2": "After import, the app automatically calculates Win Rate, R:R, Profit Factor, Max Drawdown and populates the simulator parameters.", "faq_title": "9. FAQ & Common Mistakes", "faq_q1": "Q: Charts not showing / empty?", "faq_a1": "A: Make sure you have stable internet — Chart.js loads from CDN. If opening locally without internet, download the library and replace the <script src=...> line with a local path.", "faq_q2": "Q: Simulation is slow on phone?", "faq_a2": "A: Reduce Simulations to 500–800. Heatmap and Risk Ladder are calculated asynchronously, but on weak devices it may take 10–20 seconds.", "faq_q3": "Q: What does 'Kelly Optimal: 33.33%' mean — is it normal?", "faq_a3": "A: This is the mathematically optimal risk for your parameters. But Full Kelly at 33% risk will give 60–80% drawdown. Never use Full Kelly in reality. Choose Half Kelly (16.67%) or Quarter Kelly (8.33%).", "faq_q4": "Q: Why do Expected Return and Median differ so much?", "faq_a4": "A: This means skewed distribution (rare big wins). Median is a more honest estimate of what you'll get 'on average'.", "faq_q5": "Q: How to use A/B comparison?", "faq_a5": "A: Enable Strategy B and set alternative parameters. For example, compare 'WR 50%, R:R 2.0' vs 'WR 40%, R:R 3.0'. Often lower WR with higher R:R gives better drawdown but worse consistency.", "faq_q6": "Q: Bullshit Score 75 — is my system bad?", "faq_a6": "A: Not necessarily. It means parameters look 'too good' and need additional verification on real data. Check: did you overfit on history? Is WR inflated? Upload real CSV — Bullshit Score will recalculate.", "feedback": "📬 Feedback", "feedback_desc": "This is an open-source tool. If you found a bug or want a new feature (e.g., MT4/TradingView integration), save parameters via 'Export CSV' and attach to the issue description.", "toc_title": "Contents"}};
+let currentLang = localStorage.getItem('sap_manual_lang') || 'ru';
+
+function setLang(lang){{
+  currentLang = lang;
+  localStorage.setItem('sap_manual_lang', lang);
+  applyLanguage();
+  document.querySelectorAll('.lang-btn').forEach(function(b){{
+    b.classList.toggle('active', b.id === 'btn-'+lang);
+  }});
+}}
+
+function t(key){{
+  const val = i18n[currentLang] && i18n[currentLang][key];
+  return val !== undefined ? val : key;
+}}
+
+function applyLanguage(){{
+  document.querySelectorAll('[data-i18n]').forEach(function(el){{
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    el.textContent = val;
+  }});
+  document.title = t('title');
+}}
+
+(function(){{
+  const saved = localStorage.getItem('sap_manual_lang');
+  if(saved === 'en' || saved === 'ru') currentLang = saved;
+  applyLanguage();
+  document.getElementById('btn-ru').classList.toggle('active', currentLang === 'ru');
+  document.getElementById('btn-en').classList.toggle('active', currentLang === 'en');
+}})();
+</script>
+</body>
+</html>
