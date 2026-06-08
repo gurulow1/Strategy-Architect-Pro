@@ -80,3 +80,4 @@ sliders with no verdict. Key fixes carried into v2:
 
 The default-on, 12-knob "psychology" model was dropped from the baseline: a tool whose
 job is to show reality should not silently inject speculative behavioral fudge.
+"# Strategy-Architect-Pro" 
