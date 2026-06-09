@@ -136,7 +136,7 @@ DIAGNOSTICS:
 ${JSON.stringify(diagnostics ?? {}, null, 2)}
 
 Return ONLY valid JSON (no extra text, no markdown):
-{"answer":"<2-4 sentences in ${language}>","evidence":["<specific stat or number>"],"confidence":"high"|"medium"|"low","caveat":null}
+{"answer":"<2-4 sentences in ${language}>","evidence":["<specific stat or number>"],"confidence":"high"|"medium"|"low","caveat":null,"navigation":null}
 
 Rules:
 - Only reference data that appears explicitly above
@@ -144,7 +144,22 @@ Rules:
 - confidence: "high" if data answers it directly, "medium" if inferential, "low" if speculative
 - evidence: list specific numbers from the metrics — not general statements
 - caveat: null or one sentence in ${language} about limitations
-- All text in ${language}`;
+- All text in ${language}
+
+NAVIGATION HINT (optional):
+If your answer references a specific parameter the user should look at, set the "navigation" field to help them navigate directly to it.
+Otherwise set "navigation": null.
+
+Valid navigation object shape: {"tab":"<tab-id>","highlight":"<element-id>"}
+
+Valid tab IDs:          quick | journal | robustness | prop
+Valid highlight IDs:
+  quick tab     → qc-winrate, qc-rr, qc-risk, qc-cost, qc-capital, qc-trades
+  results cards → kpi-expectancy, kpi-pf, kpi-ruin, kpi-dd, kpi-pop, kpi-kelly, kpi-sig
+  prop tab      → pp-daily, pp-max, pp-target
+
+Only use a highlight ID that is genuinely relevant to your answer.
+If the answer is general (no specific parameter), set navigation: null.`;
 
   return geminiJSON(model, prompt);
 }

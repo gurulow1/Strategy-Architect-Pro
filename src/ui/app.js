@@ -29,6 +29,20 @@ export function boot() {
     // Re-mount the active tab so dynamic content is re-translated.
     remountActive();
   });
+
+  // ── Contextual navigation API for AI chat ──────────────────────────────────
+  // Called by AIChat.js when the user clicks a "📍 Go to …" pill.
+  // 1. Switch to the target tab (if different from the current one).
+  // 2. After the tab is mounted / visible, find and flash the element.
+  window.__sap_navigateTo = (tabId, elementId) => {
+    if (tabId && tabId !== activeTab) {
+      selectTab(tabId);
+      // Give the panel a tick to become visible before searching.
+      if (elementId) setTimeout(() => highlightElement(elementId), 150);
+    } else if (elementId) {
+      highlightElement(elementId);
+    }
+  };
 }
 
 function renderShell() {
@@ -94,4 +108,39 @@ function remountActive() {
   for (const k of Object.keys(panels)) delete panels[k];
   renderShell();
   selectTab(activeTab);
+}
+
+// ── Element highlight helper ────────────────────────────────────────────────
+// Finds the element by id inside the currently-visible panel-host, opens any
+// collapsed <details> ancestors, scrolls it into view, and plays the flash
+// animation (css class "ai-highlight", injected by AIChat.js).
+function highlightElement(id) {
+  if (!id) return;
+
+  // Search inside the active (visible) panel-host first; fall back to document.
+  // Note: getElementById lives only on Document, so we use querySelector('#id').
+  const activePanel = panels[activeTab]?.el ?? null;
+  let el = activePanel ? activePanel.querySelector(`#${CSS.escape(id)}`) : null;
+  if (!el) {
+    // Some elements may live outside the panel-host (e.g. summary cards).
+    el = document.getElementById(id);
+  }
+  if (!el) return;
+
+  // Open any collapsed <details> ancestors so the element is reachable.
+  let node = el.parentElement;
+  while (node && node !== document.body) {
+    if (node.tagName === 'DETAILS') node.open = true;
+    node = node.parentElement;
+  }
+
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  // Remove then re-add the class so re-clicking the pill replays the animation.
+  el.classList.remove('ai-highlight');
+  // One rAF ensures the browser processes the removal before adding it back.
+  requestAnimationFrame(() => {
+    el.classList.add('ai-highlight');
+    setTimeout(() => el.classList.remove('ai-highlight'), 2300);
+  });
 }
