@@ -110,6 +110,23 @@ function wireAuthOverlay(el) {
   });
 }
 
+// ── Background grid parallax (max ±5px shift on mouse move) ──────────────────
+(function initGridParallax() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let rafId = null;
+  let tx = 0, ty = 0;
+  document.addEventListener('mousemove', (e) => {
+    tx = (e.clientX / window.innerWidth  - 0.5) * 10;
+    ty = (e.clientY / window.innerHeight - 0.5) * 10;
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      document.documentElement.style.setProperty('--grid-x', `${tx.toFixed(1)}px`);
+      document.documentElement.style.setProperty('--grid-y', `${ty.toFixed(1)}px`);
+      rafId = null;
+    });
+  }, { passive: true });
+}());
+
 // ── Shell rendering ───────────────────────────────────────────────────────────
 export function boot() {
   state.seed = state.seed || newSeed();

@@ -1,3 +1,15 @@
+/* ── Typed custom properties — enables smooth color transitions ── */
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #4f46e5;
+}
+@property --accent-hover {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #4338ca;
+}
+
 /* ── CSS custom properties ── */
 :root {
   --bg: #fafafa;
@@ -19,6 +31,12 @@
   --radius: 12px; --radius-sm: 8px;
   --shadow: 0 0 0 1px var(--border), 0 4px 12px rgba(0,0,0,0.04);
   --shadow-hover: 0 0 0 1px var(--border-strong), 0 8px 24px rgba(0,0,0,0.08);
+  --grid-line: rgba(0,0,0,0.04);
+  --grid-x: 0px;
+  --grid-y: 0px;
+
+  /* Animate the accent color over 0.8s — requires @property above */
+  transition: --accent 0.8s ease, --accent-hover 0.8s ease;
 
   /* Legacy aliases — referenced by JS inline styles */
   --panel: var(--bg-elevated);
@@ -48,6 +66,7 @@ html.dark {
   --info: #60a5fa;
   --shadow: 0 0 0 1px var(--border);
   --shadow-hover: 0 0 0 1px var(--border-strong), 0 8px 32px rgba(0,0,0,0.4);
+  --grid-line: rgba(255,255,255,0.03);
 }
 
 /* ── Theme transitions ── */
@@ -58,7 +77,7 @@ html.dark {
     color 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
     box-shadow 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-button, a, .tab, .lang-btn, .theme-btn {
+button, a, .lang-btn, .theme-btn {
   transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -72,7 +91,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   color: var(--text);
   line-height: 1.5;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: var(--grid-x) var(--grid-y);
 }
 #app { max-width: 1400px; margin: 0 auto; padding: 24px 32px 80px; }
 
@@ -152,22 +176,37 @@ h3 {
   border-radius: var(--radius-sm); padding: 12px 14px; text-align: left;
 }
 
-/* ── Tabs ── */
+/* ── Tabs — pill fill animation ── */
 .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
 .tab {
+  position: relative; overflow: hidden;
   text-align: left; background: var(--surface-1); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 16px; cursor: pointer;
   display: flex; flex-direction: column; gap: 3px;
 }
-.tab:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); }
+/* The fill sweeps left→right via scaleX */
+.tab::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--accent-subtle);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+}
+.tab.active::before { transform: scaleX(1); }
+.tab:hover:not(.active) { transform: translateY(-1px); box-shadow: var(--shadow-hover); }
 .tab.active {
-  background: var(--accent-subtle); border-color: var(--accent);
+  background: transparent;
+  border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
-.tab-title { font-weight: 600; font-size: 14px; }
-.tab-sub { font-size: 11px; color: var(--text-secondary); }
-.tab.active .tab-title { color: var(--accent); }
-.tab.active .tab-sub { color: var(--text-secondary); }
+/* Content sits above the fill layer */
+.tab-title { position: relative; z-index: 1; font-weight: 600; font-size: 14px; }
+.tab-sub   { position: relative; z-index: 1; font-size: 11px; color: var(--text-secondary); }
+/* Text color changes 100ms after fill starts */
+.tab.active .tab-title { color: var(--accent); transition: color 0.15s ease 0.1s; }
+.tab.active .tab-sub   { color: var(--text-secondary); }
 
 /* ── Workflow layout ── */
 .wf-head h2 { margin: 0 0 4px; font-size: clamp(18px, 2.5vw, 24px); letter-spacing: -0.02em; }
@@ -177,12 +216,24 @@ h3 {
 .results { min-width: 0; }
 .empty { padding: 40px; text-align: center; color: var(--text-secondary); }
 
-/* ── Cards ── */
+/* ── Cards — spring breathe on hover ── */
 .card {
   background: var(--surface-1); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--shadow);
+  transition:
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
-.card:hover { box-shadow: var(--shadow-hover); }
+.card:hover {
+  transform: scale(1.008);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+/* Verdict and inputs cards don't scale — pulse handles verdict; inputs are interactive */
+.card.verdict:hover,
+.inputs .card:hover { transform: none; }
+
 .pad { padding: 20px; }
 .panel { padding: 20px; }
 .panel h3, .card.pad h3 { margin: 0 0 12px; }
@@ -255,11 +306,29 @@ button.btn-secondary {
 }
 button.btn-secondary:hover { background: var(--border-strong); }
 
-/* ── Verdict ── */
+/* ── Verdict — pulse animations ── */
+@keyframes pulseGood {
+  from { box-shadow: var(--shadow), 0 0 20px rgba(34,197,94,0.3); }
+  to   { box-shadow: var(--shadow), 0 0 44px rgba(34,197,94,0.06); }
+}
+@keyframes pulseBad {
+  0%   { box-shadow: var(--shadow), 0 0 22px rgba(239,68,68,0.32); }
+  25%  { box-shadow: var(--shadow), 0 0  6px rgba(239,68,68,0.06); }
+  50%  { box-shadow: var(--shadow), 0 0 28px rgba(239,68,68,0.24); }
+  75%  { box-shadow: var(--shadow), 0 0  4px rgba(239,68,68,0.04); }
+  100% { box-shadow: var(--shadow), 0 0 22px rgba(239,68,68,0.32); }
+}
+
 .verdict { padding: 18px 22px; margin-bottom: 16px; border-left: 3px solid var(--text-tertiary); }
-.verdict.good { border-left-color: var(--good); }
+.verdict.good {
+  border-left-color: var(--good);
+  animation: pulseGood 3s ease-in-out infinite alternate;
+}
 .verdict.warn { border-left-color: var(--warn); }
-.verdict.bad  { border-left-color: var(--bad); }
+.verdict.bad  {
+  border-left-color: var(--bad);
+  animation: pulseBad 3s steps(4) infinite;
+}
 .verdict-main { display: flex; align-items: center; gap: 18px; }
 .verdict-score {
   font-size: clamp(32px, 5vw, 44px); font-weight: 700; letter-spacing: -0.04em;
@@ -269,7 +338,12 @@ button.btn-secondary:hover { background: var(--border-strong); }
 .verdict-grade { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
 .verdict-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
 
-/* ── KPIs ── */
+/* ── KPIs — slot machine numbers ── */
+@keyframes kpiSlotIn {
+  from { transform: translateY(110%); opacity: 0.4; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
 .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
 .kpi { padding: 16px 20px; min-width: 0; }
 .kpi-label {
@@ -279,8 +353,24 @@ button.btn-secondary:hover { background: var(--border-strong); }
 .kpi-num {
   font-size: clamp(18px, 2.5vw, 24px); font-weight: 700; letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums; margin: 8px 0 4px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  overflow: hidden;
+  white-space: nowrap;
 }
+.kpi-slot {
+  display: block;
+  animation: kpiSlotIn 0.4s ease-out both;
+  overflow: hidden; text-overflow: ellipsis;
+}
+/* Stagger each KPI by 40ms */
+.kpi:nth-child(1) .kpi-slot { animation-delay:   0ms; }
+.kpi:nth-child(2) .kpi-slot { animation-delay:  40ms; }
+.kpi:nth-child(3) .kpi-slot { animation-delay:  80ms; }
+.kpi:nth-child(4) .kpi-slot { animation-delay: 120ms; }
+.kpi:nth-child(5) .kpi-slot { animation-delay: 160ms; }
+.kpi:nth-child(6) .kpi-slot { animation-delay: 200ms; }
+.kpi:nth-child(7) .kpi-slot { animation-delay: 240ms; }
+.kpi:nth-child(8) .kpi-slot { animation-delay: 280ms; }
+.kpi:nth-child(9) .kpi-slot { animation-delay: 320ms; }
 .kpi-sub { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Diagnostics ── */
@@ -300,6 +390,21 @@ button.btn-secondary:hover { background: var(--border-strong); }
 .chart-grid .wide { grid-column: 1 / -1; }
 .chart-wrap { height: 240px; position: relative; }
 .chart-wrap.tall { height: 300px; }
+
+/* 3D perspective on equity chart — flattens on hover */
+.chart-3d {
+  perspective: 1000px;
+  perspective-origin: 50% 40%;
+}
+.chart-3d canvas {
+  transform: rotateX(5deg) rotateY(-3deg);
+  transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.chart-3d:hover canvas {
+  transform: rotateX(0deg) rotateY(0deg);
+}
 
 /* ── Tables ── */
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -386,9 +491,13 @@ button.btn-secondary:hover { background: var(--border-strong); }
 }
 .auth-locked .lock-icon { font-size: 28px; margin-bottom: 10px; display: block; }
 
-/* ── Reduced motion ── */
+/* ── Reduced motion — disable ALL animations ── */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none !important; animation: none !important; }
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+  body { background-image: none; }
 }
 
 /* ── Responsive ── */
@@ -407,6 +516,9 @@ button.btn-secondary:hover { background: var(--border-strong); }
   .hamburger-btn { display: inline-flex; align-items: center; gap: 6px; }
   .lab-chip { display: none; }
   .wf-head h2 { font-size: 18px; }
+  /* Disable scale + parallax on touch devices */
+  .card:hover { transform: none; }
+  .chart-3d canvas { transform: none; }
 }
 
 @media (max-width: 640px) {

@@ -8,14 +8,28 @@ const registry = {};
 // ── Theme-aware color palette ─────────────────────────────────────────────────
 function isDark() { return document.documentElement.classList.contains('dark'); }
 
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function c() {
   const dark = isDark();
+  // Read dynamic accent set by setDynamicAccent() in results.js
+  const rawAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const A  = rawAccent.startsWith('#') ? hexToRgba(rawAccent, 0.9)  : (dark ? 'rgba(99,102,241,0.9)'  : 'rgba(79,70,229,0.9)');
+  const AD = rawAccent.startsWith('#') ? hexToRgba(rawAccent, 0.25) : (dark ? 'rgba(99,102,241,0.25)' : 'rgba(79,70,229,0.25)');
+  const AF = rawAccent.startsWith('#') ? hexToRgba(rawAccent, 0.06) : (dark ? 'rgba(99,102,241,0.06)' : 'rgba(79,70,229,0.06)');
   return {
     GOOD:         dark ? 'rgba(34,197,94,0.8)'    : 'rgba(22,163,74,0.8)',
     BAD:          dark ? 'rgba(239,68,68,0.8)'    : 'rgba(220,38,38,0.8)',
     WARN:         dark ? 'rgba(245,158,11,0.8)'   : 'rgba(202,138,4,0.8)',
-    ACCENT:       dark ? 'rgba(99,102,241,0.9)'   : 'rgba(79,70,229,0.9)',
-    ACCENT_DIM:   dark ? 'rgba(99,102,241,0.25)'  : 'rgba(79,70,229,0.25)',
+    ACCENT:       A,
+    ACCENT_DIM:   AD,
+    ACCENT_FILL:  AF,
     grid:         dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
     tick:         dark ? '#737373'                : '#666666',
     tooltipBg:    dark ? '#141414'                : '#ffffff',
@@ -85,10 +99,9 @@ export function refreshChartTheme() {
 
 export function renderEquity(id, bands) {
   const p = c();
-  const fill = isDark() ? 'rgba(99,102,241,0.06)' : 'rgba(79,70,229,0.06)';
   const band = (data, alpha, f) => ({
-    data, borderColor: isDark() ? `rgba(99,102,241,${alpha})` : `rgba(79,70,229,${alpha})`,
-    backgroundColor: fill,
+    data, borderColor: hexToRgba(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || (isDark() ? '#6366f1' : '#4f46e5'), alpha),
+    backgroundColor: p.ACCENT_FILL,
     pointRadius: 0, borderWidth: 1, fill: f, tension: 0.2,
   });
   mount(id, {
@@ -98,7 +111,7 @@ export function renderEquity(id, bands) {
       datasets: [
         band(bands.p90, 0.18, false),
         band(bands.p75, 0.28, '-1'),
-        { data: bands.p50, borderColor: p.ACCENT, backgroundColor: fill, pointRadius: 0, borderWidth: 2, fill: '-1', tension: 0.2 },
+        { data: bands.p50, borderColor: p.ACCENT, backgroundColor: p.ACCENT_FILL, pointRadius: 0, borderWidth: 2, fill: '-1', tension: 0.2 },
         band(bands.p25, 0.28, '-1'),
         band(bands.p10, 0.18, '-1'),
       ],

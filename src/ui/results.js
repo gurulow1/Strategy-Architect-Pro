@@ -20,7 +20,29 @@ function verdict(report) {
 function kpi(label, value, sub, cls = '', id = '') {
   const idAttr = id ? ` id="${id}"` : '';
   return `<div class="kpi card"${idAttr}><div class="kpi-label">${label}</div>
-    <div class="kpi-num ${cls}">${value}</div><div class="kpi-sub">${sub}</div></div>`;
+    <div class="kpi-num ${cls}"><span class="kpi-slot">${value}</span></div>
+    <div class="kpi-sub">${sub}</div></div>`;
+}
+
+// Wire dynamic accent: whole UI shifts color based on strategy health.
+function setDynamicAccent(profitFactor) {
+  const root = document.documentElement;
+  const dark = root.classList.contains('dark');
+  let accent, accentHover, accentSubtle;
+  if (profitFactor >= 2.0) {
+    accent = '#22c55e'; accentHover = '#16a34a'; accentSubtle = 'rgba(34,197,94,0.12)';
+  } else if (profitFactor >= 1.0) {
+    accent = dark ? '#6366f1' : '#4f46e5';
+    accentHover = dark ? '#818cf8' : '#4338ca';
+    accentSubtle = dark ? 'rgba(99,102,241,0.12)' : 'rgba(79,70,229,0.08)';
+  } else if (profitFactor >= 0) {
+    accent = '#ef4444'; accentHover = '#dc2626'; accentSubtle = 'rgba(239,68,68,0.12)';
+  } else {
+    accent = '#7f1d1d'; accentHover = '#991b1b'; accentSubtle = 'rgba(127,29,29,0.15)';
+  }
+  root.style.setProperty('--accent', accent);
+  root.style.setProperty('--accent-hover', accentHover);
+  root.style.setProperty('--accent-subtle', accentSubtle);
 }
 
 function findingList(items) {
@@ -35,6 +57,11 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
   const s = report.stats;
   const sim = report.sim;
   const k = report.kelly;
+
+  // Set dynamic accent BEFORE charts render so c() reads the updated CSS variable.
+  const rawPF = Number.isFinite(s.profitFactor) ? s.profitFactor : 0;
+  setDynamicAccent(rawPF);
+
   const pf = s.profitFactor === Infinity ? '∞' : fmtNum(s.profitFactor);
   const sigPct = pct(report.edge.pAboveZero, 0);
   const sigCls = report.edge.pAboveZero >= 0.95 ? 'good' : report.edge.pAboveZero >= 0.8 ? 'warn' : 'bad';
@@ -75,7 +102,7 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
     </div>
 
     <div class="chart-grid">
-      <section class="card panel wide"><h3>${t('chart_equity')}</h3><div class="chart-wrap tall"><canvas id="c-equity"></canvas></div></section>
+      <section class="card panel wide"><h3>${t('chart_equity')}</h3><div class="chart-wrap chart-3d tall"><canvas id="c-equity"></canvas></div></section>
       <section class="card panel"><h3>${t('chart_dist')}</h3><div class="chart-wrap"><canvas id="c-dist"></canvas></div></section>
       <section class="card panel"><h3>${t('chart_dd')}</h3><div class="chart-wrap"><canvas id="c-dd"></canvas></div></section>
       <section class="card panel"><h3>${t('chart_ruin')}</h3><div class="chart-wrap"><canvas id="c-ruin"></canvas></div></section>
