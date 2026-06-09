@@ -45,7 +45,7 @@ const aiLimiter = rateLimit({
 
 app.post('/api/ai', aiLimiter, async (req, res) => {
   // The API key never leaves the server. If it is missing, the AI is unconfigured.
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.GROQ_API_KEY) {
     return res.status(500).json({ error: 'AI сервис не настроен' });
   }
 
