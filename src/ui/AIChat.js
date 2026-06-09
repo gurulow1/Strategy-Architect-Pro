@@ -11,6 +11,7 @@
 // from styles.css.  Highlight animation + nav-pill styles are injected once.
 
 import { callAI } from '../services/aiClient.js';
+import { t } from './i18n.js';
 
 // ── One-time style injection ──────────────────────────────────────────────────
 function injectStyles() {
@@ -42,49 +43,68 @@ function injectStyles() {
       color: var(--text);
     }
     #ai-resize-handle:hover { opacity: .75; }
+
+    @keyframes ai-spin { to { transform: rotate(360deg); } }
+    .ai-spinner {
+      width: 12px; height: 12px; flex-shrink: 0;
+      border: 2px solid var(--line);
+      border-top-color: var(--accent, #1d4ed8);
+      border-radius: 50%;
+      animation: ai-spin .8s linear infinite;
+    }
   `;
   document.head.appendChild(s);
 }
 
-// ── Human-readable labels for element IDs used in navigation pills ────────────
-const HIGHLIGHT_LABELS = {
-  'qc-winrate':      'Win Rate',
-  'qc-rr':           'Reward : Risk',
-  'qc-risk':         'Risk per Trade',
-  'qc-cost':         'Fees',
-  'qc-capital':      'Account Size',
-  'qc-trades':       'Trade Count',
-  'kpi-expectancy':  'Expectancy',
-  'kpi-pf':          'Profit Factor',
-  'kpi-ruin':        'Risk of Ruin',
-  'kpi-dd':          'Drawdown',
-  'kpi-pop':         'Prob. of Profit',
-  'kpi-kelly':       'Kelly Fraction',
-  'kpi-sig':         'Edge Significance',
-  'pp-daily':        'Daily Loss Limit',
-  'pp-max':          'Max Drawdown Limit',
-  'pp-target':       'Profit Target',
-};
+// ── Localized labels for nav pills — computed at call time so language
+//    changes are reflected without needing a page reload. ────────────────────
+function getTabLabel(tabId) {
+  const map = {
+    quick:      'tab_quick',
+    journal:    'tab_journal',
+    robustness: 'tab_robustness',
+    prop:       'tab_prop',
+  };
+  return t(map[tabId] || tabId);
+}
 
-const TAB_LABELS = {
-  quick:      'Quick Check',
-  journal:    'Journal Analysis',
-  robustness: 'Robustness Test',
-  prop:       'Prop Challenge',
-};
+function getHighlightLabel(id) {
+  const map = {
+    'qc-winrate':     'in_winrate',
+    'qc-rr':          'in_rr',
+    'qc-risk':        'in_risk',
+    'qc-cost':        'in_cost',
+    'qc-capital':     'in_capital',
+    'qc-trades':      'in_trades',
+    'kpi-expectancy': 'kpi_expectancy',
+    'kpi-pf':         'kpi_pf',
+    'kpi-ruin':       'kpi_ruin',
+    'kpi-dd':         'kpi_dd',
+    'kpi-pop':        'kpi_pop',
+    'kpi-kelly':      'kpi_kelly',
+    'kpi-sig':        'kpi_sig',
+    'pp-daily':       'prop_daily',
+    'pp-max':         'prop_max',
+    'pp-target':      'prop_target',
+  };
+  const key = map[id];
+  return key ? t(key) : id.replace(/-/g, ' ');
+}
 
 export function createAIChat() {
   injectStyles();
 
   // ── Persistent closure state ──────────────────────────────────────────────
-  let isOpen     = false;
-  let isResizing = false;
-  let messages   = [];
-  let panel      = null;
-  let msgBox     = null;
-  let inputEl    = null;
-  let sendBtn    = null;
-  let busy       = false;
+  let isOpen      = false;
+  let isResizing  = false;
+  let messages    = [];
+  let panel       = null;
+  let msgBox      = null;
+  let inputEl     = null;
+  let sendBtn     = null;
+  let busy        = false;
+  let thinkingEl  = null;   // the loading indicator DOM node
+  let warmupTimer = null;   // timeout handle for "warming up" message
 
   // Dimensions persist across open/close so the user's resize is remembered.
   let panelW = 600;
@@ -111,8 +131,6 @@ export function createAIChat() {
 
     panel = document.createElement('div');
     panel.className = 'card';
-    // position:fixed; anchored bottom-right; height is controlled directly so
-    // we don't use max-height here — the resize logic manages it.
     panel.style.cssText = [
       'position:fixed', 'bottom:0', 'right:0',
       `width:${panelW}px`, `height:${panelH}px`,
@@ -130,16 +148,16 @@ export function createAIChat() {
         </svg>
       </div>
       <div id="ai-chat-hdr" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px 14px 30px;border-bottom:1px solid var(--line);flex-shrink:0;">
-        <strong>Ask about this strategy</strong>
+        <strong>${t('ai_title')}</strong>
         <button id="ai-chat-close" class="lang-btn">&times;</button>
       </div>
       <div class="muted small" style="padding:6px 18px 0;flex-shrink:0;">
-        Answers based on loaded data only. Not investment advice.
+        ${t('ai_disclaimer')}
       </div>
       <div id="ai-chat-msgs" style="flex:1;overflow-y:auto;padding:10px 18px;min-height:0;"></div>
       <div style="display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--line);flex-shrink:0;">
-        <input id="ai-chat-input" class="select" style="flex:1;" placeholder="Ask a question&hellip;">
-        <button id="ai-chat-send" class="btn-primary" style="width:auto;padding:9px 14px;flex-shrink:0;">Send</button>
+        <input id="ai-chat-input" class="select" style="flex:1;" placeholder="${t('ai_ask')}">
+        <button id="ai-chat-send" class="btn-primary" style="width:auto;padding:9px 14px;flex-shrink:0;">${t('ai_send')}</button>
       </div>`;
 
     msgBox  = panel.querySelector('#ai-chat-msgs');
@@ -163,20 +181,18 @@ export function createAIChat() {
   function close() {
     if (!isOpen) return;
     isOpen = false;
+    hideThinking();
     document.removeEventListener('click', onDocClick);
     if (panel) { panel.remove(); panel = null; }
     msgBox = inputEl = sendBtn = null;
   }
 
   function onDocClick(e) {
-    // Don't close while drag is in progress (mouseup fires before click,
-    // so we delay clearing the flag — see onUp below).
     if (isResizing) return;
     if (panel && !panel.contains(e.target) && e.target !== trigger) close();
   }
 
   // ── Resize (drag top-left handle) ─────────────────────────────────────────
-  // Panel is fixed to bottom-right, so dragging left/up grows the panel.
   function startResize(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -186,7 +202,6 @@ export function createAIChat() {
     const startW = panelW,    startH = panelH;
 
     function onMove(ev) {
-      // Moving left (negative deltaX) → wider; moving up (negative deltaY) → taller.
       panelW = Math.max(380, Math.min(window.innerWidth  * 0.92, startW - (ev.clientX - startX)));
       panelH = Math.max(400, Math.min(window.innerHeight * 0.92, startH - (ev.clientY - startY)));
       if (panel) { panel.style.width = `${panelW}px`; panel.style.height = `${panelH}px`; }
@@ -195,12 +210,38 @@ export function createAIChat() {
     function onUp() {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup',   onUp);
-      // Delay so the click event that fires right after mouseup doesn't close the panel.
       setTimeout(() => { isResizing = false; }, 60);
     }
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup',   onUp);
+  }
+
+  // ── Loading indicator ─────────────────────────────────────────────────────
+  function showThinking() {
+    if (!msgBox) return;
+    thinkingEl = document.createElement('div');
+    thinkingEl.style.marginBottom = '12px';
+    thinkingEl.innerHTML = `
+      <div class="small muted" style="display:flex;align-items:center;gap:6px;">
+        <span class="ai-spinner"></span>
+        <span id="ai-thinking-text">${t('ai_thinking')}</span>
+      </div>`;
+    msgBox.appendChild(thinkingEl);
+    scrollBottom();
+
+    // After 3 s without a response, hint that the server is cold-starting.
+    warmupTimer = setTimeout(() => {
+      if (thinkingEl) {
+        const span = thinkingEl.querySelector('#ai-thinking-text');
+        if (span) span.textContent = t('ai_warmup');
+      }
+    }, 3000);
+  }
+
+  function hideThinking() {
+    if (warmupTimer) { clearTimeout(warmupTimer); warmupTimer = null; }
+    if (thinkingEl)  { thinkingEl.remove(); thinkingEl = null; }
   }
 
   // ── Message sending ───────────────────────────────────────────────────────
@@ -231,7 +272,7 @@ export function createAIChat() {
       messages.push(aiMsg);
       appendMessage(aiMsg);
     } catch (_) {
-      const errMsg = { role: 'ai', text: 'AI unavailable. Please try again later.' };
+      const errMsg = { role: 'ai', text: t('ai_error') };
       messages.push(errMsg);
       appendMessage(errMsg);
     } finally {
@@ -244,6 +285,7 @@ export function createAIChat() {
     busy = on;
     if (inputEl) inputEl.disabled = on;
     if (sendBtn) sendBtn.disabled = on;
+    if (on) showThinking(); else hideThinking();
   }
 
   // ── Message rendering ─────────────────────────────────────────────────────
@@ -261,12 +303,18 @@ export function createAIChat() {
       bubble.textContent = msg.text;
       el.appendChild(bubble);
     } else {
+      // Translate confidence label (AI always returns English keys).
+      const confMap = {
+        high:   t('ai_conf_high'),
+        medium: t('ai_conf_medium'),
+        low:    t('ai_conf_low'),
+      };
       const badgeCls = msg.confidence === 'high'   ? 'badge good'
         : msg.confidence === 'medium'               ? 'badge warn'
         : 'badge muted';
 
       const confidenceHtml = msg.confidence
-        ? `<span class="${badgeCls}">${msg.confidence}</span> `
+        ? `<span class="${badgeCls}">${confMap[msg.confidence] || msg.confidence}</span> `
         : '';
 
       const evidenceHtml = Array.isArray(msg.evidence) && msg.evidence.length
@@ -305,10 +353,8 @@ export function createAIChat() {
 
   function buildNavHtml(nav) {
     if (!nav || !nav.tab) return '';
-    const tabLabel       = TAB_LABELS[nav.tab] || nav.tab;
-    const highlightLabel = nav.highlight
-      ? HIGHLIGHT_LABELS[nav.highlight] || nav.highlight.replace(/-/g, ' ')
-      : null;
+    const tabLabel       = getTabLabel(nav.tab);
+    const highlightLabel = nav.highlight ? getHighlightLabel(nav.highlight) : null;
     const suffix = highlightLabel ? ` → ${highlightLabel}` : '';
     return `<button class="ai-nav-btn">📍 ${tabLabel}${suffix}</button>`;
   }

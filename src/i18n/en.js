@@ -152,6 +152,18 @@ export default {
   prop_atrisk: 'Risk',
   prop_eval: 'Evaluate challenge',
 
+  // AI chat
+  ai_title: 'Ask about this strategy',
+  ai_disclaimer: 'Answers based on loaded data only. Not financial advice.',
+  ai_ask: 'Ask a question…',
+  ai_send: 'Send',
+  ai_error: 'AI unavailable. Please try again later.',
+  ai_thinking: 'AI is thinking…',
+  ai_warmup: 'Server is warming up, please wait…',
+  ai_conf_high: 'high',
+  ai_conf_medium: 'medium',
+  ai_conf_low: 'low',
+
   // misc
   loading: 'Calculating…',
   seed: 'Seed',

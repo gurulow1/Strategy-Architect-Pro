@@ -141,6 +141,18 @@ export default {
   prop_atrisk: 'Риск',
   prop_eval: 'Оценить челлендж',
 
+  // AI chat
+  ai_title: 'Спросить об этой стратегии',
+  ai_disclaimer: 'Ответы основаны только на загруженных данных. Не является инвестиционным советом.',
+  ai_ask: 'Задать вопрос…',
+  ai_send: 'Отправить',
+  ai_error: 'AI недоступен. Попробуйте позже.',
+  ai_thinking: 'AI думает…',
+  ai_warmup: 'Сервер просыпается, подождите…',
+  ai_conf_high: 'высокая',
+  ai_conf_medium: 'средняя',
+  ai_conf_low: 'низкая',
+
   loading: 'Считаю…',
   seed: 'Seed',
   new_seed: 'Новый seed',

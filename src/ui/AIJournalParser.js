@@ -118,10 +118,12 @@ export function createAIJournalParser(container, onTradesConfirmed) {
       <div class="card pad">
         ${truncNoteHtml}
         <h3>Detected: <span class="badge good">${fmt}</span></h3>
-        <table class="data-table">
-          <thead><tr><th>Column</th>${headerCells}</tr></thead>
-          <tbody>${bodyRows}</tbody>
-        </table>
+        <div style="overflow-x:auto;margin:0 -4px;">
+          <table class="data-table" style="min-width:100%;white-space:nowrap;">
+            <thead><tr><th style="padding-right:16px;">Column</th>${headerCells}</tr></thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
+        </div>
         ${moreHtml}
         ${warningHtml ? `<div class="divider"></div>${warningHtml}` : ''}
         <div class="divider"></div>

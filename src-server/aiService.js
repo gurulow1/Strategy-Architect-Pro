@@ -168,13 +168,14 @@ DIAGNOSTICS:
 ${JSON.stringify(diagnostics ?? {}, null, 2)}
 
 Return ONLY valid JSON (no extra text, no markdown):
-{"answer":"<2-4 sentences in ${language}>","evidence":["<specific stat or number>"],"confidence":"high"|"medium"|"low","caveat":null,"navigation":null}
+{"answer":"<2-4 sentences in ${language}>","evidence":["<labeled metric: value>"],"confidence":"high"|"medium"|"low","caveat":null,"navigation":null}
 
 Rules:
 - Only reference data that appears explicitly above
 - If the question cannot be answered from the available data, say so clearly in the answer field
 - confidence: "high" if data answers it directly, "medium" if inferential, "low" if speculative
-- evidence: list specific numbers from the metrics — not general statements
+- evidence: ALWAYS include the metric name before its value — e.g. "Ожидание: −77.3R" or "Expectancy: −77.3R", "Profit Factor: 0.66", "Риск разорения: 97.9%". NEVER list a bare number without a label.
+- Round all numbers to at most 2 decimal places in evidence items
 - caveat: null or one sentence in ${language} about limitations
 - All text in ${language}
 
