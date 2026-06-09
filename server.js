@@ -8,6 +8,11 @@ import { handleFeature } from './src-server/router.js';
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust Railway's (and most PaaS) reverse proxy so that express-rate-limit
+// can read the real client IP from X-Forwarded-For instead of seeing the
+// proxy's internal address. Must come before any middleware that uses IPs.
+app.set('trust proxy', 1);
+
 // CORS: always allow localhost:5173 (dev).
 // In production, allow PRODUCTION_ORIGIN if set; allow all origins as a
 // temporary fallback so the first deploy works before the domain is known.
