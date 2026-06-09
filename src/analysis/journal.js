@@ -9,44 +9,140 @@
 
 import { tradeStats, equityCurve, maxDrawdown, streaks } from '../engine/metrics.js';
 
-export function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
-  if (lines.length < 2) {
-    return { error: 'csv_too_short', trades: [] };
+// Column-name hints (EN + RU) used to (a) locate the real header row when an
+// export has title/preamble lines before it, and (b) skip repeated header rows.
+const HEADER_HINTS = [
+  'instrument', 'инструмент', 'symbol', 'ticker', 'pair',
+  'date', 'дата', 'time', 'время', 'open', 'close',
+  'pnl', 'p/l', 'p&l', 'profit', 'прибыль', 'loss', 'результат',
+  'direction', 'type', 'side', 'order', 'ticket',
+  'volume', 'size', 'lot', 'lots', 'qty', 'quantity',
+  'r_multiple', 'rmultiple', 'r-multiple',
+];
+
+// A row "looks like a header" if any cell is (or contains) a known column name.
+// Used to skip repeated header blocks mid-file without counting them as errors.
+function isHeaderLike(cells) {
+  const lc = cells.map((c) => c.trim().toLowerCase()).filter(Boolean);
+  if (!lc.length) return false;
+  return lc.some((c) => HEADER_HINTS.includes(c)
+    || HEADER_HINTS.some((h) => h.length > 2 && c.includes(h)));
+}
+
+// Find the row that defines the data columns: the first row naming a
+// pnl/profit OR r-multiple column (date is a weaker fallback). Scans the first
+// 20 lines so leading title/preamble rows (MT4/MT5, ATAS) are skipped.
+function findHeaderRow(rows) {
+  const limit = Math.min(rows.length, 20);
+  for (let i = 0; i < limit; i++) {
+    const lc = rows[i].map((c) => c.trim().toLowerCase());
+    const hasPnl = lc.some((c) =>
+      c === 'pnl' || c === 'profit' || c === 'p/l' || c === 'p&l'
+      || c.includes('profit') || c.includes('прибыль'));
+    const hasR = lc.some((c) =>
+      c === 'r' || c === 'r_multiple' || c === 'rmultiple' || c === 'r-multiple');
+    const hasDate = lc.some((c) =>
+      c === 'date' || c.includes('дата') || c.includes('time') || c.includes('время'));
+    if (hasPnl || hasR || (hasDate && lc.length > 1)) return i;
   }
-  const headers = splitRow(lines[0]).map((h) => h.trim().toLowerCase());
-  const pnlIdx = headers.indexOf('pnl');
-  const rIdx = headers.findIndex((h) => h === 'r' || h === 'r_multiple' || h === 'rmultiple');
-  const dateIdx = headers.indexOf('date');
+  return 0;
+}
+
+// Robust numeric parser: tolerates currency symbols, unit suffixes, spaces,
+// thousands separators, European decimal commas, and (parenthesised) negatives.
+// Returns NaN for anything non-numeric so callers can skip the row.
+function toNum(raw) {
+  if (raw == null) return NaN;
+  let s = String(raw).trim();
+  if (!s) return NaN;
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); } // (123) → -123
+  s = s.replace(/[^\d.,+\-eE]/g, '');                         // drop $, %, lots, spaces
+  if (s.includes(',') && s.includes('.')) {
+    s = s.replace(/,/g, '');                                  // 1,234.56 → 1234.56
+  } else if (s.includes(',')) {
+    const parts = s.split(',');
+    s = (parts.length === 2 && parts[1].length <= 2)
+      ? `${parts[0]}.${parts[1]}`                             // 12,5 → 12.5 (decimal comma)
+      : s.replace(/,/g, '');                                  // 1,234 → 1234 (thousands)
+  }
+  const n = parseFloat(s);
+  if (!Number.isFinite(n)) return NaN;
+  return neg ? -n : n;
+}
+
+// Detect the field delimiter from the busiest of the first few lines.
+// Supports comma (default), semicolon (European exports) and tab (TSV).
+function detectDelimiter(lines) {
+  const sample = lines.slice(0, 5).join('\n');
+  const counts = { ',': 0, ';': 0, '\t': 0 };
+  for (const ch of sample) if (ch in counts) counts[ch]++;
+  let best = ',';
+  for (const d of [';', '\t']) if (counts[d] > counts[best]) best = d;
+  return best;
+}
+
+export function parseCsv(text) {
+  const lines = (text ?? '').split(/\r?\n/).filter((l) => l.trim().length);
+  if (lines.length < 2) {
+    return { error: 'csv_too_short', trades: [], warnings: [], skipped: 0 };
+  }
+
+  const delim = detectDelimiter(lines);
+  const rows = lines.map((l) => splitRow(l, delim));
+  const headerIdx = findHeaderRow(rows);
+  const headers = rows[headerIdx].map((h) => h.trim().toLowerCase());
+
+  const pnlIdx = headers.indexOf('pnl') >= 0
+    ? headers.indexOf('pnl')
+    : headers.findIndex((h) =>
+        h === 'profit' || h === 'p/l' || h === 'p&l' || h.includes('profit') || h.includes('прибыль'));
+  const rIdx = headers.findIndex((h) =>
+    h === 'r' || h === 'r_multiple' || h === 'rmultiple' || h === 'r-multiple');
+  const dateIdx = headers.indexOf('date') >= 0
+    ? headers.indexOf('date')
+    : headers.findIndex((h) => h.includes('дата') || h.includes('time') || h.includes('время'));
+
   if (pnlIdx < 0 && rIdx < 0) {
-    return { error: 'no_pnl_column', trades: [] };
+    return { error: 'no_pnl_column', trades: [], warnings: [], skipped: 0 };
   }
 
   const trades = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = splitRow(lines[i]);
-    const pnl = pnlIdx >= 0 ? parseFloat(cols[pnlIdx]) : NaN;
-    const r = rIdx >= 0 ? parseFloat(cols[rIdx]) : NaN;
+  let skipped = 0;
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const cols = rows[i];
+    if (!cols.length || cols.every((c) => !c.trim())) continue;   // blank row
+    if (isHeaderLike(cols)) continue;                             // repeated header — skip silently
+
+    const pnl = pnlIdx >= 0 ? toNum(cols[pnlIdx]) : NaN;
+    const r = rIdx >= 0 ? toNum(cols[rIdx]) : NaN;
     const date = dateIdx >= 0 ? (cols[dateIdx] || '').trim() : null;
-    if (Number.isNaN(pnl) && Number.isNaN(r)) continue;
+
+    // Critical fields missing/non-numeric → skip the row, don't crash the run.
+    if (!Number.isFinite(pnl) && !Number.isFinite(r)) { skipped++; continue; }
+
     trades.push({
       date,
-      pnl: Number.isNaN(pnl) ? null : pnl,
-      r: Number.isNaN(r) ? null : r,
+      pnl: Number.isFinite(pnl) ? pnl : null,
+      r: Number.isFinite(r) ? r : null,
     });
   }
-  if (trades.length < 5) return { error: 'too_few_trades', trades };
-  return { error: null, trades, hasR: rIdx >= 0, hasDate: dateIdx >= 0 };
+
+  const warnings = skipped > 0 ? [{ id: 'skipped_rows', vars: { n: skipped } }] : [];
+  if (trades.length < 5) return { error: 'too_few_trades', trades, warnings, skipped };
+  return { error: null, trades, hasR: rIdx >= 0, hasDate: dateIdx >= 0, warnings, skipped };
 }
 
-// Minimal CSV row splitter that tolerates simple quoted fields.
-function splitRow(line) {
+// Minimal CSV row splitter: tolerates quoted fields, a configurable delimiter,
+// and a leading UTF-8 BOM. Defaults to comma for backward compatibility.
+function splitRow(line, delim = ',') {
   const out = [];
   let cur = '', inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
+  const src = line.charCodeAt(0) === 0xFEFF ? line.slice(1) : line; // strip UTF-8 BOM
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
     if (ch === '"') inQ = !inQ;
-    else if (ch === ',' && !inQ) { out.push(cur); cur = ''; }
+    else if (ch === delim && !inQ) { out.push(cur); cur = ''; }
     else cur += ch;
   }
   out.push(cur);
@@ -62,15 +158,19 @@ function splitRow(line) {
  * put a currency journal onto an R footing.
  */
 export function analyzeJournal(parsed) {
-  const trades = parsed.trades;
+  // Defensive: keep only trades with at least one finite metric so a stray
+  // NaN/Infinity from upstream parsing can never poison the engine's stats.
+  const trades = (parsed.trades || []).filter(
+    (t) => Number.isFinite(t.r) || Number.isFinite(t.pnl),
+  );
   // Native per-trade series: prefer explicit R, else PnL.
-  const native = trades.map((t) => (t.r != null ? t.r : t.pnl));
+  const native = trades.map((t) => (Number.isFinite(t.r) ? t.r : t.pnl));
   const stats = tradeStats(native);
 
   // Build the R-multiple sample for the simulator.
   let rSample;
   let rBasis;
-  const explicitR = trades.every((t) => t.r != null) && trades.some((t) => t.r != null);
+  const explicitR = trades.length > 0 && trades.every((t) => Number.isFinite(t.r));
   if (explicitR) {
     rSample = trades.map((t) => t.r);
     rBasis = 'explicit';

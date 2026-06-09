@@ -31,13 +31,15 @@ export function mountJournal(container) {
   let analysis = null;
 
   createAIJournalParser(container.querySelector('#jr-ai-parser'), (aiTrades) => {
-    const trades = aiTrades
-      .map((t) => ({
-        date: t.date || null,
-        pnl:  typeof t.pnl === 'number' ? t.pnl : null,
-        r:    typeof t.r_multiple === 'number' ? t.r_multiple : null,
-      }))
-      .filter((t) => t.pnl !== null || t.r !== null);
+    // Number.isFinite (not `typeof === 'number'`) — the latter is TRUE for NaN
+    // and would let a malformed value through and break the whole calculation.
+    const mapped = (aiTrades || []).map((tr) => ({
+      date: tr.date || null,
+      pnl:  Number.isFinite(tr.pnl) ? tr.pnl : null,
+      r:    Number.isFinite(tr.r_multiple) ? tr.r_multiple : null,
+    }));
+    const trades = mapped.filter((tr) => tr.pnl !== null || tr.r !== null);
+    const dropped = mapped.length - trades.length;
 
     if (trades.length < 5) {
       container.querySelector('#jr-results').innerHTML =
@@ -47,12 +49,12 @@ export function mountJournal(container) {
 
     analysis = analyzeJournal({ trades });
     runBtn.disabled = false;
-    run();
+    run(dropped);
   });
 
   runBtn.addEventListener('click', run);
 
-  function run() {
+  function run(dropped = 0) {
     if (!analysis) return;
     const s = analysis.stats;
     const strategy = {
@@ -74,6 +76,13 @@ export function mountJournal(container) {
       const report = buildReport({ ...strategy, seed: state.seed });
       state.lastReport = report;
       renderReport(report, results);
+      if (dropped > 0) {
+        const note = document.createElement('div');
+        note.className = 'small muted';
+        note.style.margin = '0 0 12px';
+        note.textContent = `Note: ${dropped} row${dropped === 1 ? '' : 's'} skipped (missing or invalid values).`;
+        results.insertBefore(note, results.firstChild);
+      }
     }, 20);
   }
 

@@ -82,17 +82,18 @@ button.btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none;
 .verdict.warn { border-left-color: var(--warn); }
 .verdict.bad { border-left-color: var(--bad); }
 .verdict-main { display: flex; align-items: center; gap: 18px; }
-.verdict-score { font-size: 44px; font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+.verdict-score { font-size: 44px; font-weight: 800; letter-spacing: -.04em; line-height: 1; overflow-wrap: anywhere; }
 .verdict-score span { font-size: 18px; color: var(--muted); font-weight: 600; }
 .verdict-grade { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
 .verdict-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
 /* ---------- KPIs ---------- */
 .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-.kpi { padding: 14px 16px; }
+/* min-width:0 lets grid items shrink instead of overflowing on long values. */
+.kpi { padding: 14px 16px; min-width: 0; }
 .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 700; }
-.kpi-num { font-size: 24px; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; margin: 8px 0 4px; }
-.kpi-sub { font-size: 12px; color: var(--muted); }
+.kpi-num { font-size: 24px; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; margin: 8px 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kpi-sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- diagnostics ---------- */
 .diag { padding: 18px; margin-bottom: 16px; }

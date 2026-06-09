@@ -7,6 +7,26 @@
 const LANG_NAMES = { en: 'English', ru: 'Russian' };
 const ln = (lang) => LANG_NAMES[lang] || 'English';
 
+// Neutralise prompt-injection attempts in free-text user input before it is
+// embedded in an LLM prompt. Strips control chars, defangs role markers and
+// "ignore previous instructions"-style overrides, and hard-caps the length.
+function sanitizeUserText(input, maxLen = 1000) {
+  if (typeof input !== 'string') return '';
+  let s = input.replace(/[\u0000-\u001F\u007F]/g, ' '); // strip control chars
+  const patterns = [
+    /ignore\s+(all|any|the)?\s*(previous|above|prior|earlier)\s+(instructions?|prompts?|messages?)/gi,
+    /disregard\s+(all|any|the)?\s*(previous|above|prior|earlier)\s+(instructions?|prompts?|messages?)/gi,
+    /forget\s+(all|everything|previous|prior)/gi,
+    /you\s+are\s+now\b/gi,
+    /act\s+as\s+(an?|the)\b/gi,
+    /override\s+(the|your|all)?\s*(instructions?|rules?|system)/gi,
+    /^\s*(system|assistant|developer|user)\s*:/gim,
+    /<\/?(system|assistant|user|developer)>/gi,
+  ];
+  for (const re of patterns) s = s.replace(re, '[filtered]');
+  return s.trim().slice(0, maxLen);
+}
+
 // Call Groq and parse the JSON response.
 // The model is configured with response_format: json_object,
 // but we strip any accidental markdown fences defensively.
@@ -45,7 +65,14 @@ export async function parseJournal(rawText, model, lang) {
   const language = ln(lang);
   const prompt = `You are parsing a broker trade history export. Detect the format and extract every closed trade.
 
-Supported formats: MT4/MT5 history HTML/text report, Bybit order history CSV, Binance trading history CSV, ATAS export, Quantower export, generic CSV with date/pnl/profit columns.
+Supported formats: MT4/MT5 history HTML/text report, Bybit order history CSV, Binance trading history CSV, ATAS export, Quantower export, cTrader, NinjaTrader, generic CSV/TSV with date/pnl/profit columns. Delimiter may be comma, semicolon, or tab.
+
+PARSING RULES — handle messy real-world files:
+- HEADER ROWS: an export may have MULTIPLE leading title/preamble rows before the real column header (e.g. "Account Statement", "Closed Transactions:"). Detect the real header row dynamically — it is the row whose cells name columns (contains words like Instrument/Инструмент, Date/Дата, Time, Profit/Прибыль/PnL/P&L, Direction/Type/Side, Volume/Size/Lot). Skip everything above it. Also skip any REPEATED header rows that appear again further down (paginated reports).
+- COLUMN ORDER: columns may appear in ANY order and there may be extra columns you don't need — map by header name, not by position.
+- NUMBERS: quantities/volumes/lots may be FRACTIONAL (e.g. 0.1, 0.2, 4.73, 17.14) — parse them as floats, never round to integers. Tolerate thousands separators (1,234.50), European decimal commas (12,5), currency symbols ($, €, ₽), and parenthesised negatives (123.45) meaning -123.45.
+- MIXED INSTRUMENTS: a file may mix forex (standard 100k lots), crypto (units as-is, e.g. 0.1 BTC), indices and metals (own contract sizes). Do NOT try to convert position size to a common unit — only the realized PnL and (if present) R-multiple matter for analysis. Read PnL directly from the profit/PnL column.
+- DIRECTION: map buy/long → "long", sell/short → "short"; otherwise null.
 
 Normalize each trade to exactly this shape (null for unavailable fields):
 - date: ISO 8601 string (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss) or null
@@ -54,11 +81,14 @@ Normalize each trade to exactly this shape (null for unavailable fields):
 - direction: "long" | "short" | null
 - duration_minutes: integer or null
 
+ROW VALIDATION:
+- Skip any row where PnL (and R-multiple) are missing, empty, or non-numeric — do NOT emit it and do NOT guess a value.
+- Count skipped data rows and, if any were skipped, add ONE warning summarising how many and why.
+
 Return ONLY valid JSON matching this schema (no extra text, no markdown):
 {"trades":[{"date":null,"pnl":0,"r_multiple":null,"direction":null,"duration_minutes":null}],"detected_columns":{"format":"<broker name or generic>"},"warnings":[]}
 
 All strings in the warnings array MUST be written in ${language} language.
-Skip rows with non-numeric or missing PnL data.
 If the input is not a recognisable trade journal, return an empty trades array and a warning in ${language}.
 
 ---
@@ -120,10 +150,12 @@ Rules:
 export async function answerQuestion(question, metrics, tradeHistory, diagnostics, model, lang) {
   const language    = ln(lang);
   const recentTrades = Array.isArray(tradeHistory) ? tradeHistory.slice(-100) : [];
+  // Sanitize the free-text question before embedding it in the prompt.
+  const safeQuestion = sanitizeUserText(question);
 
   const prompt = `Answer the following question about a trading strategy using ONLY the data provided below. Respond entirely in ${language}.
 
-QUESTION: ${question}
+QUESTION: ${safeQuestion}
 
 METRICS:
 ${JSON.stringify(metrics ?? {}, null, 2)}

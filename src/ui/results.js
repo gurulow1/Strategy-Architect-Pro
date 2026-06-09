@@ -38,11 +38,13 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
   const pf = s.profitFactor === Infinity ? '∞' : fmtNum(s.profitFactor);
   const sigPct = pct(report.edge.pAboveZero, 0);
   const sigCls = report.edge.pAboveZero >= 0.95 ? 'good' : report.edge.pAboveZero >= 0.8 ? 'warn' : 'bad';
+  // Score badge must never show raw NaN — fall back to "N/A" if it failed.
+  const scoreDisplay = Number.isFinite(report.robustness?.score) ? report.robustness.score : 'N/A';
 
   mount.innerHTML = `
     <div class="verdict card ${v.cls}">
       <div class="verdict-main">
-        <div class="verdict-score">${report.robustness.score}<span>/100</span></div>
+        <div class="verdict-score">${scoreDisplay}<span>/100</span></div>
         <div>
           <div class="verdict-grade ${v.cls}">${t(v.key)}</div>
           <div class="verdict-sub">${t('robustness_score')}: ${t(gradeKey[report.robustness.grade])}</div>

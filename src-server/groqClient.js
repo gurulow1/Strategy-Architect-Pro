@@ -35,7 +35,13 @@ async function callGroq(apiKey, systemPrompt, userPrompt) {
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '');
-    throw new Error(`Groq API ${response.status}: ${errText.slice(0, 300)}`);
+    // Never let the API key (or any Bearer token) leak into an error message.
+    const safe = errText
+      .slice(0, 300)
+      .split(apiKey).join('[REDACTED]')
+      .replace(/gsk_[A-Za-z0-9]+/g, '[REDACTED]')
+      .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]');
+    throw new Error(`Groq API ${response.status}: ${safe}`);
   }
 
   const data    = await response.json();

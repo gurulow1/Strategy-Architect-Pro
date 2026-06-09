@@ -27,6 +27,23 @@ const FALLBACK = {
   server:  { en: 'AI service temporarily unavailable.', ru: 'AI сервис временно недоступен.' },
 };
 
+// Stable per-browser session id, used by the server's per-session rate limiter.
+// Generated once and persisted in localStorage; falls back to a transient id.
+function sessionId() {
+  try {
+    let id = localStorage.getItem('sap_sid');
+    if (!id) {
+      id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      localStorage.setItem('sap_sid', id);
+    }
+    return id;
+  } catch (_) {
+    return 'anon';
+  }
+}
+
 /**
  * Call an AI feature on the backend.
  * Language is auto-detected from the UI; callers never set it manually.
@@ -43,7 +60,7 @@ export async function callAI(feature, payload) {
   try {
     response = await fetch(`${API_BASE}/api/ai`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId() },
       body: JSON.stringify({ feature, payload: { ...payload, lang } }),
     });
   } catch (_) {
