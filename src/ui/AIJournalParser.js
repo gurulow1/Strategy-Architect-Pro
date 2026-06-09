@@ -8,6 +8,7 @@
 
 import * as XLSX from 'xlsx';
 import { callAI } from '../services/aiClient.js';
+import { parseCsv } from '../analysis/journal.js';
 
 // Fields the AI normalizes to; their display order.
 const TRADE_FIELDS = ['date', 'pnl', 'r_multiple', 'direction', 'duration_minutes'];
@@ -198,8 +199,52 @@ export function createAIJournalParser(container, onTradesConfirmed) {
 
   async function runAI(rawText) {
     try {
+      const allLines = rawText.split(/\r?\n/).filter((l) => l.trim().length > 0);
       const { text: aiText, truncated } = truncateForAI(rawText);
+      console.log(`[journal] File: ${allLines.length} non-empty lines. Sending truncated preview to AI: ${truncated}.`);
+
       const result = await callAI('parseJournal', { rawText: aiText });
+      console.log(`[journal] AI returned ${result.trades?.length ?? 0} trades from ${truncated ? 'truncated' : 'full'} preview.`);
+
+      // The AI only saw the truncated preview. Always re-parse the FULL rawText
+      // locally — the AI is used for format detection only. Local parsing is
+      // deterministic and handles any number of rows.
+      const localParsed = parseCsv(rawText);
+      console.log(
+        `[journal] Local parser: ${allLines.length} lines in,` +
+        ` ${localParsed.trades.length} trades out,` +
+        ` ${localParsed.skipped} rows skipped,` +
+        ` error=${localParsed.error || 'none'}.`,
+      );
+
+      if (!localParsed.error && localParsed.trades.length >= 5) {
+        // Convert parseCsv shape ({ date, pnl, r }) → AI trade shape ({ date, pnl, r_multiple, ... })
+        result.trades = localParsed.trades.map((t) => ({
+          date: t.date,
+          pnl: t.pnl,
+          r_multiple: t.r ?? null,
+          direction: null,
+          duration_minutes: null,
+        }));
+        if (localParsed.skipped > 0) {
+          result.warnings = result.warnings || [];
+          result.warnings.push(
+            `${localParsed.skipped} row${localParsed.skipped === 1 ? '' : 's'} skipped (missing or non-numeric values).`,
+          );
+        }
+        console.log(`[journal] Using local parse result: ${result.trades.length} trades.`);
+      } else {
+        // Local parser couldn't identify the format (exotic broker/layout) —
+        // fall back to the AI-parsed subset with a visible warning.
+        console.warn(`[journal] Local parser failed (${localParsed.error}), keeping AI results (${result.trades?.length ?? 0} trades). Note: only the preview rows were analyzed.`);
+        if (truncated) {
+          result.warnings = result.warnings || [];
+          result.warnings.push(
+            `Warning: format not recognized by local parser — only the first ${FIRST_N} and last ${LAST_N} rows of the file were analyzed. Total trades may be understated.`,
+          );
+        }
+      }
+
       lastResult = result;
       if (!result.trades || result.trades.length === 0) {
         showFallback('No trades could be extracted from this file.');
