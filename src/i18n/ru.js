@@ -141,6 +141,32 @@ export default {
   prop_atrisk: 'Риск',
   prop_eval: 'Оценить челлендж',
 
+  // Theme
+  theme_dark:  'Тёмная тема',
+  theme_light: 'Светлая тема',
+
+  // Auth
+  auth_login:        'Войти',
+  auth_register:     'Создать аккаунт',
+  auth_demo:         'Попробовать демо',
+  auth_email:        'Email',
+  auth_password:     'Пароль',
+  auth_forgot:       'Забыли пароль?',
+  auth_logout:       'Выйти',
+  auth_or:           'или',
+  auth_google:       'Войти через Google',
+  auth_demo_badge:   'Демо',
+  auth_switch_login: 'Уже есть аккаунт? Войти',
+  auth_switch_reg:   'Нет аккаунта? Зарегистрироваться',
+  auth_reset_sent:   'Письмо для сброса пароля отправлено.',
+  auth_err_invalid:  'Неверный email или пароль.',
+  auth_err_exists:   'Аккаунт с таким email уже существует.',
+  auth_err_weak:     'Пароль должен содержать минимум 6 символов.',
+  auth_err_generic:  'Что-то пошло не так. Попробуйте ещё раз.',
+  auth_protected:    'Войдите, чтобы открыть этот раздел.',
+  auth_tagline:      'Проверьте стратегию на прочность до риска реальными деньгами.',
+  auth_demo_limit:   'Демо: только Быстрая проверка · Войдите для Журнала, Теста и AI',
+
   // AI chat
   ai_title: 'Спросить об этой стратегии',
   ai_disclaimer: 'Ответы основаны только на загруженных данных. Не является инвестиционным советом.',

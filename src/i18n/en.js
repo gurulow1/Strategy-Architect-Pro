@@ -152,6 +152,32 @@ export default {
   prop_atrisk: 'Risk',
   prop_eval: 'Evaluate challenge',
 
+  // Theme
+  theme_dark:  'Dark mode',
+  theme_light: 'Light mode',
+
+  // Auth
+  auth_login:        'Sign In',
+  auth_register:     'Create Account',
+  auth_demo:         'Try Demo',
+  auth_email:        'Email',
+  auth_password:     'Password',
+  auth_forgot:       'Forgot password?',
+  auth_logout:       'Sign Out',
+  auth_or:           'or',
+  auth_google:       'Continue with Google',
+  auth_demo_badge:   'Demo',
+  auth_switch_login: 'Already have an account? Sign in',
+  auth_switch_reg:   "Don't have an account? Register",
+  auth_reset_sent:   'Password reset email sent.',
+  auth_err_invalid:  'Invalid email or password.',
+  auth_err_exists:   'An account with this email already exists.',
+  auth_err_weak:     'Password must be at least 6 characters.',
+  auth_err_generic:  'Something went wrong. Please try again.',
+  auth_protected:    'Sign in to unlock this feature.',
+  auth_tagline:      'Stress-test your trading strategy before risking real money.',
+  auth_demo_limit:   'Demo: Quick Check only · Sign in for Journal, Robustness, Prop Challenge & AI',
+
   // AI chat
   ai_title: 'Ask about this strategy',
   ai_disclaimer: 'Answers based on loaded data only. Not financial advice.',

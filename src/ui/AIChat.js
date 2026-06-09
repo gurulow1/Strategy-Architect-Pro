@@ -396,4 +396,12 @@ export function createAIChat() {
   function scrollBottom() {
     if (msgBox) msgBox.scrollTop = msgBox.scrollHeight;
   }
+
+  // Return an API so main.js can show/hide the trigger based on auth state.
+  return {
+    setVisible(visible) {
+      trigger.style.display = visible ? '' : 'none';
+      if (!visible && isOpen) close();
+    },
+  };
 }

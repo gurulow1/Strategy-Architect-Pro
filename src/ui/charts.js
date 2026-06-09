@@ -1,30 +1,47 @@
 // Chart.js wrappers. Presentation only — every renderer receives ready data.
+// All colors are resolved at render time so dark/light theme is always correct.
 import Chart from 'chart.js/auto';
 import { fmtMoney } from './format.js';
 
-const GOOD = 'rgba(5,150,105,.82)';
-const BAD = 'rgba(220,38,38,.82)';
-const WARN = 'rgba(217,119,6,.82)';
-const ACCENT = 'rgba(29,78,216,.9)';
-
 const registry = {};
 
-const common = {
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: { duration: 350 },
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      backgroundColor: 'rgba(16,24,40,.96)', padding: 10, cornerRadius: 10,
-      displayColors: false, titleFont: { size: 12, weight: '700' }, bodyFont: { size: 12 },
+// ── Theme-aware color palette ─────────────────────────────────────────────────
+function isDark() { return document.documentElement.classList.contains('dark'); }
+
+function c() {
+  const dark = isDark();
+  return {
+    GOOD:      dark ? 'rgba(34,197,94,.85)'   : 'rgba(5,150,105,.82)',
+    BAD:       dark ? 'rgba(239,68,68,.85)'   : 'rgba(220,38,38,.82)',
+    WARN:      dark ? 'rgba(245,158,11,.85)'  : 'rgba(217,119,6,.82)',
+    ACCENT:    dark ? 'rgba(99,102,241,.9)'   : 'rgba(29,78,216,.9)',
+    ACCENT_DIM:dark ? 'rgba(99,102,241,.35)'  : 'rgba(29,78,216,.35)',
+    grid:      dark ? 'rgba(255,255,255,.07)' : 'rgba(16,24,40,.05)',
+    tick:      dark ? '#94a3b8'               : '#667085',
+    tooltipBg: dark ? 'rgba(15,23,42,.97)'   : 'rgba(16,24,40,.96)',
+  };
+}
+
+// ── Shared chart options factory ──────────────────────────────────────────────
+function common() {
+  const p = c();
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 350 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: p.tooltipBg, padding: 10, cornerRadius: 10,
+        displayColors: false, titleFont: { size: 12, weight: '700' }, bodyFont: { size: 12 },
+      },
     },
-  },
-  scales: {
-    x: { grid: { color: 'rgba(16,24,40,.05)' }, ticks: { color: '#667085', font: { size: 10 } } },
-    y: { grid: { color: 'rgba(16,24,40,.05)' }, ticks: { color: '#667085', font: { size: 10 } } },
-  },
-};
+    scales: {
+      x: { grid: { color: p.grid }, ticks: { color: p.tick, font: { size: 10 } } },
+      y: { grid: { color: p.grid }, ticks: { color: p.tick, font: { size: 10 } } },
+    },
+  };
+}
 
 function mount(id, config) {
   const el = document.getElementById(id);
@@ -38,9 +55,36 @@ export function destroyAll() {
   Object.keys(registry).forEach((id) => { registry[id].destroy(); delete registry[id]; });
 }
 
+// ── Theme refresh — call after toggling dark/light ────────────────────────────
+export function refreshChartTheme() {
+  const p = c();
+  // Update Chart.js global default color (affects legend text, etc.)
+  Chart.defaults.color = p.tick;
+  const scaleUpdates = {
+    grid: { color: p.grid },
+    ticks: { color: p.tick, font: { size: 10 } },
+  };
+  Object.values(registry).forEach((chart) => {
+    if (!chart) return;
+    if (chart.options.plugins?.tooltip) {
+      chart.options.plugins.tooltip.backgroundColor = p.tooltipBg;
+    }
+    ['x', 'y'].forEach((axis) => {
+      if (chart.options.scales?.[axis]) {
+        Object.assign(chart.options.scales[axis], scaleUpdates);
+      }
+    });
+    chart.update('none'); // instant update without animation
+  });
+}
+
+// ── Render functions ──────────────────────────────────────────────────────────
+
 export function renderEquity(id, bands) {
+  const p = c();
   const band = (data, alpha, fill) => ({
-    data, borderColor: `rgba(29,78,216,${alpha})`, backgroundColor: 'rgba(29,78,216,.05)',
+    data, borderColor: `rgba(29,78,216,${alpha})`,
+    backgroundColor: isDark() ? 'rgba(99,102,241,.07)' : 'rgba(29,78,216,.05)',
     pointRadius: 0, borderWidth: 1, fill, tension: 0.2,
   });
   mount(id, {
@@ -50,19 +94,20 @@ export function renderEquity(id, bands) {
       datasets: [
         band(bands.p90, 0.18, false),
         band(bands.p75, 0.28, '-1'),
-        { data: bands.p50, borderColor: ACCENT, backgroundColor: 'rgba(29,78,216,.10)', pointRadius: 0, borderWidth: 2, fill: '-1', tension: 0.2 },
+        { data: bands.p50, borderColor: p.ACCENT, backgroundColor: isDark() ? 'rgba(99,102,241,.10)' : 'rgba(29,78,216,.10)', pointRadius: 0, borderWidth: 2, fill: '-1', tension: 0.2 },
         band(bands.p25, 0.28, '-1'),
         band(bands.p10, 0.18, '-1'),
       ],
     },
     options: {
-      ...common,
-      scales: { ...common.scales, y: { ...common.scales.y, ticks: { ...common.scales.y.ticks, callback: (v) => fmtMoney(v) } } },
+      ...common(),
+      scales: { ...common().scales, y: { ...common().scales.y, ticks: { ...common().scales.y.ticks, callback: (v) => fmtMoney(v) } } },
     },
   });
 }
 
 export function renderHistogram(id, values, { bins = 26, asPercent = true } = {}) {
+  const p = c();
   const min = Math.min(...values), max = Math.max(...values);
   const step = (max - min) / bins || 0.01;
   const hist = new Array(bins).fill(0);
@@ -73,15 +118,16 @@ export function renderHistogram(id, values, { bins = 26, asPercent = true } = {}
       labels: hist.map((_, i) => (asPercent ? `${((min + i * step) * 100).toFixed(0)}%` : (min + i * step).toFixed(1))),
       datasets: [{
         data: hist,
-        backgroundColor: hist.map((_, i) => (min + i * step >= 0 ? GOOD : BAD)),
+        backgroundColor: hist.map((_, i) => (min + i * step >= 0 ? p.GOOD : p.BAD)),
         borderRadius: 6, borderSkipped: false,
       }],
     },
-    options: common,
+    options: common(),
   });
 }
 
 export function renderDrawdownHist(id, dds, { bins = 16 } = {}) {
+  const p = c();
   const max = Math.max(...dds, 0.01);
   const step = max / bins;
   const hist = new Array(bins).fill(0);
@@ -90,32 +136,30 @@ export function renderDrawdownHist(id, dds, { bins = 16 } = {}) {
     type: 'bar',
     data: {
       labels: hist.map((_, i) => `${(i * step * 100).toFixed(0)}%`),
-      datasets: [{ data: hist, backgroundColor: WARN, borderRadius: 6, borderSkipped: false }],
+      datasets: [{ data: hist, backgroundColor: p.WARN, borderRadius: 6, borderSkipped: false }],
     },
-    options: common,
+    options: common(),
   });
 }
 
-// Horizontal stress scenarios: mean return per scenario, baseline first.
-// Explicit scale types are required: with indexAxis 'y' the category axis is Y
-// and the value axis is X — Chart.js will not infer this from a merged config.
 export function renderScenarios(id, labels, returns) {
-  const tick = { color: '#667085', font: { size: 11 } };
+  const p = c();
+  const tick = { color: p.tick, font: { size: 11 } };
   mount(id, {
     type: 'bar',
     data: {
       labels,
       datasets: [{
         data: returns.map((r) => r * 100),
-        backgroundColor: returns.map((r) => (r >= 0 ? GOOD : BAD)),
+        backgroundColor: returns.map((r) => (r >= 0 ? p.GOOD : p.BAD)),
         borderRadius: 6, borderSkipped: false,
       }],
     },
     options: {
-      ...common,
+      ...common(),
       indexAxis: 'y',
       scales: {
-        x: { type: 'linear', grid: { color: 'rgba(16,24,40,.05)' }, ticks: { ...tick, callback: (v) => `${v}%` } },
+        x: { type: 'linear', grid: { color: p.grid }, ticks: { ...tick, callback: (v) => `${v}%` } },
         y: { type: 'category', grid: { display: false }, ticks: tick },
       },
     },
@@ -123,51 +167,60 @@ export function renderScenarios(id, labels, returns) {
 }
 
 export function renderStreaks(id, winDist, lossDist, labels, legend) {
+  const p = c();
   mount(id, {
     type: 'bar',
     data: {
       labels,
       datasets: [
-        { label: legend.win, data: winDist, backgroundColor: GOOD, borderRadius: 4 },
-        { label: legend.loss, data: lossDist, backgroundColor: BAD, borderRadius: 4 },
+        { label: legend.win,  data: winDist,  backgroundColor: p.GOOD, borderRadius: 4 },
+        { label: legend.loss, data: lossDist, backgroundColor: p.BAD,  borderRadius: 4 },
       ],
     },
-    options: { ...common, plugins: { ...common.plugins, legend: { display: true, position: 'bottom', labels: { usePointStyle: true, font: { size: 11 } } } } },
+    options: {
+      ...common(),
+      plugins: {
+        ...common().plugins,
+        legend: { display: true, position: 'bottom', labels: { usePointStyle: true, font: { size: 11 }, color: p.tick } },
+      },
+    },
   });
 }
 
 export function renderRuinProfile(id, profile) {
+  const p = c();
   mount(id, {
     type: 'bar',
     data: {
-      labels: profile.map((p) => `-${(p.threshold * 100).toFixed(0)}%`),
+      labels: profile.map((pp) => `-${(pp.threshold * 100).toFixed(0)}%`),
       datasets: [{
-        data: profile.map((p) => p.probability * 100),
-        backgroundColor: profile.map((p) => (p.probability > 0.05 ? BAD : WARN)),
+        data: profile.map((pp) => pp.probability * 100),
+        backgroundColor: profile.map((pp) => (pp.probability > 0.05 ? p.BAD : p.WARN)),
         borderRadius: 6, borderSkipped: false,
       }],
     },
     options: {
-      ...common,
-      scales: { ...common.scales, y: { ...common.scales.y, ticks: { ...common.scales.y.ticks, callback: (v) => `${v}%` } } },
+      ...common(),
+      scales: { ...common().scales, y: { ...common().scales.y, ticks: { ...common().scales.y.ticks, callback: (v) => `${v}%` } } },
     },
   });
 }
 
 export function renderPropLadder(id, ladder, recRisk) {
+  const p = c();
   mount(id, {
     type: 'bar',
     data: {
       labels: ladder.map((l) => `${(l.risk * 100).toFixed(2)}%`),
       datasets: [{
         data: ladder.map((l) => l.passRate * 100),
-        backgroundColor: ladder.map((l) => (Math.abs(l.risk - recRisk) < 1e-9 ? ACCENT : 'rgba(29,78,216,.35)')),
+        backgroundColor: ladder.map((l) => (Math.abs(l.risk - recRisk) < 1e-9 ? p.ACCENT : p.ACCENT_DIM)),
         borderRadius: 6, borderSkipped: false,
       }],
     },
     options: {
-      ...common,
-      scales: { ...common.scales, y: { ...common.scales.y, max: 100, ticks: { ...common.scales.y.ticks, callback: (v) => `${v}%` } } },
+      ...common(),
+      scales: { ...common().scales, y: { ...common().scales.y, max: 100, ticks: { ...common().scales.y.ticks, callback: (v) => `${v}%` } } },
     },
   });
 }
