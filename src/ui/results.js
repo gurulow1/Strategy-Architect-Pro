@@ -64,31 +64,30 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
 
   const pf = s.profitFactor === Infinity ? '∞' : fmtNum(s.profitFactor);
   const sigPct = pct(report.edge.pAboveZero, 0);
-  const sigCls = report.edge.pAboveZero >= 0.95 ? 'good' : report.edge.pAboveZero >= 0.8 ? 'warn' : 'bad';
   // Score badge must never show raw NaN — fall back to "N/A" if it failed.
   const scoreDisplay = Number.isFinite(report.robustness?.score) ? report.robustness.score : 'N/A';
 
   mount.innerHTML = `
     <div class="verdict card ${v.cls}">
       <div class="verdict-main">
-        <div class="verdict-score">${scoreDisplay}<span>/100</span></div>
+        <div class="verdict-score ${v.cls}">${scoreDisplay}<span>/100</span></div>
         <div>
-          <div class="verdict-grade ${v.cls}">${t(v.key)}</div>
+          <div class="verdict-grade">${t(v.key)}</div>
           <div class="verdict-sub">${t('robustness_score')}: ${t(gradeKey[report.robustness.grade])}</div>
         </div>
       </div>
     </div>
 
     <div class="kpi-grid">
-      ${kpi(t('kpi_expectancy'), fmtR(s.expectancy), t('kpi_expectancy_sub'), s.expectancy >= 0 ? 'good' : 'bad', 'kpi-expectancy')}
-      ${kpi(t('kpi_pf'), pf, t('kpi_pf_sub'), s.profitFactor >= 1.5 ? 'good' : s.profitFactor >= 1 ? 'warn' : 'bad', 'kpi-pf')}
+      ${kpi(t('kpi_expectancy'), fmtR(s.expectancy), t('kpi_expectancy_sub'), 'accent', 'kpi-expectancy')}
+      ${kpi(t('kpi_pf'), pf, t('kpi_pf_sub'), 'accent', 'kpi-pf')}
       ${kpi(t('kpi_return'), fmtPctSigned(sim.meanReturn), t('kpi_return_sub', { p10: fmtPctSigned(sim.p10Return), p90: fmtPctSigned(sim.p90Return) }), sim.meanReturn >= 0 ? 'good' : 'bad')}
       ${kpi(t('kpi_median'), fmtPctSigned(sim.medianReturn), t('kpi_median_sub'), sim.medianReturn >= 0 ? 'good' : 'bad')}
       ${kpi(t('kpi_pop'), fmtPct(sim.probProfit, 0), t('kpi_pop_sub'), sim.probProfit >= 0.55 ? 'good' : sim.probProfit >= 0.45 ? 'warn' : 'bad', 'kpi-pop')}
       ${kpi(t('kpi_dd'), fmtPct(sim.medianDD), t('kpi_dd_sub', { worst: fmtPct(sim.worstDD) }), 'warn', 'kpi-dd')}
       ${kpi(t('kpi_ruin'), fmtPct(sim.riskOfRuin), t('kpi_ruin_sub', { threshold: fmtPct(ruinThreshold, 0) }), sim.riskOfRuin > 0.05 ? 'bad' : 'good', 'kpi-ruin')}
-      ${kpi(t('kpi_kelly'), k.profitable ? fmtPct(k.fStar, 1) : 'N/A', k.profitable ? t('kpi_kelly_sub', { mode: k.modeLabel, rec: fmtPct(k.recommended, 2) }) : t('verdict_noedge'), k.profitable ? 'good' : 'bad', 'kpi-kelly')}
-      ${kpi(t('kpi_sig'), sigPct, t('kpi_sig_sub'), sigCls, 'kpi-sig')}
+      ${kpi(t('kpi_kelly'), k.profitable ? fmtPct(k.fStar, 1) : 'N/A', k.profitable ? t('kpi_kelly_sub', { mode: k.modeLabel, rec: fmtPct(k.recommended, 2) }) : t('verdict_noedge'), '', 'kpi-kelly')}
+      ${kpi(t('kpi_sig'), sigPct, t('kpi_sig_sub'), '', 'kpi-sig')}
     </div>
 
     <div class="diag card">
