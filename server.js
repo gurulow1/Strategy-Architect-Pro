@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { handleFeature } from './src-server/router.js';
 
 const app  = express();
@@ -19,10 +21,14 @@ function scrubSecrets(input) {
   let out = String(input ?? '');
   const key = process.env.GROQ_API_KEY;
   if (key) out = out.split(key).join('[REDACTED]');
+  // Scrub 32-char hex strings (license key shape) — must not appear in logs.
+  out = out.replace(/\b[0-9a-f]{32}\b/gi, '[REDACTED-KEY]');
   return out
     .replace(/gsk_[A-Za-z0-9]+/g, '[REDACTED]')
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]');
 }
+
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── CORS ───────────────────────────────────────────────────────────────────────
 // Allow-list (checked in order):
@@ -100,8 +106,94 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000).unref();
 
+// ── License-key rate limiter (stricter than general — 5 attempts / IP / min) ─
+const licenseLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Try again in a minute.' },
+});
+
+// ── Auth-mode probe (safe to call without credentials) ────────────────────────
+app.get('/api/auth-mode', (_req, res) => {
+  res.json({ mode: process.env.LICENSE_KEYS ? 'license' : 'open' });
+});
+
+// ── License-key verification ──────────────────────────────────────────────────
+app.post('/api/verify-license', licenseLimiter, async (req, res) => {
+  // No keys configured → open / demo mode. Issue a short-lived demo token.
+  if (!process.env.LICENSE_KEYS) {
+    const secret = process.env.JWT_SECRET || 'demo-open-mode';
+    const token = jwt.sign({ type: 'open' }, secret, { expiresIn: '24h' });
+    return res.json({ token });
+  }
+
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({ error: 'Server misconfigured' });
+  }
+
+  const rawKey = req.body?.key;
+  // Validate format before any further processing — reject early without timing info.
+  if (typeof rawKey !== 'string' || !/^[0-9a-f]{32}$/i.test(rawKey.trim())) {
+    await delay(50 + Math.random() * 100);
+    return res.status(401).json({ error: 'Invalid license key' });
+  }
+  const key = rawKey.trim().toLowerCase();
+
+  let validKeys;
+  try {
+    const parsed = JSON.parse(process.env.LICENSE_KEYS);
+    // Accept both ["key1","key2"] array and {"key1":"label"} object formats.
+    validKeys = Array.isArray(parsed) ? parsed : Object.keys(parsed);
+  } catch {
+    return res.status(500).json({ error: 'Server misconfigured' });
+  }
+
+  // Timing-safe comparison — prevents timing oracle attacks.
+  const keyBuf = Buffer.from(key, 'utf8');
+  let matched = false;
+  for (const candidate of validKeys) {
+    if (typeof candidate !== 'string') continue;
+    const norm = candidate.trim().toLowerCase();
+    if (norm.length !== key.length) continue;
+    const candidateBuf = Buffer.from(norm, 'utf8');
+    if (crypto.timingSafeEqual(keyBuf, candidateBuf)) { matched = true; break; }
+  }
+
+  // Fixed-duration random delay makes success/failure timing indistinguishable.
+  await delay(50 + Math.random() * 100);
+
+  if (!matched) {
+    return res.status(401).json({ error: 'Invalid license key' });
+  }
+
+  const rememberMe = req.body?.rememberMe !== false;
+  const token = jwt.sign({ type: 'license' }, process.env.JWT_SECRET, {
+    expiresIn: rememberMe ? '7d' : '24h',
+  });
+  return res.json({ token });
+});
+
+// ── JWT auth middleware — only enforced when LICENSE_KEYS is configured ───────
+function requireAuth(req, res, next) {
+  if (!process.env.LICENSE_KEYS || !process.env.JWT_SECRET) return next();
+  const auth = req.headers.authorization || '';
+  if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    req.tokenPayload = jwt.verify(auth.slice(7), process.env.JWT_SECRET);
+    return next();
+  } catch (err) {
+    const expired = err?.name === 'TokenExpiredError';
+    return res.status(401).json({
+      error: expired ? 'Token expired' : 'Unauthorized',
+      ...(expired && { code: 'TOKEN_EXPIRED' }),
+    });
+  }
+}
+
 // ── AI endpoint ──────────────────────────────────────────────────────────────
-app.post('/api/ai', ipLimiter, sessionLimiter, async (req, res) => {
+app.post('/api/ai', ipLimiter, sessionLimiter, requireAuth, async (req, res) => {
   // The API key never leaves the server. If it is missing, the AI is unconfigured.
   if (!process.env.GROQ_API_KEY) {
     return res.status(500).json({ error: 'AI сервис не настроен' });

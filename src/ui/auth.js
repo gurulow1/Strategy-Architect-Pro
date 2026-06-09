@@ -1,110 +1,87 @@
-// Firebase Auth with graceful demo-mode fallback.
+// License-key authentication. No Firebase.
 //
-// When VITE_FIREBASE_API_KEY is not set, the module boots in "open mode":
-// no authentication required, all features accessible (dev / no-auth deploy).
+// Modes (determined by the backend at startup):
+//   open    — LICENSE_KEYS not set → full access, no key needed
+//   license — LICENSE_KEYS set     → 32-char hex key required; backend issues JWT
 //
-// When Firebase IS configured:
-//   authenticated user → full access
-//   demo session       → Quick Check only; Journal capped at 5 trades; no AI chat
-//   neither            → auth overlay shown; user must choose Demo or Sign In
+// Token lifecycle:
+//   verifyKey(key, rememberMe) → POST /api/verify-license → JWT stored in localStorage
+//   Token expiry: 24 h (default) or 7 d (rememberMe=true)
+//   hasFullAccess() returns true when no license mode, or when token is valid
 
-const FB_ENABLED = Boolean(import.meta.env.VITE_FIREBASE_API_KEY);
+const TOKEN_KEY = 'sap_token';
 
-let _auth = null;
-let _user = null;   // Firebase User or null
-let _demo = false;  // true = user chose "Try Demo"
+let _mode = 'open';   // 'open' | 'license'
+let _initDone = false;
 const _subs = new Set();
 
-// ── Public state ──────────────────────────────────────────────────────────────
-export const isFirebaseEnabled = () => FB_ENABLED;
-export const currentUser       = () => _user;
-export const isAuthenticated   = () => Boolean(_user);
-export const isDemoMode        = () => _demo;
-
-/** True when the user may access everything (no Firebase, or logged in). */
-export const hasFullAccess = () => !FB_ENABLED || Boolean(_user);
-
-/**
- * Gate check for a specific feature.
- * @param {'quick'|'journal'|'robustness'|'prop'|'ai'} feature
- */
-export function canAccess(feature) {
-  if (!FB_ENABLED) return true;            // open mode: everything available
-  if (_user)       return true;            // logged in: everything available
-  if (_demo)       return feature === 'quick'; // demo: quick check only
-  return false;                            // no auth, no demo: nothing yet
+// ── JWT client-side decode (no signature check — only for expiry inspection) ─
+function decodePayload(token) {
+  try {
+    const b64 = token.split('.')[1];
+    return JSON.parse(atob(b64.replace(/-/g, '+').replace(/_/g, '/')));
+  } catch { return null; }
 }
+
+function isTokenValid() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return false;
+  const p = decodePayload(token);
+  if (!p?.exp) return false;
+  return p.exp * 1000 > Date.now() + 60_000; // 60 s grace buffer
+}
+
+// ── Public accessors ──────────────────────────────────────────────────────────
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || null;
+}
+
+export const isLicenseMode  = () => _mode === 'license';
+export const hasFullAccess  = () => !isLicenseMode() || isTokenValid();
+
+// Compatibility shims — kept so callers don't need simultaneous edits.
+export const isFirebaseEnabled = () => false;
+export const isDemoMode        = () => false;
+export const canAccess         = (_feature) => hasFullAccess();
 
 // ── Initialisation ────────────────────────────────────────────────────────────
-let _initPromise = null;
-
-export function initAuth() {
-  if (_initPromise) return _initPromise;
-  _initPromise = (async () => {
-    if (!FB_ENABLED) return null;
-    const [{ initializeApp }, { getAuth, onAuthStateChanged }] = await Promise.all([
-      import('firebase/app'),
-      import('firebase/auth'),
-    ]);
-    const app = initializeApp({
-      apiKey:     import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-      projectId:  import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    });
-    _auth = getAuth(app);
-    // Resolve after the first auth-state emission (persisted session or null).
-    return new Promise((resolve) => {
-      const unsub = onAuthStateChanged(_auth, (user) => {
-        _user = user;
-        _demo = false;
-        unsub();
-        resolve(user);
-        _notify();
-        // After first resolution, keep listening for later sign-in / sign-out.
-        onAuthStateChanged(_auth, (u) => { _user = u; _demo = false; _notify(); });
-      });
-    });
-  })();
-  return _initPromise;
+export async function initAuth() {
+  if (_initDone) return;
+  _initDone = true;
+  try {
+    const res  = await fetch('/api/auth-mode');
+    const data = await res.json();
+    _mode = data.mode === 'license' ? 'license' : 'open';
+  } catch {
+    _mode = 'open'; // fallback so a cold server doesn't lock users out
+  }
 }
 
-// ── Auth operations ───────────────────────────────────────────────────────────
-export async function signIn(email, password) {
-  const { signInWithEmailAndPassword } = await import('firebase/auth');
-  const cred = await signInWithEmailAndPassword(_auth, email.trim(), password);
-  _user = cred.user; _demo = false; _notify();
-  return _user;
+// ── Key verification ──────────────────────────────────────────────────────────
+/**
+ * Submit a license key. Stores the returned JWT in localStorage on success.
+ * @param {string}  key        32-char hex string
+ * @param {boolean} rememberMe true → 7-day token; false → 24-hour token
+ * @throws {Error} user-facing message on failure
+ */
+export async function verifyKey(key, rememberMe = true) {
+  const res = await fetch('/api/verify-license', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: key.trim(), rememberMe }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Verification failed');
+  const { token } = data;
+  if (!token) throw new Error('No token in response');
+  localStorage.setItem(TOKEN_KEY, token);
+  _notify();
 }
 
-export async function register(email, password) {
-  const { createUserWithEmailAndPassword } = await import('firebase/auth');
-  const cred = await createUserWithEmailAndPassword(_auth, email.trim(), password);
-  _user = cred.user; _demo = false; _notify();
-  return _user;
-}
-
-export async function signOutUser() {
-  if (!_auth) return;
-  const { signOut } = await import('firebase/auth');
-  await signOut(_auth);
-  _user = null; _demo = false; _notify();
-}
-
-export async function resetPassword(email) {
-  const { sendPasswordResetEmail } = await import('firebase/auth');
-  await sendPasswordResetEmail(_auth, email.trim());
-}
-
-export async function signInWithGoogle() {
-  const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
-  const cred = await signInWithPopup(_auth, new GoogleAuthProvider());
-  _user = cred.user; _demo = false; _notify();
-  return _user;
-}
-
-/** Enter demo mode: Quick Check only, 5-trade journal limit, no AI chat. */
-export function startDemo() {
-  _user = null; _demo = true; _notify();
+// ── Sign-out ──────────────────────────────────────────────────────────────────
+export function signOutUser() {
+  localStorage.removeItem(TOKEN_KEY);
+  _notify();
 }
 
 // ── Subscriptions ─────────────────────────────────────────────────────────────
@@ -114,12 +91,6 @@ export function onAuthChange(fn) {
 }
 
 function _notify() {
-  const state = { user: _user, demo: _demo, hasFullAccess: hasFullAccess() };
+  const state = { hasFullAccess: hasFullAccess() };
   _subs.forEach((fn) => fn(state));
-}
-
-// ── Firebase ID token (for future server-side verification) ───────────────────
-export async function getIdToken() {
-  if (!_user) return null;
-  return _user.getIdToken();
 }

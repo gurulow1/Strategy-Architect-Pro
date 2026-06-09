@@ -57,10 +57,13 @@ export async function callAI(feature, payload) {
   const lang = currentLang();
   let response;
 
+  const headers = { 'Content-Type': 'application/json', 'X-Session-Id': sessionId() };
+  try { const tok = localStorage.getItem('sap_token'); if (tok) headers['Authorization'] = `Bearer ${tok}`; } catch (_) { /* no localStorage */ }
+
   try {
     response = await fetch(`${API_BASE}/api/ai`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId() },
+      headers,
       body: JSON.stringify({ feature, payload: { ...payload, lang } }),
     });
   } catch (_) {

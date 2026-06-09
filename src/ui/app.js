@@ -7,9 +7,7 @@ import { mountRobustness }   from './workflows/robustnessTest.js';
 import { mountProp }         from './workflows/propChallenge.js';
 import { refreshChartTheme } from './charts.js';
 import {
-  isFirebaseEnabled, hasFullAccess, isAuthenticated, isDemoMode,
-  canAccess, signIn, register, signOutUser, resetPassword, signInWithGoogle,
-  startDemo, onAuthChange,
+  isLicenseMode, hasFullAccess, canAccess, verifyKey, signOutUser, onAuthChange,
 } from './auth.js';
 
 const TABS = [
@@ -52,7 +50,7 @@ export function showAuthOverlay() {
   const el = document.createElement('div');
   el.id = 'auth-overlay';
   el.className = 'auth-overlay';
-  el.innerHTML = buildAuthOverlayHtml('landing');
+  el.innerHTML = buildAuthOverlayHtml();
   document.body.appendChild(el);
   wireAuthOverlay(el);
 }
@@ -66,118 +64,50 @@ function hideAuthOverlay() {
   }
 }
 
-function buildAuthOverlayHtml(view) {
-  if (view === 'landing') {
-    return `
-      <div class="auth-card">
-        <div style="font-size:32px;margin-bottom:12px;">📐</div>
-        <h2>${t('brand')} <span class="brand-pro">${t('brand_pro')}</span></h2>
-        <p>${t('auth_tagline')}</p>
-        <button class="btn-primary" id="auth-open-login" style="margin-bottom:10px;">${t('auth_login')}</button>
-        <button class="btn-secondary" id="auth-start-demo"
-          style="width:100%;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:12px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;">
-          ${t('auth_demo')}
-        </button>
-        <p class="small muted" style="margin-top:16px;">${t('auth_demo_limit')}</p>
-      </div>`;
-  }
-
-  if (view === 'login') {
-    return `
-      <div class="auth-card">
-        <h2>${t('auth_login')}</h2>
-        <p class="small muted" style="margin-bottom:20px;">&nbsp;</p>
-        ${isFirebaseEnabled() ? `
-        <button class="btn-google" id="auth-google">
-          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-          ${t('auth_google')}
-        </button>
-        <div class="auth-divider">${t('auth_or')}</div>` : ''}
-        <div class="auth-field"><label>${t('auth_email')}</label><input type="email" id="auth-email" autocomplete="email"></div>
-        <div class="auth-field"><label>${t('auth_password')}</label><input type="password" id="auth-pwd" autocomplete="current-password"></div>
-        <div class="auth-error" id="auth-err"></div>
-        <div class="auth-btn-row" style="margin-top:14px;">
-          <button class="btn-secondary" id="auth-back" style="border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:12px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;">←</button>
-          <button class="btn-primary" id="auth-submit" style="flex:1;">${t('auth_login')}</button>
-        </div>
-        <p class="auth-switch"><a href="#" class="link" id="auth-to-register">${t('auth_switch_reg')}</a></p>
-        <p class="auth-switch"><a href="#" class="link" id="auth-forgot">${t('auth_forgot')}</a></p>
-      </div>`;
-  }
-
-  if (view === 'register') {
-    return `
-      <div class="auth-card">
-        <h2>${t('auth_register')}</h2>
-        <p class="small muted" style="margin-bottom:20px;">&nbsp;</p>
-        <div class="auth-field"><label>${t('auth_email')}</label><input type="email" id="auth-email" autocomplete="email"></div>
-        <div class="auth-field"><label>${t('auth_password')}</label><input type="password" id="auth-pwd" autocomplete="new-password"></div>
-        <div class="auth-error" id="auth-err"></div>
-        <div class="auth-btn-row" style="margin-top:14px;">
-          <button class="btn-secondary" id="auth-back" style="border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:12px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;">←</button>
-          <button class="btn-primary" id="auth-submit" style="flex:1;">${t('auth_register')}</button>
-        </div>
-        <p class="auth-switch"><a href="#" class="link" id="auth-to-login">${t('auth_switch_login')}</a></p>
-      </div>`;
-  }
-
-  return '';
+function buildAuthOverlayHtml() {
+  return `
+    <div class="auth-card">
+      <div style="font-size:32px;margin-bottom:12px;">📐</div>
+      <h2>${t('brand')} <span class="brand-pro">${t('brand_pro')}</span></h2>
+      <p>${t('auth_tagline')}</p>
+      <div class="auth-field">
+        <label>${t('auth_key_label')}</label>
+        <input type="password" id="auth-key" placeholder="${t('auth_key_placeholder')}"
+          maxlength="64" spellcheck="false" autocomplete="off">
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;">
+        <input type="checkbox" id="auth-remember" checked style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">
+        <span class="small muted">${t('auth_remember')}</span>
+      </div>
+      <div class="auth-error" id="auth-err"></div>
+      <button class="btn-primary" id="auth-submit">${t('auth_unlock')}</button>
+    </div>`;
 }
 
 function wireAuthOverlay(el) {
-  const swap = (view) => { el.innerHTML = buildAuthOverlayHtml(view); wireAuthOverlay(el); };
   const setErr = (msg) => { const e = el.querySelector('#auth-err'); if (e) e.textContent = msg; };
 
-  el.querySelector('#auth-open-login')?.addEventListener('click', () => swap('login'));
-  el.querySelector('#auth-start-demo')?.addEventListener('click', () => { startDemo(); hideAuthOverlay(); updateHeaderAuth(); });
-  el.querySelector('#auth-back')?.addEventListener('click', () => swap('landing'));
-  el.querySelector('#auth-to-register')?.addEventListener('click', (e) => { e.preventDefault(); swap('register'); });
-  el.querySelector('#auth-to-login')?.addEventListener('click', (e) => { e.preventDefault(); swap('login'); });
-
-  el.querySelector('#auth-google')?.addEventListener('click', async () => {
-    try { await signInWithGoogle(); hideAuthOverlay(); updateHeaderAuth(); }
-    catch (err) { setErr(friendlyError(err)); }
-  });
-
-  el.querySelector('#auth-forgot')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const email = el.querySelector('#auth-email')?.value.trim();
-    if (!email) { setErr(t('auth_email') + '?'); return; }
-    try { await resetPassword(email); setErr(t('auth_reset_sent')); }
-    catch (err) { setErr(friendlyError(err)); }
-  });
-
   el.querySelector('#auth-submit')?.addEventListener('click', async () => {
-    const email = el.querySelector('#auth-email')?.value.trim() || '';
-    const pwd   = el.querySelector('#auth-pwd')?.value || '';
-    const btn   = el.querySelector('#auth-submit');
-    if (!email || !pwd) return;
+    const key    = el.querySelector('#auth-key')?.value.trim() || '';
+    const remember = el.querySelector('#auth-remember')?.checked ?? true;
+    const btn    = el.querySelector('#auth-submit');
+    if (!key) { setErr(t('auth_key_label') + '?'); return; }
     btn.disabled = true;
+    setErr('');
     try {
-      const isReg = el.querySelector('#auth-to-login'); // present on register view
-      if (isReg) await register(email, pwd);
-      else        await signIn(email, pwd);
+      await verifyKey(key, remember);
       hideAuthOverlay();
       updateHeaderAuth();
     } catch (err) {
-      setErr(friendlyError(err));
+      setErr(err.message || t('auth_err_generic'));
     } finally {
       btn.disabled = false;
     }
   });
 
-  // Submit on Enter
-  el.querySelectorAll('input').forEach((inp) => {
-    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.querySelector('#auth-submit')?.click(); });
+  el.querySelector('#auth-key')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') el.querySelector('#auth-submit')?.click();
   });
-}
-
-function friendlyError(err) {
-  const code = err?.code || '';
-  if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return t('auth_err_invalid');
-  if (code.includes('email-already-in-use')) return t('auth_err_exists');
-  if (code.includes('weak-password'))        return t('auth_err_weak');
-  return t('auth_err_generic');
 }
 
 // ── Shell rendering ───────────────────────────────────────────────────────────
@@ -295,34 +225,22 @@ function updateHeaderAuth() {
   const container = document.getElementById('header-auth');
   if (!container) return;
 
-  if (!isFirebaseEnabled()) {
+  if (!isLicenseMode()) {
     container.innerHTML = '';
     return;
   }
 
-  if (isAuthenticated()) {
-    const email = _currentEmail();
-    const initial = email ? email[0].toUpperCase() : '?';
-    container.innerHTML = `
-      <div class="user-pill" id="user-pill">
-        <span class="user-avatar">${initial}</span>
-        <span class="small">${email}</span>
-      </div>`;
-    container.querySelector('#user-pill').addEventListener('click', async () => {
-      await signOutUser();
+  if (hasFullAccess()) {
+    container.innerHTML = `<button class="lang-btn" id="header-logout-btn">🔑 ${t('auth_logout')}</button>`;
+    container.querySelector('#header-logout-btn')?.addEventListener('click', () => {
+      signOutUser();
       updateHeaderAuth();
       showAuthOverlay();
     });
-  } else if (isDemoMode()) {
-    container.innerHTML = `<span class="demo-badge" title="${t('auth_demo_limit')}">${t('auth_demo_badge')}</span>`;
   } else {
-    container.innerHTML = `<button class="lang-btn" id="header-login-btn">${t('auth_login')}</button>`;
+    container.innerHTML = `<button class="lang-btn" id="header-login-btn">🔑 ${t('auth_key_btn')}</button>`;
     container.querySelector('#header-login-btn')?.addEventListener('click', showAuthOverlay);
   }
-}
-
-function _currentEmail() {
-  try { return currentUser()?.email || ''; } catch (_) { return ''; }
 }
 
 // ── Locked feature placeholder ────────────────────────────────────────────────
@@ -341,7 +259,7 @@ function showAccessDenied(tabId) {
     ].join(';');
     document.body.appendChild(toast);
   }
-  toast.innerHTML = `<span>🔒 ${t('auth_protected')}</span><button class="btn-primary" style="width:auto;padding:7px 14px;font-size:12px;" id="toast-login">${t('auth_login')}</button>`;
+  toast.innerHTML = `<span>🔒 ${t('auth_protected')}</span><button class="btn-primary" style="width:auto;padding:7px 14px;font-size:12px;" id="toast-login">${t('auth_key_btn')}</button>`;
   toast.querySelector('#toast-login')?.addEventListener('click', showAuthOverlay);
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => toast.remove(), 4000);

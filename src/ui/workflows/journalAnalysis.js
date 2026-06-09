@@ -1,7 +1,6 @@
 // Journal Analysis: upload real trades → real stats → Monte Carlo from YOUR data.
 import { t } from '../i18n.js';
 import { slider, wireSliders, num } from '../controls.js';
-import { isDemoMode } from '../auth.js';
 import { state, setStrategy } from '../state.js';
 import { analyzeJournal } from '../../analysis/journal.js';
 import { buildReport } from '../../analysis/report.js';
@@ -41,13 +40,6 @@ export function mountJournal(container) {
     }));
     let trades = mapped.filter((tr) => tr.pnl !== null || tr.r !== null);
     const dropped = mapped.length - trades.length;
-
-    // Demo mode: cap at 5 trades and show a notice.
-    if (isDemoMode() && trades.length > 5) {
-      trades = trades.slice(0, 5);
-      const note = container.querySelector('#jr-results');
-      if (note) note.innerHTML = `<div class="empty muted">${t('auth_demo_limit')}</div>`;
-    }
 
     if (trades.length < 5) {
       container.querySelector('#jr-results').innerHTML =

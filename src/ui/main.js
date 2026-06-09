@@ -1,6 +1,6 @@
 import './styles.css';
 import { boot, initTheme, showAuthOverlay } from './app.js';
-import { initAuth, isFirebaseEnabled, hasFullAccess } from './auth.js';
+import { initAuth, isLicenseMode, hasFullAccess } from './auth.js';
 import { createAIChat } from './aiComponents.js';
 
 window.__sap_currentAnalysis = {};
@@ -9,7 +9,7 @@ window.__sap_currentAnalysis = {};
   // 1. Apply saved/system theme immediately — prevents flash of wrong theme.
   initTheme();
 
-  // 2. Initialise auth (instant if Firebase not configured).
+  // 2. Fetch auth mode from the backend (open vs license-key).
   await initAuth();
 
   // 3. Boot the app shell.
@@ -23,9 +23,8 @@ window.__sap_currentAnalysis = {};
     chatControls.setVisible(hasFullAccess());
   }
 
-  // 5. If Firebase is configured and nobody is authenticated (no demo, no user),
-  //    show the auth overlay (landing / sign-in screen).
-  if (isFirebaseEnabled() && !hasFullAccess()) {
+  // 5. In license mode, show the key-entry overlay if no valid token is present.
+  if (isLicenseMode() && !hasFullAccess()) {
     showAuthOverlay();
   }
 })();
