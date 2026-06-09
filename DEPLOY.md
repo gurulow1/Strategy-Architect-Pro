@@ -70,13 +70,14 @@ Should return `{"status":"ok"}`.
 1. Go to [vercel.com](https://vercel.com) → **Add New Project**
 2. Import your GitHub repository
 3. Vercel auto-detects Vite — leave build settings as default
-4. Before clicking **Deploy**, go to **Environment Variables** and add:
+4. Click **Deploy** — no environment variables needed
 
-| Variable | Value |
-|---|---|
-| `VITE_API_BASE` | `https://your-project-name.up.railway.app` |
-
-5. Click **Deploy**
+> **How routing works:** `vercel.json` (committed to the repo) tells Vercel to
+> proxy all `/api/ai` requests to the Railway backend automatically. The
+> frontend calls `/api/ai` as a relative URL, so no API URL is ever baked into
+> the build. If you ever need to override this (e.g. a staging environment),
+> add `VITE_API_BASE=https://your-backend.up.railway.app` in the Vercel
+> project settings — that takes precedence over the proxy.
 
 ---
 
@@ -112,5 +113,5 @@ Open your Vercel frontend URL:
 | "AI сервис не настроен" | `GROQ_API_KEY` not set on Railway | Add the variable and redeploy |
 | CORS error in browser console | `PRODUCTION_ORIGIN` mismatch | Set it to the exact Vercel URL (no trailing slash) |
 | `/health` returns 404 | Deploy failed / wrong start command | Check Railway build logs |
-| Blank page on Vercel | `VITE_API_BASE` missing | Add variable and redeploy frontend |
+| AI calls fail on Vercel | `vercel.json` rewrite not deployed | Confirm `vercel.json` is committed and Vercel redeployed |
 | 429 quota error | Groq rate limit hit | Wait 60 s, or upgrade to a paid Groq plan |

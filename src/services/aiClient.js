@@ -1,7 +1,12 @@
 // Thin client for the /api/ai backend.
 // Auto-detects the current UI language and injects it into every request.
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
+// URL resolution priority:
+//   1. VITE_API_BASE env var (explicit override — set in Vercel/CI if needed)
+//   2. Empty string in production builds → calls /api/ai relative to the
+//      current domain; vercel.json rewrites that to the Railway backend.
+//   3. http://localhost:3001 in Vite dev mode (import.meta.env.DEV === true).
+const API_BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? 'http://localhost:3001' : '');
 
 // Read language from the same key i18n.js writes (localStorage 'sap_lang').
 // Falls back through window.__i18n, the <html lang> attribute, then 'en'.
