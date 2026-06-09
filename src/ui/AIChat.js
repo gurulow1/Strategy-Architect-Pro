@@ -106,23 +106,51 @@ export function createAIChat() {
   let thinkingEl  = null;   // the loading indicator DOM node
   let warmupTimer = null;   // timeout handle for "warming up" message
 
-  // Dimensions persist across open/close so the user's resize is remembered.
-  let panelW = 600;
+  // Dimensions persist across open/close (desktop only).
+  let panelW = Math.min(600, window.innerWidth);
   let panelH = Math.min(Math.round(window.innerHeight * 0.72), 560);
+
+  // True when the viewport is narrow enough that the desktop floating panel
+  // would overflow or be awkward to use.
+  const isMobile = () => window.innerWidth < 520;
 
   // ── Trigger button ────────────────────────────────────────────────────────
   const trigger = document.createElement('button');
   trigger.className = 'btn-primary';
   trigger.textContent = '💬 Ask AI';
   trigger.style.cssText = [
-    'position:fixed', 'bottom:20px', 'right:20px',
-    'width:auto', 'padding:10px 20px', 'z-index:1000',
+    'position:fixed', 'bottom:20px', 'right:16px',
+    'width:auto', 'padding:10px 18px', 'z-index:1000',
     'border-radius:999px', 'box-shadow:0 8px 24px rgba(29,78,216,.35)',
+    'font-size:14px',
   ].join(';');
   trigger.addEventListener('click', (e) => { e.stopPropagation(); isOpen ? close() : open(); });
   document.body.appendChild(trigger);
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen) close(); });
+
+  // ── Panel CSS — different layout on mobile vs desktop ─────────────────────
+  function buildPanelCss() {
+    if (isMobile()) {
+      // Full-width bottom sheet on narrow screens.
+      return [
+        'position:fixed', 'bottom:0', 'left:0', 'right:0',
+        `height:${Math.round(window.innerHeight * 0.88)}px`,
+        'z-index:1001',
+        'display:flex', 'flex-direction:column',
+        'border-radius:18px 18px 0 0',
+        'overflow:hidden',
+      ].join(';');
+    }
+    return [
+      'position:fixed', 'bottom:0', 'right:0',
+      `width:${panelW}px`, `height:${panelH}px`,
+      'z-index:1001',
+      'display:flex', 'flex-direction:column',
+      'border-radius:var(--radius) var(--radius) 0 0',
+      'overflow:hidden',
+    ].join(';');
+  }
 
   // ── Panel lifecycle ───────────────────────────────────────────────────────
   function open() {
@@ -131,32 +159,31 @@ export function createAIChat() {
 
     panel = document.createElement('div');
     panel.className = 'card';
-    panel.style.cssText = [
-      'position:fixed', 'bottom:0', 'right:0',
-      `width:${panelW}px`, `height:${panelH}px`,
-      'z-index:1001',
-      'display:flex', 'flex-direction:column',
-      'border-radius:var(--radius) var(--radius) 0 0',
-      'overflow:hidden',
-    ].join(';');
+    panel.style.cssText = buildPanelCss();
 
-    panel.innerHTML = `
+    const mobile = isMobile();
+    // Resize handle is hidden on mobile — drag-to-resize is not practical there.
+    const resizeHandleHtml = mobile ? '' : `
       <div id="ai-resize-handle" title="Drag to resize">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
           <path d="M3 19L19 3"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           <path d="M9 19L19 9"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-      </div>
-      <div id="ai-chat-hdr" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px 14px 30px;border-bottom:1px solid var(--line);flex-shrink:0;">
+      </div>`;
+    const hdrPadding = mobile ? '14px 16px' : '14px 18px 14px 30px';
+
+    panel.innerHTML = `
+      ${resizeHandleHtml}
+      <div id="ai-chat-hdr" style="display:flex;justify-content:space-between;align-items:center;padding:${hdrPadding};border-bottom:1px solid var(--line);flex-shrink:0;">
         <strong>${t('ai_title')}</strong>
         <button id="ai-chat-close" class="lang-btn">&times;</button>
       </div>
-      <div class="muted small" style="padding:6px 18px 0;flex-shrink:0;">
+      <div class="muted small" style="padding:6px 16px 0;flex-shrink:0;">
         ${t('ai_disclaimer')}
       </div>
-      <div id="ai-chat-msgs" style="flex:1;overflow-y:auto;padding:10px 18px;min-height:0;"></div>
-      <div style="display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--line);flex-shrink:0;">
-        <input id="ai-chat-input" class="select" style="flex:1;" placeholder="${t('ai_ask')}">
+      <div id="ai-chat-msgs" style="flex:1;overflow-y:auto;padding:10px 16px;min-height:0;"></div>
+      <div style="display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--line);flex-shrink:0;">
+        <input id="ai-chat-input" class="select" style="flex:1;min-width:0;" placeholder="${t('ai_ask')}">
         <button id="ai-chat-send" class="btn-primary" style="width:auto;padding:9px 14px;flex-shrink:0;">${t('ai_send')}</button>
       </div>`;
 
@@ -165,7 +192,8 @@ export function createAIChat() {
     sendBtn = panel.querySelector('#ai-chat-send');
 
     panel.querySelector('#ai-chat-close').addEventListener('click', close);
-    panel.querySelector('#ai-resize-handle').addEventListener('mousedown', startResize);
+    const resizeHandle = panel.querySelector('#ai-resize-handle');
+    if (resizeHandle) resizeHandle.addEventListener('mousedown', startResize);
     sendBtn.addEventListener('click', handleSend);
     inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
@@ -192,7 +220,7 @@ export function createAIChat() {
     if (panel && !panel.contains(e.target) && e.target !== trigger) close();
   }
 
-  // ── Resize (drag top-left handle) ─────────────────────────────────────────
+  // ── Resize (drag top-left handle — desktop only) ─────────────────────────
   function startResize(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -216,6 +244,12 @@ export function createAIChat() {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup',   onUp);
   }
+
+  // Re-apply panel geometry when the viewport changes (orientation flip, etc.)
+  window.addEventListener('resize', () => {
+    if (!isOpen || !panel) return;
+    panel.style.cssText = buildPanelCss();
+  });
 
   // ── Loading indicator ─────────────────────────────────────────────────────
   function showThinking() {
