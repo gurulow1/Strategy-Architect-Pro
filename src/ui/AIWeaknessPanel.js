@@ -40,7 +40,7 @@ export function createAIWeaknessPanel(container) {
     wrap.className = 'diag';
 
     const title = document.createElement('h3');
-    title.textContent = 'AI Diagnostics';
+    title.textContent = 'Risk Diagnostics';
     wrap.appendChild(title);
 
     for (const f of sorted) {

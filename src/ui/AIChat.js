@@ -48,7 +48,7 @@ function injectStyles() {
     .ai-spinner {
       width: 12px; height: 12px; flex-shrink: 0;
       border: 2px solid var(--line);
-      border-top-color: var(--accent, #1d4ed8);
+      border-top-color: var(--accent, #6366f1);
       border-radius: 50%;
       animation: ai-spin .8s linear infinite;
     }
@@ -117,11 +117,11 @@ export function createAIChat() {
   // ── Trigger button ────────────────────────────────────────────────────────
   const trigger = document.createElement('button');
   trigger.className = 'btn-primary';
-  trigger.textContent = '💬 Ask AI';
+  trigger.textContent = 'Ask Analyst';
   trigger.style.cssText = [
     'position:fixed', 'bottom:20px', 'right:16px',
     'width:auto', 'padding:10px 18px', 'z-index:1000',
-    'border-radius:999px', 'box-shadow:0 8px 24px rgba(29,78,216,.35)',
+    'border-radius:999px',
     'font-size:14px',
   ].join(';');
   trigger.addEventListener('click', (e) => { e.stopPropagation(); isOpen ? close() : open(); });
@@ -333,7 +333,7 @@ export function createAIChat() {
       el.style.textAlign = 'right';
       const bubble = document.createElement('span');
       bubble.className = 'small';
-      bubble.style.cssText = 'display:inline-block;max-width:85%;padding:7px 12px;background:rgba(29,78,216,.10);border-radius:10px;';
+      bubble.style.cssText = 'display:inline-block;max-width:85%;padding:7px 12px;background:var(--accent-subtle);border-radius:10px;';
       bubble.textContent = msg.text;
       el.appendChild(bubble);
     } else {

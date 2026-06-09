@@ -67,10 +67,10 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
     <div class="diag card">
       <h3>${t('diag_title')}</h3>
       <div class="diag-grid">
-        <div class="diag-col good"><h4>✅ ${t('diag_strengths')}</h4><ul>${findingList(report.findings.strengths)}</ul></div>
-        <div class="diag-col bad"><h4>⚠️ ${t('diag_weaknesses')}</h4><ul>${findingList(report.findings.weaknesses)}</ul></div>
-        <div class="diag-col risk"><h4>🚨 ${t('diag_risks')}</h4><ul>${findingList(report.findings.risks)}</ul></div>
-        <div class="diag-col action"><h4>🎯 ${t('diag_actions')}</h4><ul>${findingList(report.findings.actions)}</ul></div>
+        <div class="diag-col good"><h4>${t('diag_strengths')}</h4><ul>${findingList(report.findings.strengths)}</ul></div>
+        <div class="diag-col bad"><h4>${t('diag_weaknesses')}</h4><ul>${findingList(report.findings.weaknesses)}</ul></div>
+        <div class="diag-col risk"><h4>${t('diag_risks')}</h4><ul>${findingList(report.findings.risks)}</ul></div>
+        <div class="diag-col action"><h4>${t('diag_actions')}</h4><ul>${findingList(report.findings.actions)}</ul></div>
       </div>
     </div>
 

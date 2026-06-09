@@ -11,14 +11,15 @@ function isDark() { return document.documentElement.classList.contains('dark'); 
 function c() {
   const dark = isDark();
   return {
-    GOOD:      dark ? 'rgba(34,197,94,.85)'   : 'rgba(5,150,105,.82)',
-    BAD:       dark ? 'rgba(239,68,68,.85)'   : 'rgba(220,38,38,.82)',
-    WARN:      dark ? 'rgba(245,158,11,.85)'  : 'rgba(217,119,6,.82)',
-    ACCENT:    dark ? 'rgba(99,102,241,.9)'   : 'rgba(29,78,216,.9)',
-    ACCENT_DIM:dark ? 'rgba(99,102,241,.35)'  : 'rgba(29,78,216,.35)',
-    grid:      dark ? 'rgba(255,255,255,.07)' : 'rgba(16,24,40,.05)',
-    tick:      dark ? '#94a3b8'               : '#667085',
-    tooltipBg: dark ? 'rgba(15,23,42,.97)'   : 'rgba(16,24,40,.96)',
+    GOOD:         dark ? 'rgba(34,197,94,0.8)'    : 'rgba(22,163,74,0.8)',
+    BAD:          dark ? 'rgba(239,68,68,0.8)'    : 'rgba(220,38,38,0.8)',
+    WARN:         dark ? 'rgba(245,158,11,0.8)'   : 'rgba(202,138,4,0.8)',
+    ACCENT:       dark ? 'rgba(99,102,241,0.9)'   : 'rgba(79,70,229,0.9)',
+    ACCENT_DIM:   dark ? 'rgba(99,102,241,0.25)'  : 'rgba(79,70,229,0.25)',
+    grid:         dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+    tick:         dark ? '#737373'                : '#666666',
+    tooltipBg:    dark ? '#141414'                : '#ffffff',
+    tooltipBorder:dark ? 'rgba(255,255,255,0.1)'  : 'rgba(0,0,0,0.1)',
   };
 }
 
@@ -32,7 +33,8 @@ function common() {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: p.tooltipBg, padding: 10, cornerRadius: 10,
+        backgroundColor: p.tooltipBg, borderColor: p.tooltipBorder, borderWidth: 1,
+        padding: 10, cornerRadius: 8,
         displayColors: false, titleFont: { size: 12, weight: '700' }, bodyFont: { size: 12 },
       },
     },
@@ -68,6 +70,7 @@ export function refreshChartTheme() {
     if (!chart) return;
     if (chart.options.plugins?.tooltip) {
       chart.options.plugins.tooltip.backgroundColor = p.tooltipBg;
+      chart.options.plugins.tooltip.borderColor = p.tooltipBorder;
     }
     ['x', 'y'].forEach((axis) => {
       if (chart.options.scales?.[axis]) {
@@ -82,10 +85,11 @@ export function refreshChartTheme() {
 
 export function renderEquity(id, bands) {
   const p = c();
-  const band = (data, alpha, fill) => ({
-    data, borderColor: `rgba(29,78,216,${alpha})`,
-    backgroundColor: isDark() ? 'rgba(99,102,241,.07)' : 'rgba(29,78,216,.05)',
-    pointRadius: 0, borderWidth: 1, fill, tension: 0.2,
+  const fill = isDark() ? 'rgba(99,102,241,0.06)' : 'rgba(79,70,229,0.06)';
+  const band = (data, alpha, f) => ({
+    data, borderColor: isDark() ? `rgba(99,102,241,${alpha})` : `rgba(79,70,229,${alpha})`,
+    backgroundColor: fill,
+    pointRadius: 0, borderWidth: 1, fill: f, tension: 0.2,
   });
   mount(id, {
     type: 'line',
@@ -94,7 +98,7 @@ export function renderEquity(id, bands) {
       datasets: [
         band(bands.p90, 0.18, false),
         band(bands.p75, 0.28, '-1'),
-        { data: bands.p50, borderColor: p.ACCENT, backgroundColor: isDark() ? 'rgba(99,102,241,.10)' : 'rgba(29,78,216,.10)', pointRadius: 0, borderWidth: 2, fill: '-1', tension: 0.2 },
+        { data: bands.p50, borderColor: p.ACCENT, backgroundColor: fill, pointRadius: 0, borderWidth: 2, fill: '-1', tension: 0.2 },
         band(bands.p25, 0.28, '-1'),
         band(bands.p10, 0.18, '-1'),
       ],
@@ -119,7 +123,7 @@ export function renderHistogram(id, values, { bins = 26, asPercent = true } = {}
       datasets: [{
         data: hist,
         backgroundColor: hist.map((_, i) => (min + i * step >= 0 ? p.GOOD : p.BAD)),
-        borderRadius: 6, borderSkipped: false,
+        borderRadius: 4, borderSkipped: false,
       }],
     },
     options: common(),
@@ -152,7 +156,7 @@ export function renderScenarios(id, labels, returns) {
       datasets: [{
         data: returns.map((r) => r * 100),
         backgroundColor: returns.map((r) => (r >= 0 ? p.GOOD : p.BAD)),
-        borderRadius: 6, borderSkipped: false,
+        borderRadius: 4, borderSkipped: false,
       }],
     },
     options: {
@@ -196,7 +200,7 @@ export function renderRuinProfile(id, profile) {
       datasets: [{
         data: profile.map((pp) => pp.probability * 100),
         backgroundColor: profile.map((pp) => (pp.probability > 0.05 ? p.BAD : p.WARN)),
-        borderRadius: 6, borderSkipped: false,
+        borderRadius: 4, borderSkipped: false,
       }],
     },
     options: {
@@ -215,7 +219,7 @@ export function renderPropLadder(id, ladder, recRisk) {
       datasets: [{
         data: ladder.map((l) => l.passRate * 100),
         backgroundColor: ladder.map((l) => (Math.abs(l.risk - recRisk) < 1e-9 ? p.ACCENT : p.ACCENT_DIM)),
-        borderRadius: 6, borderSkipped: false,
+        borderRadius: 4, borderSkipped: false,
       }],
     },
     options: {

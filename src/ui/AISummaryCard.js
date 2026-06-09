@@ -35,7 +35,7 @@ export function createAISummaryCard(container) {
   // ── Renderers ────────────────────────────────────────────────────────────
 
   function showLoading() {
-    container.innerHTML = `<div class="card pad"><div class="muted small">Generating AI summary&hellip;</div></div>`;
+    container.innerHTML = `<div class="card pad"><div class="muted small">Analyzing strategy&hellip;</div></div>`;
   }
 
   function buildCard(data) {
@@ -56,7 +56,7 @@ export function createAISummaryCard(container) {
     card.innerHTML = `
       <div class="verdict-main" id="ai-sc-hdr">
         <div>
-          <div class="verdict-grade ${cls}">${label} &mdash; AI Summary</div>
+          <div class="verdict-grade ${cls}">${label} &mdash; Strategy Assessment</div>
           <div class="verdict-sub">${data.headline}</div>
         </div>
         <span class="muted small" id="ai-sc-toggle" aria-hidden="true">&#9650;</span>
