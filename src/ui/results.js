@@ -6,6 +6,8 @@ import { fmtR, fmtPct, fmtPctSigned, fmtNum, fmtPct as pct } from './format.js';
 import {
   renderEquity, renderHistogram, renderDrawdownHist, renderStreaks, renderRuinProfile,
 } from './charts.js';
+import { diagnostics } from '../engine/diagnostics.js';
+import { createAISummaryCard, createAIWeaknessPanel } from './aiComponents.js';
 
 function verdict(report) {
   const e = report.stats.expectancy;
@@ -85,4 +87,31 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
   const streakLabels = Array.from({ length: 8 }, (_, i) => `${i + 1}`);
   renderStreaks('c-streaks', report.streaks.winDist.slice(1, 9), report.streaks.lossDist.slice(1, 9),
     streakLabels, { win: t('streak_win'), loss: t('streak_loss') });
+
+  // ── AI cards ────────────────────────────────────────────────────────────────
+  const metrics = {
+    expectancy:    s.expectancy,
+    profitFactor:  s.profitFactor,
+    riskOfRuin:    sim.riskOfRuin,
+    winRate:       report.effWinRate ?? s.winRate,
+    tradeCount:    s.count ?? report.spec?.trades,
+    maxDrawdown:   sim.worstDD,
+  };
+
+  const diag = diagnostics(metrics);
+
+  window.__sap_currentAnalysis = {
+    metrics,
+    tradeHistory: report.spec?.sample ?? null,
+    diagnostics: diag,
+  };
+
+  const aiWrap = document.createElement('div');
+  aiWrap.innerHTML = `
+    <div id="ai-summary-container" style="margin-top:16px;"></div>
+    <div id="ai-weakness-container" style="margin-top:16px;"></div>`;
+  mount.appendChild(aiWrap);
+
+  createAISummaryCard(mount.querySelector('#ai-summary-container')).renderSummary(metrics, diag);
+  createAIWeaknessPanel(mount.querySelector('#ai-weakness-container')).renderWeaknesses(diag);
 }

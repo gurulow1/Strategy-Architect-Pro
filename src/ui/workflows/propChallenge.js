@@ -7,6 +7,9 @@ import { fmtPct, fmtNum } from '../format.js';
 import { PROP_PRESETS } from '../../engine/propChallenge.js';
 import { recommendPropRisk } from '../../analysis/report.js';
 import { renderPropLadder } from '../charts.js';
+import { createPropCoachCard } from '../aiComponents.js';
+import { callAI } from '../../services/aiClient.js';
+import { diagnostics } from '../../engine/diagnostics.js';
 
 export function mountProp(container) {
   const presetOptions = Object.entries(PROP_PRESETS)
@@ -102,6 +105,33 @@ function run(container) {
     renderPropLadder('c-ladder', ladder, rec.risk);
     // re-apply data-i18n on freshly injected nodes
     results.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.getAttribute('data-i18n')); });
+
+    // ── Prop Coach AI card ─────────────────────────────────────────────────
+    const coachContainer = document.createElement('div');
+    coachContainer.style.marginTop = '16px';
+    results.appendChild(coachContainer);
+    const coach = createPropCoachCard(coachContainer);
+
+    const propMetrics = {
+      expectancy:    strat.rr * strat.winRate - (1 - strat.winRate),
+      profitFactor:  strat.winRate > 0 && strat.winRate < 1
+        ? (strat.winRate * strat.rr) / (1 - strat.winRate)
+        : 0,
+      riskOfRuin:    rec.maxViolationRate,
+      winRate:       strat.winRate,
+      tradeCount:    strat.trades,
+      maxDrawdown:   rec.maxViolationRate,
+      prop: {
+        passRate:             rec.passRate,
+        dailyViolationRate:   rec.dailyViolationRate,
+        maxViolationRate:     rec.maxViolationRate,
+      },
+    };
+    const diag = diagnostics(propMetrics);
+
+    callAI('generateSummary', { metrics: propMetrics, diagnostics: diag })
+      .then((summary) => coach.renderCoach(summary))
+      .catch(() => coach.renderCoach(null));
   }, 20);
 }
 
