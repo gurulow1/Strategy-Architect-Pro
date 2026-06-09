@@ -13,20 +13,37 @@ const PORT = process.env.PORT || 3001;
 // proxy's internal address. Must come before any middleware that uses IPs.
 app.set('trust proxy', 1);
 
-// CORS: always allow localhost:5173 (dev).
-// In production, allow PRODUCTION_ORIGIN if set; allow all origins as a
-// temporary fallback so the first deploy works before the domain is known.
+// CORS allow-list (checked in order):
+//   1. No Origin header  → server-to-server / Vercel proxy rewrite / curl — always OK.
+//   2. localhost:5173    → local Vite dev server.
+//   3. *.vercel.app      → every Vercel deployment (production + all preview branches).
+//   4. PRODUCTION_ORIGIN → explicit custom domain, if configured.
+//   5. Fallback          → if PRODUCTION_ORIGIN is not set, allow all but log a warning
+//                          so the first deploy works before the domain is known.
 app.use(
   cors({
     origin(origin, callback) {
-      // Same-origin / non-browser requests (no Origin header) — always OK.
+      // 1. No Origin header (server-to-server, Vercel rewrite proxy, curl, etc.)
       if (!origin) return callback(null, true);
-      // Local dev.
+
+      // 2. Local dev.
       if (origin === 'http://localhost:5173') return callback(null, true);
-      // Production: restrict to configured origin, or allow all temporarily.
-      if (!process.env.PRODUCTION_ORIGIN || origin === process.env.PRODUCTION_ORIGIN) {
+
+      // 3. Any Vercel deployment — production URL and every preview branch URL.
+      //    Pattern: https://<anything>.vercel.app
+      if (origin.endsWith('.vercel.app')) return callback(null, true);
+
+      // 4. Explicit custom domain (e.g. https://strategy-architect-pro.com).
+      if (process.env.PRODUCTION_ORIGIN && origin === process.env.PRODUCTION_ORIGIN) {
         return callback(null, true);
       }
+
+      // 5. No PRODUCTION_ORIGIN set — allow all as a temporary fallback.
+      if (!process.env.PRODUCTION_ORIGIN) {
+        console.warn(`[CORS] No PRODUCTION_ORIGIN set — allowing origin: ${origin}`);
+        return callback(null, true);
+      }
+
       return callback(new Error('Not allowed by CORS'));
     },
   })
