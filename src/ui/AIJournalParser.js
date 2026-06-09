@@ -181,7 +181,7 @@ export function createAIJournalParser(container, onTradesConfirmed) {
         reader.onload = (e) => {
           try {
             const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-            // Convert the first sheet to CSV; Gemini handles the rest.
+            // Convert the first sheet to CSV; the AI parser handles the rest.
             resolve(XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]));
           } catch (err) { reject(err); }
         };

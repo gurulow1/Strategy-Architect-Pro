@@ -1,4 +1,4 @@
-import { getModel } from './geminiClient.js';
+import { getModel } from './groqClient.js';
 import { parseJournal, generateSummary, answerQuestion, explainWeaknesses } from './aiService.js';
 
 export async function handleFeature(feature, payload) {

@@ -7,10 +7,10 @@
 const LANG_NAMES = { en: 'English', ru: 'Russian' };
 const ln = (lang) => LANG_NAMES[lang] || 'English';
 
-// Call Gemini and parse the JSON response.
-// The model is already configured with responseMimeType: 'application/json',
+// Call Groq and parse the JSON response.
+// The model is configured with response_format: json_object,
 // but we strip any accidental markdown fences defensively.
-async function geminiJSON(model, prompt) {
+async function groqJSON(model, prompt) {
   const result = await model.generateContent(prompt);
   const raw = result.response.text();
   const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
@@ -64,7 +64,7 @@ If the input is not a recognisable trade journal, return an empty trades array a
 ---
 ${rawText.slice(0, 48000)}`;
 
-  return geminiJSON(model, prompt);
+  return groqJSON(model, prompt);
 }
 
 // ── Handler 2: generateSummary ────────────────────────────────────────────────
@@ -109,7 +109,7 @@ Rules:
 - If trade count < 30, sample_warning must be non-null
 - All text fields in ${language}`;
 
-  const data = await geminiJSON(model, prompt);
+  const data = await groqJSON(model, prompt);
   // Hard-enforce: AI must not override the deterministic verdict.
   data.verdict = verdict;
   return data;
@@ -161,7 +161,7 @@ Valid highlight IDs:
 Only use a highlight ID that is genuinely relevant to your answer.
 If the answer is general (no specific parameter), set navigation: null.`;
 
-  return geminiJSON(model, prompt);
+  return groqJSON(model, prompt);
 }
 
 // ── Handler 4: explainWeaknesses ──────────────────────────────────────────────
@@ -210,5 +210,5 @@ Severity mapping:
 - info:     insufficient sample, low_win_rate, kelly_exceeds_limit, drawdown_near_prop_limit
 All text in ${language}.`;
 
-  return geminiJSON(model, prompt);
+  return groqJSON(model, prompt);
 }

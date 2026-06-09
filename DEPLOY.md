@@ -9,7 +9,7 @@ Backend → Railway | Frontend → Vercel
 - GitHub repository with this code pushed
 - Railway account (railway.app)
 - Vercel account (vercel.com)
-- Gemini API key
+- Groq API key (free at console.groq.com)
 
 ---
 
@@ -40,8 +40,8 @@ In your Railway project → **Variables** tab, add:
 
 | Variable | Value |
 |---|---|
-| `GEMINI_API_KEY` | your Gemini API key |
-| `GEMINI_MODEL` | `gemini-3.5-flash` |
+| `GROQ_API_KEY` | your Groq API key |
+| `GROQ_MODEL` | `llama-3.1-8b-instant` |
 | `PRODUCTION_ORIGIN` | *(leave blank for now — fill in after Vercel deploy)* |
 
 Railway injects `PORT` automatically — do **not** add it manually.
@@ -109,8 +109,8 @@ Open your Vercel frontend URL:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| "AI сервис не настроен" | `GEMINI_API_KEY` not set on Railway | Add the variable and redeploy |
+| "AI сервис не настроен" | `GROQ_API_KEY` not set on Railway | Add the variable and redeploy |
 | CORS error in browser console | `PRODUCTION_ORIGIN` mismatch | Set it to the exact Vercel URL (no trailing slash) |
 | `/health` returns 404 | Deploy failed / wrong start command | Check Railway build logs |
 | Blank page on Vercel | `VITE_API_BASE` missing | Add variable and redeploy frontend |
-| 429 quota error | Gemini free tier exhausted | Wait, or enable billing on the Google AI project |
+| 429 quota error | Groq rate limit hit | Wait 60 s, or upgrade to a paid Groq plan |

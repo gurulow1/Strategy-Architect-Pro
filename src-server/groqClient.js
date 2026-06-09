@@ -1,6 +1,6 @@
 // Groq client — OpenAI-compatible REST API via fetch().
 // Public interface: getModel(lang) → { generateContent(prompt) }
-// Drop-in for the old Gemini client; aiService.js needs no changes.
+// aiService.js calls generateContent() and never needs to know the provider.
 
 const API_BASE   = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL_NAME = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
@@ -67,7 +67,7 @@ export function getModel(lang = 'en') {
 
       const text = await callGroq(apiKey, systemPrompt, prompt);
 
-      // Return shape expected by aiService.js → geminiJSON():
+      // Return shape expected by aiService.js → groqJSON():
       //   result.response.text()  →  raw JSON string
       return {
         response: { text: () => text },
