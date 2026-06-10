@@ -30,6 +30,20 @@ export const fmtR = (v, d = 2) => {
 
 export const fmtNum = (v, d = 2) => (isBad(v) ? DASH : magnitude(v, d));
 
+// Render a per-trade value either as an R-multiple (default) or in account
+// currency. Used when a MetaTrader journal has no R column and PnL was
+// normalized — currency reads far more honestly than "+6627R".
+export const fmtValue = (v, unit, symbol = '$') => {
+  if (unit !== 'currency') return fmtR(v);
+  if (isBad(v)) return DASH;
+  const sign = v >= 0 ? '+' : '−';
+  const abs = Math.abs(v);
+  const body = abs > 999999
+    ? abs.toExponential(2)
+    : abs.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${sign}${symbol}${body}`;
+};
+
 export const fmtInt = (v) => {
   if (isBad(v)) return DASH;
   return Math.abs(v) > 999999 ? v.toExponential(2) : Math.round(v).toLocaleString('en-US');

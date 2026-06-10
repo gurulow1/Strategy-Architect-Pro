@@ -8,10 +8,14 @@
 //   renderSummary(metrics, diagnostics);   // call after analysis completes
 
 import { callAI } from '../services/aiClient.js';
+import { t } from './i18n.js';
 
-// Map AI verdict keys → existing CSS color classes.
+// Map AI verdict keys → existing CSS color classes + i18n label keys.
 const VERDICT_CLS = { strong: 'good', fragile: 'warn', weak: 'bad', no_edge: 'bad' };
-const VERDICT_LABEL = { strong: 'Strong', fragile: 'Fragile', weak: 'Weak', no_edge: 'No Edge' };
+const VERDICT_LABEL_KEY = {
+  strong: 'ai_verdict_strong', fragile: 'ai_verdict_fragile',
+  weak: 'ai_verdict_weak', no_edge: 'ai_verdict_no_edge',
+};
 
 export function createAISummaryCard(container) {
   let _metrics = null;
@@ -35,16 +39,16 @@ export function createAISummaryCard(container) {
   // ── Renderers ────────────────────────────────────────────────────────────
 
   function showLoading() {
-    container.innerHTML = `<div class="card pad"><div class="muted small">Analyzing strategy&hellip;</div></div>`;
+    container.innerHTML = `<div class="card pad"><div class="muted small">${t('ai_analyzing')}</div></div>`;
   }
 
   function buildCard(data) {
     const cls   = VERDICT_CLS[data.verdict]   || 'bad';
-    const label = VERDICT_LABEL[data.verdict] || data.verdict;
+    const label = VERDICT_LABEL_KEY[data.verdict] ? t(VERDICT_LABEL_KEY[data.verdict]) : data.verdict;
 
     const mkList = (items) => Array.isArray(items) && items.length
       ? `<ul>${items.map(s => `<li>${s}</li>`).join('')}</ul>`
-      : `<ul><li class="muted">None noted.</li></ul>`;
+      : `<ul><li class="muted">${t('ai_none')}</li></ul>`;
 
     const sampleWarnHtml = data.sample_warning
       ? `<div class="small warn">${data.sample_warning}</div><div class="divider"></div>`
@@ -56,7 +60,7 @@ export function createAISummaryCard(container) {
     card.innerHTML = `
       <div class="verdict-main" id="ai-sc-hdr">
         <div>
-          <div class="verdict-grade ${cls}">${label} &mdash; Strategy Assessment</div>
+          <div class="verdict-grade ${cls}">${label} &mdash; ${t('ai_headline')}</div>
           <div class="verdict-sub">${data.headline}</div>
         </div>
         <span class="muted small" id="ai-sc-toggle" aria-hidden="true">&#9650;</span>
@@ -64,25 +68,25 @@ export function createAISummaryCard(container) {
       <div id="ai-sc-body">
         <div class="diag-grid">
           <div class="diag-col good">
-            <h4>Strengths</h4>
+            <h4>${t('ai_strengths')}</h4>
             ${mkList(data.strengths)}
           </div>
           <div class="diag-col bad">
-            <h4>Weaknesses</h4>
+            <h4>${t('ai_weaknesses')}</h4>
             ${mkList(data.weaknesses)}
           </div>
           <div class="diag-col risk">
-            <h4>Biggest Risk</h4>
+            <h4>${t('ai_biggest_risk')}</h4>
             <p class="small">${data.biggest_risk}</p>
           </div>
           <div class="diag-col action">
-            <h4>Recommended Action</h4>
+            <h4>${t('ai_recommended_action')}</h4>
             <p class="small">${data.recommended_action}</p>
           </div>
         </div>
         ${sampleWarnHtml}
         <div class="divider"></div>
-        <button class="btn-primary" id="ai-sc-refresh">Refresh AI Analysis</button>
+        <button class="btn-primary" id="ai-sc-refresh">${t('ai_refresh')}</button>
       </div>`;
 
     const header   = card.querySelector('#ai-sc-hdr');
@@ -112,7 +116,7 @@ export function createAISummaryCard(container) {
       <div class="card verdict bad">
         <div class="verdict-main">
           <div>
-            <div class="verdict-grade bad">AI Analysis Unavailable</div>
+            <div class="verdict-grade bad">${t('ai_unavailable')}</div>
             <div class="verdict-sub">${message}</div>
           </div>
         </div>

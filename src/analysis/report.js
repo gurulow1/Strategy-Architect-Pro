@@ -44,6 +44,9 @@ export function buildReport(input) {
     // Raw journal trades ({ date, pnl, r, direction?, symbol? }) — enables the
     // Edge Integrity analyses. `trades` above stays the planned trade COUNT.
     tradeRecords = null,
+    // How the journal sample was derived: 'explicit' R column vs PnL 'normalized'
+    // to R. When normalized, per-trade values read more honestly in currency.
+    rBasis = null,
   } = input;
 
   const rng = createRng(seed >>> 0);
@@ -108,6 +111,12 @@ export function buildReport(input) {
     maxDDs: res.maxDDs,
     effWinRate, effRr,
     temporal, blindspots, skillLuck,
+    // Per-trade values are most honest in currency when PnL was normalized to R
+    // (a MetaTrader journal with no R column). Otherwise R is the native unit.
+    displayUnit: sample && rBasis === 'normalized' ? 'currency' : 'R',
+    currencySymbol: '$',
+    // Server-side actions the client may fire (e.g. Telegram alert on degradation).
+    alerts: temporal?.degrading ? ['degradation'] : [],
   };
 }
 

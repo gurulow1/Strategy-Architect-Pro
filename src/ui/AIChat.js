@@ -117,6 +117,7 @@ export function createAIChat() {
   // ── Trigger button ────────────────────────────────────────────────────────
   const trigger = document.createElement('button');
   trigger.className = 'btn-primary';
+  trigger.id = 'ai-chat-trigger';
   trigger.textContent = t('ai_trigger');
   trigger.style.cssText = [
     'position:fixed', 'bottom:20px', 'right:16px',

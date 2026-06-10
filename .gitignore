@@ -7,3 +7,6 @@ coverage
 .env.*
 !.env.example
 !.env.production.example
+
+# Telegram link store (contains chat ids)
+tg-store.json

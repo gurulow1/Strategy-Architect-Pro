@@ -1,0 +1,58 @@
+/* Print / PDF styles. Triggered by the "Download PDF" button (window.print()).
+   Goal: a clean, ink-light report — drop the app chrome, inputs, chat and
+   action buttons; keep the verdict, KPIs, diagnostics, Edge Integrity and
+   charts; lay them out full width on a white page. */
+
+@media print {
+  /* Force a light, high-contrast page regardless of the on-screen theme. */
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    background-image: none !important;
+  }
+
+  /* Hide everything that isn't the report itself. */
+  .topbar,
+  .tabbar,
+  .mobile-nav-drawer,
+  .hamburger-btn,
+  .inputs,
+  .wf-head,
+  .report-actions,
+  #ai-chat-trigger,
+  #ai-hint-chip,
+  #ai-chat-panel,
+  #jr-ai-parser,
+  .dropzone,
+  .broker-import,
+  #tg-connect-panel,
+  .auth-overlay,
+  .lab-chip,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Collapse the two-column workflow layout to a single full-width column. */
+  #app { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+  .wf-body { grid-template-columns: 1fr !important; gap: 0 !important; }
+  .results { width: 100% !important; }
+
+  /* Flatten cards: no shadows, light hairline borders, never split a card. */
+  .card, .kpi, .panel, .ei-sub, .verdict, .diag {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .chart-grid { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+  .chart-wrap, .chart-wrap.tall { height: 220px !important; }
+  canvas { max-width: 100% !important; }
+
+  /* Kill entrance animations so nothing prints mid-transition. */
+  .result-enter, * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

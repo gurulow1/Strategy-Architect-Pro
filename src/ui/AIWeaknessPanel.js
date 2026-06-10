@@ -5,19 +5,20 @@
 // styling comes from existing CSS classes.
 
 import { callAI } from '../services/aiClient.js';
+import { t } from './i18n.js';
 
 const SEV_ORDER = { critical: 0, warning: 1, info: 2 };
 
 export function createAIWeaknessPanel(container) {
 
   async function renderWeaknesses(diagnostics) {
-    container.innerHTML = '<div class="muted small">Analyzing diagnostics&hellip;</div>';
+    container.innerHTML = `<div class="muted small">${t('ai_analyzing_diag')}</div>`;
 
     try {
       const data = await callAI('explainWeaknesses', { diagnostics });
       buildPanel(data.findings || []);
     } catch (_) {
-      container.innerHTML = '<div class="muted small">Diagnostics unavailable.</div>';
+      container.innerHTML = `<div class="muted small">${t('ai_diag_unavailable')}</div>`;
     }
   }
 
@@ -27,7 +28,7 @@ export function createAIWeaknessPanel(container) {
     if (!findings.length) {
       const ok = document.createElement('div');
       ok.className = 'small good';
-      ok.textContent = 'No critical issues found.';
+      ok.textContent = t('ai_no_issues');
       container.appendChild(ok);
       return;
     }
@@ -40,7 +41,7 @@ export function createAIWeaknessPanel(container) {
     wrap.className = 'diag';
 
     const title = document.createElement('h3');
-    title.textContent = 'Risk Diagnostics';
+    title.textContent = t('ai_risk_diag');
     wrap.appendChild(title);
 
     for (const f of sorted) {

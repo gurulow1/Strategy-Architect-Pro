@@ -2,7 +2,7 @@
 // Used by Quick Check and Journal Analysis. Presentation only.
 
 import { t, tFinding } from './i18n.js';
-import { fmtR, fmtPct, fmtPctSigned, fmtNum, fmtPct as pct } from './format.js';
+import { fmtR, fmtPct, fmtPctSigned, fmtNum, fmtValue, fmtPct as pct } from './format.js';
 import {
   renderEquity, renderHistogram, renderDrawdownHist, renderStreaks, renderRuinProfile,
   renderRollingLine,
@@ -18,9 +18,12 @@ function verdict(report) {
   return { key: 'verdict_marginal', cls: 'warn' };
 }
 
-function kpi(label, value, sub, cls = '', id = '') {
+function kpi(label, value, sub, cls = '', id = '', tip = '') {
   const idAttr = id ? ` id="${id}"` : '';
-  return `<div class="kpi card"${idAttr}><div class="kpi-label">${label}</div>
+  // Escape the tooltip for safe use inside an HTML attribute.
+  const tipEsc = tip ? tip.replace(/"/g, '&quot;') : '';
+  const tipHtml = tip ? ` <span class="kpi-tip" tabindex="0" role="img" aria-label="${tipEsc}" title="${tipEsc}">?</span>` : '';
+  return `<div class="kpi card"${idAttr}><div class="kpi-label">${label}${tipHtml}</div>
     <div class="kpi-num ${cls}"><span class="kpi-slot">${value}</span></div>
     <div class="kpi-sub">${sub}</div></div>`;
 }
@@ -83,7 +86,7 @@ function eiSkillCard(sl) {
     </section>`;
 }
 
-function eiTimeCard(tp) {
+function eiTimeCard(tp, unit, sym) {
   if (!tp || !tp.available) return '';
   const banner = tp.degrading ? `<div class="ei-banner bad">${t('ei_degrading')}</div>` : '';
   const chart = tp.rolling.expectancy.length
@@ -100,14 +103,14 @@ function eiTimeCard(tp) {
         <thead><tr><th></th><th>${t('ei_early')}</th><th>${t('ei_recent')}</th></tr></thead>
         <tbody>
           ${row(t('ei_col_wr'), tp.earlyStats.winRate, tp.recentStats.winRate, (v) => fmtPct(v, 0))}
-          ${row(t('ei_col_exp'), tp.earlyStats.expectancy, tp.recentStats.expectancy, (v) => fmtR(v))}
+          ${row(t('ei_col_exp'), tp.earlyStats.expectancy, tp.recentStats.expectancy, (v) => fmtValue(v, unit, sym))}
           ${row(t('ei_col_pf'), tp.earlyStats.profitFactor, tp.recentStats.profitFactor, (v) => (v === Infinity ? '∞' : fmtNum(v)))}
         </tbody>
       </table>
     </section>`;
 }
 
-function eiBlindCard(bs) {
+function eiBlindCard(bs, unit, sym) {
   if (!bs) return '';
   const { direction, instrument, dayOfWeek } = bs;
   const blocks = [];
@@ -116,7 +119,7 @@ function eiBlindCard(bs) {
     const side = (label, grp, losing) => {
       const net = grp.stats.expectancy * grp.count;
       const cls = losing ? 'bad' : '';
-      return `<div class="ei-line ${cls}"><span>${label} (${grp.count})</span><strong>${fmtR(net)}</strong></div>`;
+      return `<div class="ei-line ${cls}"><span>${label} (${grp.count})</span><strong>${fmtValue(net, unit, sym)}</strong></div>`;
     };
     const note = direction.losingDirection
       ? `<div class="ei-line bad small">${t('ei_dir_losing', { dir: dirLabel(direction.losingDirection) })}</div>`
@@ -152,7 +155,7 @@ function eiBlindCard(bs) {
   if (dayOfWeek && dayOfWeek.available) {
     const rows = dayOfWeek.byDay.map((d) => {
       const toxic = dayOfWeek.toxicDay && d.dayIndex === dayOfWeek.worstDay.dayIndex;
-      return `<tr class="${toxic ? 'ei-toxic' : ''}"><td>${dayLabel(d.dayIndex)}</td><td>${d.count}</td><td>${fmtR(d.stats.expectancy)}</td></tr>`;
+      return `<tr class="${toxic ? 'ei-toxic' : ''}"><td>${dayLabel(d.dayIndex)}</td><td>${d.count}</td><td>${fmtValue(d.stats.expectancy, unit, sym)}</td></tr>`;
     }).join('');
     blocks.push(`
       <div class="ei-block">
@@ -172,15 +175,15 @@ function eiBlindCard(bs) {
     </section>`;
 }
 
-function renderEdgeIntegrity(report) {
+function renderEdgeIntegrity(report, unit, sym) {
   if (!report.skillLuck && !report.temporal && !report.blindspots) return '';
   return `
     <div class="ei card pad result-enter" style="animation-delay:260ms">
       <h3>${t('ei_title')}</h3>
       <div class="ei-grid">
         ${report.skillLuck ? eiSkillCard(report.skillLuck) : ''}
-        ${eiTimeCard(report.temporal)}
-        ${eiBlindCard(report.blindspots)}
+        ${eiTimeCard(report.temporal, unit, sym)}
+        ${eiBlindCard(report.blindspots, unit, sym)}
       </div>
     </div>`;
 }
@@ -200,6 +203,11 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
   // Score badge must never show raw NaN — fall back to "N/A" if it failed.
   const scoreDisplay = Number.isFinite(report.robustness?.score) ? report.robustness.score : 'N/A';
 
+  // Per-trade unit: '$' when a no-R journal was normalized, else R-multiples.
+  const unit = report.displayUnit || 'R';
+  const sym = report.currencySymbol || '$';
+  const expSub = unit === 'currency' ? 'kpi_expectancy_sub_cur' : 'kpi_expectancy_sub';
+
   mount.innerHTML = `
     <div class="verdict card ${v.cls} result-enter" style="animation-delay:0ms">
       <div class="verdict-main">
@@ -212,7 +220,7 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
     </div>
 
     <div class="kpi-grid kpi-primary result-enter" style="animation-delay:120ms">
-      ${kpi(t('kpi_expectancy'), fmtR(s.expectancy), t('kpi_expectancy_sub'), 'accent', 'kpi-expectancy')}
+      ${kpi(t('kpi_expectancy'), fmtValue(s.expectancy, unit, sym), t(expSub), 'accent', 'kpi-expectancy')}
       ${kpi(t('kpi_pf'), pf, t('kpi_pf_sub'), 'accent', 'kpi-pf')}
       ${kpi(t('kpi_ruin'), fmtPct(sim.riskOfRuin), t('kpi_ruin_sub', { threshold: fmtPct(ruinThreshold, 0) }), sim.riskOfRuin > 0.05 ? 'bad' : 'good', 'kpi-ruin')}
     </div>
@@ -227,8 +235,9 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
       ${kpi(t('kpi_pop'), fmtPct(sim.probProfit, 0), t('kpi_pop_sub'), sim.probProfit >= 0.55 ? 'good' : sim.probProfit >= 0.45 ? 'warn' : 'bad', 'kpi-pop')}
       ${kpi(t('kpi_dd'), fmtPct(sim.medianDD), t('kpi_dd_sub', { worst: fmtPct(sim.worstDD) }), 'warn', 'kpi-dd')}
       ${kpi(t('kpi_kelly'), k.profitable ? fmtPct(k.fStar, 1) : 'N/A', k.profitable ? t('kpi_kelly_sub', { mode: k.modeLabel, rec: fmtPct(k.recommended, 2) }) : t('verdict_noedge'), '', 'kpi-kelly')}
-      ${kpi(t('kpi_sig'), sigPct, t('kpi_sig_sub'), '', 'kpi-sig')}
+      ${kpi(t('kpi_sig'), sigPct, t('kpi_sig_sub'), '', 'kpi-sig', t('kpi_sig_tip'))}
     </div>
+    ${unit === 'currency' ? `<div class="notice warn result-enter" style="animation-delay:210ms">${t('notice_currency_normalized')}</div>` : ''}
 
     <div class="diag card result-enter" style="animation-delay:220ms">
       <h3>${t('diag_title')}</h3>
@@ -240,7 +249,12 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
       </div>
     </div>
 
-    ${renderEdgeIntegrity(report)}
+    ${renderEdgeIntegrity(report, unit, sym)}
+
+    <div class="report-actions result-enter" style="animation-delay:300ms">
+      <button class="btn-secondary" id="rep-share">${t('btn_share')}</button>
+      <button class="btn-secondary" id="rep-pdf">${t('btn_pdf')}</button>
+    </div>
 
     <div class="chart-grid result-enter" style="animation-delay:320ms">
       <section class="card panel wide chart-hero">
@@ -285,6 +299,27 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
   const streakLabels = Array.from({ length: 8 }, (_, i) => `${i + 1}`);
   renderStreaks('c-streaks', report.streaks.winDist.slice(1, 9), report.streaks.lossDist.slice(1, 9),
     streakLabels, { win: t('streak_win'), loss: t('streak_loss') });
+
+  // ── Report actions: PDF (print) + Share (clipboard) ──────────────────────────
+  mount.querySelector('#rep-pdf')?.addEventListener('click', () => window.print());
+  const shareBtn = mount.querySelector('#rep-share');
+  shareBtn?.addEventListener('click', async () => {
+    const gradeTxt = t(gradeKey[report.robustness.grade] || 'grade_fragile');
+    const score = Number.isFinite(report.robustness?.score) ? report.robustness.score : '—';
+    const summary = [
+      `${t('share_strategy')}: ${gradeTxt} (${score}/100)`,
+      `${t('share_expectancy')}: ${fmtValue(s.expectancy, unit, sym)} | PF: ${pf} | ${t('share_ruin')}: ${fmtPct(sim.riskOfRuin)}`,
+      t('share_footer'),
+    ].join('\n');
+    const orig = shareBtn.textContent;
+    try {
+      await navigator.clipboard.writeText(summary);
+      shareBtn.textContent = t('share_copied');
+    } catch (_) {
+      shareBtn.textContent = t('share_failed');
+    }
+    setTimeout(() => { shareBtn.textContent = orig; }, 2200);
+  });
 
   // ── AI cards ────────────────────────────────────────────────────────────────
   const metrics = {

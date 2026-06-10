@@ -1,4 +1,5 @@
 import './styles.css';
+import './printReport.css';
 import { boot, initTheme, showAuthOverlay } from './app.js';
 import { initAuth, isLicenseMode, hasFullAccess } from './auth.js';
 import { createAIChat } from './aiComponents.js';
