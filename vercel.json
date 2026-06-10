@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/ai",
-      "destination": "https://strategy-architect-pro-production.up.railway.app/api/ai"
+      "source": "/api/:path*",
+      "destination": "https://strategy-architect-pro-production.up.railway.app/api/:path*"
     }
   ]
 }
