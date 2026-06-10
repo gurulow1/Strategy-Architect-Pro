@@ -176,6 +176,34 @@ export default {
   per_trade: 'на сделку',
   empty_run: 'Задайте параметры и запустите анализ.',
 
+  // demo banner + empty states
+  demo_banner_text: 'Пример стратегии. Измените параметры и нажмите Run, чтобы анализировать свою.',
+  jr_empty_title: 'Загрузите журнал сделок',
+  jr_empty_sub: 'Вставьте CSV или перетащите файл в левую панель',
+  rob_empty_title: 'Стратегия ещё не загружена',
+  rob_empty_sub: 'Сначала запустите быструю проверку или загрузите журнал, чтобы открыть стресс-тесты.',
+  prop_empty_title: 'Стратегия ещё не загружена',
+  prop_empty_sub: 'Сначала запустите быструю проверку, чтобы смоделировать проп-челлендж.',
+
+  // run loading + KPI hierarchy + tabs + charts
+  loading_sims: 'Симулирую {n} путей…',
+  kpi_secondary_label: 'Подробные метрики',
+  tab_start_badge: 'С этого',
+  chart_equity_badge: 'Кривая капитала',
+
+  // AI chat discoverability
+  ai_trigger: 'Спросить AI',
+  ai_trigger_ready: '✦ Спросить про результаты',
+  ai_sugg_header: 'Попробуй спросить:',
+  ai_sugg_1: 'Почему Risk of Ruin такой высокий?',
+  ai_sugg_2: 'Что изменить, чтобы улучшить стратегию?',
+  ai_sugg_3: 'Достаточно ли статистически надёжно преимущество?',
+
+  // auth overlay feature preview
+  auth_feat_1: 'Симуляция Монте-Карло на тысячах сценариев',
+  auth_feat_2: 'Критерий Келли, вероятность разорения, просадки',
+  auth_feat_3: 'AI-аналитик объясняет результаты простым языком',
+
   'find.positive_expectancy': 'Положительное ожидание {expectancy} на сделку — система в среднем зарабатывает.',
   'find.strong_pf': 'Сильный profit factor {pf} — прибыль явно перевешивает убытки.',
   'find.robust_edge': 'Edge держится под стрессом (прочность {score}/100).',

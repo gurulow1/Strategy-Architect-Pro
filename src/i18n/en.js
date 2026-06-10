@@ -188,6 +188,34 @@ export default {
   per_trade: 'per trade',
   empty_run: 'Set your inputs and run the analysis.',
 
+  // demo banner + empty states
+  demo_banner_text: 'This is an example strategy. Adjust the sliders and hit Run to analyse your own.',
+  jr_empty_title: 'Upload your trade journal',
+  jr_empty_sub: 'Paste CSV or drop a file on the left panel to begin',
+  rob_empty_title: 'No strategy loaded yet',
+  rob_empty_sub: 'Run Quick Check or upload a journal first to unlock stress testing.',
+  prop_empty_title: 'No strategy loaded yet',
+  prop_empty_sub: 'Run Quick Check first to simulate a prop-firm challenge.',
+
+  // run loading + KPI hierarchy + tabs + charts
+  loading_sims: 'Simulating {n} paths…',
+  kpi_secondary_label: 'Detailed metrics',
+  tab_start_badge: 'Start here',
+  chart_equity_badge: 'Equity curve',
+
+  // AI chat discoverability
+  ai_trigger: 'Ask AI Analyst',
+  ai_trigger_ready: '✦ Ask about your results',
+  ai_sugg_header: 'Try asking:',
+  ai_sugg_1: 'Why is my Risk of Ruin so high?',
+  ai_sugg_2: 'What should I change to improve this strategy?',
+  ai_sugg_3: 'Is this edge statistically reliable?',
+
+  // auth overlay feature preview
+  auth_feat_1: 'Monte Carlo simulation across thousands of scenarios',
+  auth_feat_2: 'Kelly criterion, ruin probability, drawdown analysis',
+  auth_feat_3: 'AI Analyst explains your results in plain language',
+
   // finding templates (data-driven; vars are pre-formatted)
   'find.positive_expectancy': 'Positive expectancy of {expectancy} per trade — the system makes money on average.',
   'find.strong_pf': 'Strong profit factor of {pf} — gross profit clearly outweighs gross loss.',

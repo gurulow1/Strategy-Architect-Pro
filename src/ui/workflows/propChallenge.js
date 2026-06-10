@@ -30,7 +30,13 @@ export function mountProp(container) {
           ${checkbox({ id: 'pp-trailing', labelKey: 'prop_trailing' })}
           <button class="btn-primary" id="pp-run" data-i18n="prop_eval"></button>
         </aside>
-        <div class="results" id="pp-results"><div class="empty muted" data-i18n="prop_no_strategy"></div></div>
+        <div class="results" id="pp-results">
+          <div class="empty-state card pad">
+            <div class="empty-state-icon">🏆</div>
+            <div class="empty-state-title" data-i18n="prop_empty_title"></div>
+            <div class="empty-state-sub muted" data-i18n="prop_empty_sub"></div>
+          </div>
+        </div>
       </div>
     </div>`;
 
@@ -62,7 +68,15 @@ function setSlider(container, id, value) {
 function run(container) {
   const results = container.querySelector('#pp-results');
   const strat = state.strategy;
-  if (!strat) { results.innerHTML = `<div class="empty muted card pad">${t('prop_no_strategy')}</div>`; return; }
+  if (!strat) {
+    results.innerHTML = `
+      <div class="empty-state card pad">
+        <div class="empty-state-icon">🏆</div>
+        <div class="empty-state-title">${t('prop_empty_title')}</div>
+        <div class="empty-state-sub muted">${t('prop_empty_sub')}</div>
+      </div>`;
+    return;
+  }
 
   const rules = {
     capital: strat.capital,

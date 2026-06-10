@@ -36,7 +36,25 @@ export function mountQuickCheck(container) {
 
   const inputs = container.querySelector('.inputs');
   wireSliders(inputs);
-  container.querySelector('#qc-run').addEventListener('click', run);
+  container.querySelector('#qc-run').addEventListener('click', () => run());
+
+  // First-visit demo: pre-run a solid example so the UI is never empty.
+  const firstVisit = !localStorage.getItem('sap_ran_once');
+  if (firstVisit) {
+    setSliderValue('qc-winrate', 52);
+    setSliderValue('qc-rr', 2.1);
+    setSliderValue('qc-risk', 1.0);
+    run({ isDemo: true });
+    localStorage.setItem('sap_ran_once', '1');
+    document.body.classList.add('sap-ran-once');
+  }
+
+  function setSliderValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = value;
+    el.dispatchEvent(new Event('input')); // refresh the live value label
+  }
 
   function readStrategy() {
     return {
@@ -52,19 +70,61 @@ export function mountQuickCheck(container) {
     };
   }
 
-  function run() {
+  function run({ isDemo = false } = {}) {
     const strategy = readStrategy();
     setStrategy(strategy);
     const results = container.querySelector('#qc-results');
-    results.innerHTML = `<div class="empty muted">${t('loading')}</div>`;
+    const sims = num('qc-sims') || 2000;
+    results.innerHTML = `
+      <div class="run-loading">
+        <div class="run-loading-spinner"></div>
+        <div class="run-loading-text">${t('loading_sims', { n: sims.toLocaleString() })}</div>
+      </div>`;
     // Defer so the loading state paints before the (synchronous) compute.
     setTimeout(() => {
       const report = buildReport({ ...strategy, seed: state.seed });
       state.lastReport = report;
       renderReport(report, results);
+
+      if (isDemo) {
+        const banner = document.createElement('div');
+        banner.className = 'demo-banner';
+        banner.innerHTML = `<span>${t('demo_banner_text')}</span>
+          <button class="demo-banner-dismiss" id="demo-dismiss">✕</button>`;
+        results.prepend(banner);
+        document.getElementById('demo-dismiss')
+          ?.addEventListener('click', () => banner.remove());
+      }
+
+      // On mobile, slide results up as an overlay sheet.
+      if (window.innerWidth <= 768) showMobileResults(results);
     }, 20);
   }
 
   return { run, rerender: () => state.lastReport && state.strategy?.source === 'quick'
     && renderReport(state.lastReport, container.querySelector('#qc-results')) };
+}
+
+// Mobile: present results as a slide-up bottom sheet so the user doesn't have
+// to scroll past all the inputs after hitting Run.
+function showMobileResults(resultsEl) {
+  if (document.getElementById('mobile-results-sheet')) return;
+
+  const sheet = document.createElement('div');
+  sheet.id = 'mobile-results-sheet';
+  sheet.className = 'mobile-results-sheet';
+  sheet.innerHTML = `
+    <div class="mobile-sheet-handle-bar">
+      <div class="mobile-sheet-handle"></div>
+    </div>
+    <div class="mobile-sheet-scroll"></div>`;
+
+  const scroll = sheet.querySelector('.mobile-sheet-scroll');
+  scroll.appendChild(resultsEl.cloneNode(true));
+
+  sheet.querySelector('.mobile-sheet-handle-bar')
+    .addEventListener('click', () => sheet.remove());
+
+  document.body.appendChild(sheet);
+  requestAnimationFrame(() => sheet.classList.add('open'));
 }

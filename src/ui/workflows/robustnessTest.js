@@ -23,7 +23,12 @@ function render(container) {
   const body = container.querySelector('#rob-body');
   const report = state.lastReport;
   if (!report) {
-    body.innerHTML = `<div class="empty muted card pad">${t('rob_no_strategy')}</div>`;
+    body.innerHTML = `
+      <div class="empty-state card pad">
+        <div class="empty-state-icon">📊</div>
+        <div class="empty-state-title">${t('rob_empty_title')}</div>
+        <div class="empty-state-sub muted">${t('rob_empty_sub')}</div>
+      </div>`;
     return;
   }
   const rob = report.robustness;

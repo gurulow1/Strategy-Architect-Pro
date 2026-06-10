@@ -21,7 +21,13 @@ export function mountJournal(container) {
           ${slider({ id: 'jr-sims', labelKey: 'in_sims', min: 500, max: 5000, step: 250, value: 2000, suffix: '', tipKey: 'tip_sims' })}
           <button class="btn-primary" id="jr-run" data-i18n="run" disabled></button>
         </aside>
-        <div class="results" id="jr-results"><div class="empty muted" data-i18n="jr_drop"></div></div>
+        <div class="results" id="jr-results">
+          <div class="empty-state card pad">
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-title" data-i18n="jr_empty_title"></div>
+            <div class="empty-state-sub muted" data-i18n="jr_empty_sub"></div>
+          </div>
+        </div>
       </div>
     </div>`;
 

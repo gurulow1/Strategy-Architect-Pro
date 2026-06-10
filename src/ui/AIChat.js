@@ -117,7 +117,7 @@ export function createAIChat() {
   // ── Trigger button ────────────────────────────────────────────────────────
   const trigger = document.createElement('button');
   trigger.className = 'btn-primary';
-  trigger.textContent = 'Ask Analyst';
+  trigger.textContent = t('ai_trigger');
   trigger.style.cssText = [
     'position:fixed', 'bottom:20px', 'right:16px',
     'width:auto', 'padding:10px 18px', 'z-index:1000',
@@ -128,6 +128,41 @@ export function createAIChat() {
   document.body.appendChild(trigger);
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen) close(); });
+
+  // ── Discoverability: rotating hint chip above the trigger ──────────────────
+  const hints = [t('ai_sugg_1'), t('ai_sugg_2'), t('ai_sugg_3')];
+  const hintEl = document.createElement('div');
+  hintEl.id = 'ai-hint-chip';
+  hintEl.style.cssText = [
+    'position:fixed', 'bottom:68px', 'right:16px',
+    'background:var(--bg-elevated)', 'border:1px solid var(--border)',
+    'border-radius:999px', 'padding:6px 14px',
+    'font-size:12px', 'color:var(--text-secondary)',
+    'z-index:1000', 'pointer-events:none',
+    'opacity:0', 'transition:opacity 0.4s ease',
+    'max-width:240px', 'text-align:right', 'line-height:1.4',
+  ].join(';');
+  document.body.appendChild(hintEl);
+
+  let hintIdx = 0;
+  function rotateHint() {
+    if (isOpen || trigger.style.display === 'none') return;
+    hintEl.style.opacity = '0';
+    setTimeout(() => {
+      if (isOpen) return;
+      hintEl.textContent = '💬 ' + hints[hintIdx % hints.length];
+      hintEl.style.opacity = '1';
+      hintIdx++;
+      setTimeout(() => { hintEl.style.opacity = '0'; }, 3500);
+    }, 300);
+  }
+
+  // Once results exist: relabel the trigger, then start the rotating hints.
+  window.addEventListener('sap:analysis-complete', () => {
+    trigger.textContent = t('ai_trigger_ready');
+    setTimeout(rotateHint, 4000);
+    setInterval(rotateHint, 12000);
+  }, { once: true });
 
   // ── Panel CSS — different layout on mobile vs desktop ─────────────────────
   function buildPanelCss() {
@@ -200,6 +235,24 @@ export function createAIChat() {
     });
 
     messages.forEach(appendMessage);
+
+    // Fresh session: offer a few starter questions the user can tap.
+    if (messages.length === 0 && msgBox) {
+      const sugg = document.createElement('div');
+      sugg.id = 'ai-suggestions';
+      sugg.style.cssText = 'padding:8px 0;';
+      const questions = [t('ai_sugg_1'), t('ai_sugg_2'), t('ai_sugg_3')];
+      sugg.innerHTML = `<div class="small muted" style="margin-bottom:8px;">${t('ai_sugg_header')}</div>`
+        + questions.map((q) => `<button class="ai-sugg-btn">${q}</button>`).join('');
+      msgBox.appendChild(sugg);
+      sugg.querySelectorAll('.ai-sugg-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          sugg.remove();
+          if (inputEl) { inputEl.value = btn.textContent; handleSend(); }
+        });
+      });
+    }
+
     scrollBottom();
 
     document.addEventListener('click', onDocClick);

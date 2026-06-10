@@ -24,7 +24,8 @@ window.__sap_currentAnalysis = {};
   }
 
   // 5. In license mode, show the key-entry overlay if no valid token is present.
+  //    Brief delay lets the user glimpse the tool's shell before the gate.
   if (isLicenseMode() && !hasFullAccess()) {
-    showAuthOverlay();
+    setTimeout(() => showAuthOverlay(), 600);
   }
 })();

@@ -11,11 +11,23 @@ import {
 } from './auth.js';
 
 const TABS = [
-  { id: 'quick',      titleKey: 'tab_quick',      subKey: 'tab_quick_sub',      mount: mountQuickCheck },
-  { id: 'journal',    titleKey: 'tab_journal',     subKey: 'tab_journal_sub',    mount: mountJournal    },
-  { id: 'robustness', titleKey: 'tab_robustness',  subKey: 'tab_robustness_sub', mount: mountRobustness },
-  { id: 'prop',       titleKey: 'tab_prop',        subKey: 'tab_prop_sub',       mount: mountProp       },
+  { id: 'quick',      titleKey: 'tab_quick',      subKey: 'tab_quick_sub',      mount: mountQuickCheck, step: 1, badge: 'start' },
+  { id: 'journal',    titleKey: 'tab_journal',     subKey: 'tab_journal_sub',    mount: mountJournal,    step: 2, badge: null    },
+  { id: 'robustness', titleKey: 'tab_robustness',  subKey: 'tab_robustness_sub', mount: mountRobustness, step: 3, badge: null    },
+  { id: 'prop',       titleKey: 'tab_prop',        subKey: 'tab_prop_sub',       mount: mountProp,       step: 4, badge: null    },
 ];
+
+// Single source for tab button markup (used by both the desktop bar and the
+// mobile drawer) — keeps step numbers and the "Start here" badge in sync.
+function tabButtonHtml(tb) {
+  const badge = tb.badge === 'start' ? ` <span class="tab-badge">${t('tab_start_badge')}</span>` : '';
+  return `
+    <button class="tab" data-tab="${tb.id}">
+      <div class="tab-step">${tb.step}</div>
+      <span class="tab-title">${t(tb.titleKey)}${badge}</span>
+      <span class="tab-sub">${t(tb.subKey)}</span>
+    </button>`;
+}
 
 const panels = {};
 let activeTab = 'quick';
@@ -70,6 +82,11 @@ function buildAuthOverlayHtml() {
       <div style="font-size:32px;margin-bottom:12px;">📐</div>
       <h2>${t('brand')} <span class="brand-pro">${t('brand_pro')}</span></h2>
       <p>${t('auth_tagline')}</p>
+      <div class="auth-features">
+        <div class="auth-feature"><span>📊</span> ${t('auth_feat_1')}</div>
+        <div class="auth-feature"><span>🎲</span> ${t('auth_feat_2')}</div>
+        <div class="auth-feature"><span>🤖</span> ${t('auth_feat_3')}</div>
+      </div>
       <div class="auth-field">
         <label>${t('auth_key_label')}</label>
         <input type="password" id="auth-key" placeholder="${t('auth_key_placeholder')}"
@@ -127,12 +144,28 @@ function wireAuthOverlay(el) {
   }, { passive: true });
 }());
 
+// ── Primary-button radial highlight follows the cursor ─────────────────────────
+document.addEventListener('mousemove', (e) => {
+  const btn = e.target.closest('button.btn-primary');
+  if (!btn) return;
+  const r = btn.getBoundingClientRect();
+  btn.style.setProperty('--rx', ((e.clientX - r.left) / r.width  * 100).toFixed(1) + '%');
+  btn.style.setProperty('--ry', ((e.clientY - r.top)  / r.height * 100).toFixed(1) + '%');
+}, { passive: true });
+
 // ── Shell rendering ───────────────────────────────────────────────────────────
 export function boot() {
   state.seed = state.seed || newSeed();
   state.lang = getLang();
+  // Hide the "Start here" badge if the user has already run an analysis before.
+  if (localStorage.getItem('sap_ran_once')) document.body.classList.add('sap-ran-once');
   renderShell();
   selectTab(activeTab);
+
+  // Topbar gains a subtle glass effect once the page is scrolled.
+  window.addEventListener('scroll', () => {
+    document.querySelector('.topbar')?.classList.toggle('scrolled', window.scrollY > 10);
+  }, { passive: true });
 
   onLangChange((lang) => {
     state.lang = lang;
@@ -169,8 +202,13 @@ function renderShell() {
   app.innerHTML = `
     <header class="topbar">
       <div class="brand">
-        <div class="brand-name">${t('brand')} <span class="brand-pro">${t('brand_pro')}</span></div>
-        <div class="brand-tag">${t('tagline')}</div>
+        <div class="brand-lockup">
+          <div class="brand-icon" aria-hidden="true">⬡</div>
+          <div>
+            <div class="brand-name">${t('brand')} <span class="brand-pro">${t('brand_pro')}</span></div>
+            <div class="brand-tag">${t('tagline')}</div>
+          </div>
+        </div>
       </div>
       <div class="topbar-right">
         <span class="lab-chip">🧪 ${t('lab')}</span>
@@ -184,18 +222,10 @@ function renderShell() {
       </div>
     </header>
     <nav id="mobile-drawer" class="mobile-nav-drawer">
-      ${TABS.map((tb) => `
-        <button class="tab" data-tab="${tb.id}">
-          <span class="tab-title">${t(tb.titleKey)}</span>
-          <span class="tab-sub">${t(tb.subKey)}</span>
-        </button>`).join('')}
+      ${TABS.map(tabButtonHtml).join('')}
     </nav>
     <nav class="tabbar">
-      ${TABS.map((tb) => `
-        <button class="tab" data-tab="${tb.id}">
-          <span class="tab-title">${t(tb.titleKey)}</span>
-          <span class="tab-sub">${t(tb.subKey)}</span>
-        </button>`).join('')}
+      ${TABS.map(tabButtonHtml).join('')}
     </nav>
     <main class="panels" id="panels"></main>`;
 
