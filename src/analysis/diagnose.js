@@ -29,7 +29,7 @@ export function diagnose(r) {
   const risks = [];
   const actions = [];
 
-  const { stats, sim, kelly, robustness, edge, prop, risk, temporal, blindspots, skillLuck } = r;
+  const { stats, sim, kelly, robustness, edge, prop, risk, temporal, blindspots, skillLuck, psychology } = r;
   const profitable = stats.expectancy > 0;
 
   // ---------- STRENGTHS ----------
@@ -131,6 +131,17 @@ export function diagnose(r) {
       // dayIndex is localized to a weekday name in tFinding (analysis stays neutral).
       actions.push(f('avoid_day', { dayIndex: dayOfWeek.worstDay.dayIndex }));
     }
+  }
+
+  // ---------- BEHAVIORAL: STOP SIGNAL (journal only) ----------
+  // Only surfaces when the after-loss pattern is statistically meaningful
+  // (sampleSize >= 5, enforced upstream in analyzePsychology).
+  if (psychology?.stopSignal?.triggered) {
+    risks.push(f('consec_loss_pattern', {
+      n: psychology.stopSignal.after,
+      baseWR: psychology.stopSignal.baseWR,
+      nextWR: psychology.stopSignal.nextWR,
+    }));
   }
 
   // ---------- SKILL vs LUCK (journal only) ----------

@@ -188,6 +188,89 @@ function renderEdgeIntegrity(report, unit, sym) {
     </div>`;
 }
 
+// ── Strategy traffic light ────────────────────────────────────────────────────
+// One colored dot + one actionable sentence. The trader's eye lands here first.
+function renderTrafficLight(report) {
+  const s = report.status;
+  if (!s) return '';
+  return `
+    <div class="tl-wrap result-enter" style="animation-delay:60ms">
+      <div class="tl-dot tl-${s.color}"></div>
+      <div class="tl-text">${t(s.textKey)}</div>
+    </div>`;
+}
+
+// ── Psychological patterns (journal only) ─────────────────────────────────────
+function renderPsychology(report) {
+  const p = report.psychology;
+  if (!p) return '';
+
+  // Consecutive-loss table — only rows with a meaningful sample.
+  const lossRows = p.afterLoss
+    .filter((row) => row.sampleSize >= 5)
+    .map((row) => {
+      const cls = row.nextWR < (report.stats.winRate * 0.85) ? 'bad' : '';
+      return `<tr class="${cls}">
+        <td>${t('psych_after_n', { n: row.after })}</td>
+        <td>${fmtPct(row.nextWR, 0)}</td>
+        <td class="muted small">(${row.sampleSize})</td>
+      </tr>`;
+    }).join('');
+
+  // Stop-signal banner.
+  const stopBanner = p.stopSignal?.triggered
+    ? `<div class="notice bad psych-stop">
+        ⚠ ${t('psych_stop_signal', {
+          n: p.stopSignal.after,
+          baseWR: fmtPct(p.stopSignal.baseWR, 0),
+          nextWR: fmtPct(p.stopSignal.nextWR, 0),
+        })}
+       </div>`
+    : '';
+
+  // Hour-of-day heatmap.
+  let heatmapHtml = '';
+  if (p.hasDatetime && p.heatmap.length >= 3) {
+    const maxAbs = Math.max(...p.heatmap.map((h) => Math.abs(h.avgPnl)), 1);
+    const cells = p.heatmap.map((h) => {
+      const intensity = Math.round((Math.abs(h.avgPnl) / maxAbs) * 100);
+      const color = h.avgPnl > 0
+        ? `rgba(34,197,94,${intensity / 100})`
+        : `rgba(239,68,68,${intensity / 100})`;
+      return `<div class="hmap-cell" style="background:${color}" title="${h.hour}:00 · ${h.count}">
+        <span class="hmap-hour">${h.hour}</span>
+      </div>`;
+    }).join('');
+    heatmapHtml = `
+      <div class="ei-block-title">${t('psych_heatmap_title')}</div>
+      <div class="hmap-grid">${cells}</div>
+      <div class="muted small">${t('psych_heatmap_sub')}</div>`;
+  }
+
+  const lossTable = lossRows
+    ? `<div class="ei-block">
+        <div class="ei-block-title">${t('psych_loss_title')}</div>
+        <table class="data-table ei-table">
+          <thead><tr><th>${t('psych_col_after')}</th><th>Win Rate</th><th>${t('psych_col_n')}</th></tr></thead>
+          <tbody>${lossRows}</tbody>
+        </table>
+       </div>`
+    : '';
+
+  // Nothing meaningful to show → skip the whole card.
+  if (!lossTable && !heatmapHtml && !stopBanner) return '';
+
+  return `
+    <div class="ei card pad result-enter" style="animation-delay:280ms">
+      <h3>${t('psych_title')}</h3>
+      ${stopBanner}
+      <div class="ei-grid">
+        ${lossTable}
+        ${heatmapHtml ? `<div class="ei-block">${heatmapHtml}</div>` : ''}
+      </div>
+    </div>`;
+}
+
 export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
   const v = verdict(report);
   const s = report.stats;
@@ -218,6 +301,8 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
         </div>
       </div>
     </div>
+
+    ${renderTrafficLight(report)}
 
     <div class="kpi-grid kpi-primary result-enter" style="animation-delay:120ms">
       ${kpi(t('kpi_expectancy'), fmtValue(s.expectancy, unit, sym), t(expSub), 'accent', 'kpi-expectancy')}
@@ -250,6 +335,8 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
     </div>
 
     ${renderEdgeIntegrity(report, unit, sym)}
+
+    ${renderPsychology(report)}
 
     <div class="report-actions result-enter" style="animation-delay:300ms">
       <button class="btn-secondary" id="rep-share">${t('btn_share')}</button>
@@ -300,8 +387,24 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
   renderStreaks('c-streaks', report.streaks.winDist.slice(1, 9), report.streaks.lossDist.slice(1, 9),
     streakLabels, { win: t('streak_win'), loss: t('streak_loss') });
 
-  // ── Report actions: PDF (print) + Share (clipboard) ──────────────────────────
-  mount.querySelector('#rep-pdf')?.addEventListener('click', () => window.print());
+  // ── Report actions: PDF (structured export) + Share (clipboard) ──────────────
+  mount.querySelector('#rep-pdf')?.addEventListener('click', async () => {
+    const btn = mount.querySelector('#rep-pdf');
+    const orig = btn.textContent;
+    btn.textContent = t('pdf_generating');
+    btn.disabled = true;
+    try {
+      // Lazy-load jsPDF/html2canvas only when actually exporting — keeps them
+      // out of the initial bundle so first paint stays fast.
+      const { generatePDF } = await import('./pdfReport.js');
+      await generatePDF(report);
+    } catch (err) {
+      console.error('PDF generation failed', err);
+    } finally {
+      btn.textContent = orig;
+      btn.disabled = false;
+    }
+  });
   const shareBtn = mount.querySelector('#rep-share');
   shareBtn?.addEventListener('click', async () => {
     const gradeTxt = t(gradeKey[report.robustness.grade] || 'grade_fragile');

@@ -5,6 +5,7 @@ import { mountQuickCheck }   from './workflows/quickCheck.js';
 import { mountJournal }      from './workflows/journalAnalysis.js';
 import { mountRobustness }   from './workflows/robustnessTest.js';
 import { mountProp }         from './workflows/propChallenge.js';
+import { mountPositionCalc } from './workflows/positionCalc.js';
 import { refreshChartTheme } from './charts.js';
 import {
   isLicenseMode, hasFullAccess, canAccess, verifyKey, signOutUser, onAuthChange,
@@ -15,6 +16,7 @@ const TABS = [
   { id: 'journal',    titleKey: 'tab_journal',     subKey: 'tab_journal_sub',    mount: mountJournal,    step: 2, badge: null    },
   { id: 'robustness', titleKey: 'tab_robustness',  subKey: 'tab_robustness_sub', mount: mountRobustness, step: 3, badge: null    },
   { id: 'prop',       titleKey: 'tab_prop',        subKey: 'tab_prop_sub',       mount: mountProp,       step: 4, badge: null    },
+  { id: 'calc',       titleKey: 'tab_calc',        subKey: 'tab_calc_sub',       mount: (el) => mountPositionCalc(el, state.lastReport), step: 5, badge: null },
 ];
 
 // Single source for tab button markup (used by both the desktop bar and the

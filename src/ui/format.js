@@ -61,7 +61,7 @@ export const fmtMoney = (v) => {
 const PCT_KEYS = new Set([
   'ruin', 'pop', 'pass', 'p', 'daily', 'max', 'retention',
   'risk', 'from', 'to', 'floor', 'current', 'ceiling', 'fStar', 'threshold', 'v',
-  'pAboveZero', 'share', 'dominantShare',
+  'pAboveZero', 'share', 'dominantShare', 'baseWR', 'nextWR',
 ]);
 const INT_KEYS = new Set(['n', 'target', 'score']);
 const R_KEYS = new Set(['expectancy', 'dd', 'earlyExpectancy', 'recentExpectancy', 'delta']);

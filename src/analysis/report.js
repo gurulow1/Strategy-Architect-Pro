@@ -14,6 +14,7 @@ import { diagnose } from './diagnose.js';
 import { analyzeTemporalDrift } from './temporal.js';
 import { analyzeDirectionBias, analyzeInstrumentBias, analyzeDayOfWeekBias } from './blindspot.js';
 import { analyzeSkillVsLuck } from './skillLuck.js';
+import { analyzePsychology } from './psychology.js';
 
 // Summarize a finished simulation into UI-ready metrics.
 function summarizeSim(res, ruinThreshold) {
@@ -28,6 +29,36 @@ function summarizeSim(res, ruinThreshold) {
     riskOfRuin: riskOfRuin(res.ddFromStart, ruinThreshold),
     ruinProfile: ruinProfile(res.ddFromStart),
   };
+}
+
+/**
+ * Strategy health signal. Summarizes all analyses into one color.
+ * GREEN = trade normally. YELLOW = reduce risk. RED = stop and review.
+ * Handles null skillLuck / temporal / findings gracefully (Quick Check path).
+ * @returns {{ color: 'green'|'yellow'|'red', textKey: string }}
+ */
+export function strategyStatus(report) {
+  const { sim, temporal, skillLuck, findings } = report;
+
+  // RED: objective evidence of failure
+  const hasLuckFinding = findings?.risks?.some((f) => f.id === 'luck_not_skill')
+    || findings?.weaknesses?.some((f) => f.id === 'luck_not_skill');
+  const ruinHigh = sim?.riskOfRuin > 0.25;
+  const degradingBad = temporal?.degrading && ruinHigh;
+  if (hasLuckFinding || degradingBad) {
+    return { color: 'red', textKey: 'status_red' };
+  }
+
+  // GREEN: strong evidence the edge is real AND stable
+  const skillConfirmed = skillLuck?.verdict === 'strong';
+  const stable = !temporal?.degrading;
+  const ruinLow = sim?.riskOfRuin < 0.10;
+  if (skillConfirmed && stable && ruinLow) {
+    return { color: 'green', textKey: 'status_green' };
+  }
+
+  // YELLOW: everything else (degrading but ruin ok, or p-value borderline)
+  return { color: 'yellow', textKey: 'status_yellow' };
 }
 
 /**
@@ -88,6 +119,7 @@ export function buildReport(input) {
   let temporal = null;
   let blindspots = null;
   let skillLuck = null;
+  let psychology = null;
   if (Array.isArray(tradeRecords) && tradeRecords.length >= 20) {
     temporal = analyzeTemporalDrift(tradeRecords);
     blindspots = {
@@ -96,21 +128,25 @@ export function buildReport(input) {
       dayOfWeek: analyzeDayOfWeekBias(tradeRecords),
     };
     skillLuck = analyzeSkillVsLuck(edgeSample, stats, (seed >>> 0) + 3);
+    psychology = analyzePsychology(tradeRecords);
   }
 
   const findings = diagnose({
     stats, sim, kelly, robustness, edge,
-    risk, cost, temporal, blindspots, skillLuck,
+    risk, cost, temporal, blindspots, skillLuck, psychology,
   });
 
+  // One-glance health signal, assembled once every analysis is in hand.
+  const status = strategyStatus({ sim, temporal, skillLuck, findings });
+
   return {
-    spec, stats, sim, kelly, robustness, edge, findings,
+    spec, stats, sim, kelly, robustness, edge, findings, status,
     bands: equityBands(res.bandCurves),
     streaks: res.streaks,
     returns: res.returns,
     maxDDs: res.maxDDs,
     effWinRate, effRr,
-    temporal, blindspots, skillLuck,
+    temporal, blindspots, skillLuck, psychology,
     // Per-trade values are most honest in currency when PnL was normalized to R
     // (a MetaTrader journal with no R column). Otherwise R is the native unit.
     displayUnit: sample && rBasis === 'normalized' ? 'currency' : 'R',

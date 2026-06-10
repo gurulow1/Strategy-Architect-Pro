@@ -368,4 +368,42 @@ export default {
   broker_ctrader_note: 'Opens cTrader login in a new tab. Read-only access to your history.',
   broker_ctrader_account: 'Account ID',
   broker_ctrader_fetch: 'Load trades',
+
+  // PDF report
+  pdf_generating: 'Generating…',
+  pdf_page: 'Page',
+  pdf_sim_note: 'Simulation: {capital} · {trades} trades · {sims} paths · risk {risk}',
+
+  // Strategy traffic light
+  status_green: 'Strategy is healthy. Continue as planned.',
+  status_yellow: 'Signs of instability. Reduce risk to half Kelly.',
+  status_red: 'Strategy at risk. Stop trading and review your system.',
+
+  // Psychological patterns
+  'find.consec_loss_pattern': 'After {n} consecutive losses, Win Rate drops from {baseWR} to {nextWR}. Consider pausing.',
+  psych_title: 'Psychological Patterns',
+  psych_loss_title: 'After consecutive losses',
+  psych_after_n: 'After {n} loss in a row',
+  psych_col_after: 'Situation',
+  psych_col_n: 'Sample',
+  psych_stop_signal: 'After {n} consecutive losses, Win Rate drops: {baseWR} → {nextWR}. Consider pausing.',
+  psych_heatmap_title: 'Profitability by hour',
+  psych_heatmap_sub: 'Green = profitable hour, red = losing hour',
+
+  // Position calculator
+  tab_calc: 'Calculator',
+  tab_calc_sub: 'Lot size for your risk',
+  pos_calc_title: 'Position Size Calculator',
+  pos_calc_desc: 'Enter your trade parameters — get the exact lot size in real time.',
+  pos_calc_balance: 'Account balance',
+  pos_calc_risk: 'Risk per trade',
+  pos_calc_sl_mode: 'Stop loss defined as',
+  pos_calc_sl_dollars: 'Dollars ($)',
+  pos_calc_sl_pips: 'Pips',
+  pos_calc_sl_percent: 'Percent of balance',
+  pos_calc_instrument: 'Instrument',
+  pos_calc_custom: 'Custom',
+  pos_calc_risk_amount: 'Risk in $',
+  pos_calc_lotsize: 'Position size',
+  pos_calc_kelly_note: '{mode} recommendation: {rec} — based on your journal',
 };

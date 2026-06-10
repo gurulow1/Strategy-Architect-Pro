@@ -341,6 +341,12 @@ export function analyzeJournal(parsed) {
     const unit = avgLoss > 0 ? avgLoss : 1;
     rSample = native.map((v) => v / unit);
     rBasis = 'normalized';
+
+    // Clip normalized R to a realistic range. When 1R = avgLoss, legitimate
+    // strategies rarely exceed ±10R per trade. Without this, a single outsized win
+    // (e.g. BTC short ×37R) compounds to trillions in Monte Carlo equity curves.
+    const MAX_R_NORM = 10;
+    rSample = rSample.map((v) => Math.max(-MAX_R_NORM, Math.min(MAX_R_NORM, v)));
   }
 
   const curve = equityCurve(native, 0);

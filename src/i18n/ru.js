@@ -355,4 +355,42 @@ export default {
   broker_ctrader_note: 'Откроет вход cTrader в новой вкладке. Доступ только на чтение истории.',
   broker_ctrader_account: 'Номер счёта',
   broker_ctrader_fetch: 'Загрузить сделки',
+
+  // PDF-отчёт
+  pdf_generating: 'Генерация…',
+  pdf_page: 'Стр.',
+  pdf_sim_note: 'Симуляция: {capital} · {trades} сделок · {sims} путей · риск {risk}',
+
+  // Светофор стратегии
+  status_green: 'Стратегия здорова. Продолжай по плану.',
+  status_yellow: 'Есть признаки нестабильности. Снизь риск до половины Kelly.',
+  status_red: 'Стратегия под угрозой. Останови торговлю и пересмотри систему.',
+
+  // Психологические паттерны
+  'find.consec_loss_pattern': 'После {n} убытков подряд Win Rate падает с {baseWR} до {nextWR}. Рассмотрите паузу.',
+  psych_title: 'Психологические паттерны',
+  psych_loss_title: 'После серии убытков',
+  psych_after_n: 'После {n} убытка подряд',
+  psych_col_after: 'Ситуация',
+  psych_col_n: 'Выборка',
+  psych_stop_signal: 'После {n} убытков подряд Win Rate падает: {baseWR} → {nextWR}. Рассмотрите паузу.',
+  psych_heatmap_title: 'Прибыльность по часам',
+  psych_heatmap_sub: 'Зелёный = прибыльный час, красный = убыточный',
+
+  // Калькулятор позиции
+  tab_calc: 'Калькулятор',
+  tab_calc_sub: 'Размер лота под ваш риск',
+  pos_calc_title: 'Калькулятор позиции',
+  pos_calc_desc: 'Введите параметры сделки — получите точный размер лота в реальном времени.',
+  pos_calc_balance: 'Баланс счёта',
+  pos_calc_risk: 'Риск на сделку',
+  pos_calc_sl_mode: 'Стоп-лосс задан в',
+  pos_calc_sl_dollars: 'Долларах ($)',
+  pos_calc_sl_pips: 'Пипсах',
+  pos_calc_sl_percent: 'Процентах от счёта',
+  pos_calc_instrument: 'Инструмент',
+  pos_calc_custom: 'Другое',
+  pos_calc_risk_amount: 'Риск в деньгах',
+  pos_calc_lotsize: 'Размер позиции',
+  pos_calc_kelly_note: 'Рекомендация {mode}: {rec} — на основе вашего журнала',
 };
