@@ -8,7 +8,8 @@
 
 import * as XLSX from 'xlsx';
 import { callAI } from '../services/aiClient.js';
-import { parseCsv } from '../analysis/journal.js';
+import { parseCsv, parseMetaTrader, looksLikeMetaTrader, rowsFromCsv } from '../analysis/journal.js';
+import { t } from './i18n.js';
 
 // Fields the AI normalizes to; their display order.
 const TRADE_FIELDS = ['date', 'pnl', 'r_multiple', 'direction', 'duration_minutes'];
@@ -166,14 +167,47 @@ export function createAIJournalParser(container, onTradesConfirmed) {
 
   async function handleFile(f) {
     showLoading();
-    let rawText;
+    let file;
     try {
-      rawText = await readFile(f);
+      file = await readFile(f);
     } catch (err) {
       showFallback(`Could not read file: ${err.message}`);
       return;
     }
-    await runAI(rawText);
+
+    // 1) Deterministic MetaTrader 4/5 path — reads the WHOLE Positions table,
+    //    no row limit, no AI guesswork, so the trade count is stable and correct.
+    const rows = file.rows || rowsFromCsv(file.rawText);
+    if (looksLikeMetaTrader(rows)) {
+      const mt = parseMetaTrader(rows);
+      console.log(`[journal] MetaTrader format detected: ${mt.error ? `parse failed (${mt.error})` : `${mt.trades.length} positions`}.`);
+      if (!mt.error) { showMetaTrader(mt); return; }
+      // Recognized but unparseable → fall through to the AI/CSV path below.
+    }
+
+    // 2) Generic path (CSV/other layouts): AI for format hints + full local re-parse.
+    await runAI(file.rawText);
+  }
+
+  // Render a MetaTrader parse result through the existing preview UI.
+  function showMetaTrader(mt) {
+    lastResult = {
+      trades: mt.trades.map((tr) => ({
+        date: tr.date,
+        pnl: Number.isFinite(tr.pnl) ? tr.pnl : null,
+        r_multiple: null,
+        direction: tr.direction,
+        duration_minutes: null,
+      })),
+      detected_columns: { format: 'MetaTrader 4/5' },
+      warnings: (mt.warnings || []).map(renderWarning),
+    };
+    showPreview(lastResult, false);
+  }
+
+  // Warnings are {id, vars} (bilingual via i18n) or plain strings (AI path).
+  function renderWarning(w) {
+    return typeof w === 'string' ? w : t(`jr_warn_${w.id}`, w.vars);
   }
 
   function readFile(f) {
@@ -184,15 +218,17 @@ export function createAIJournalParser(container, onTradesConfirmed) {
         reader.onload = (e) => {
           try {
             const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-            // Convert the first sheet to CSV; the AI parser handles the rest.
-            resolve(XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]));
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            // rows: 2D array for the MetaTrader parser; rawText: CSV for the AI path.
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+            resolve({ rawText: XLSX.utils.sheet_to_csv(sheet), rows });
           } catch (err) { reject(err); }
         };
         reader.onerror = () => reject(new Error('FileReader failed'));
         reader.readAsArrayBuffer(f);
       } else {
         const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
+        reader.onload = (e) => resolve({ rawText: e.target.result, rows: null });
         reader.onerror = () => reject(new Error('FileReader failed'));
         reader.readAsText(f);
       }

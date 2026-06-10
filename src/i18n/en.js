@@ -128,6 +128,8 @@ export default {
   jr_err_csv_too_short: 'That CSV looks empty.',
   jr_err_no_pnl_column: 'No "pnl" or "r" column found.',
   jr_err_too_few_trades: 'Need at least 5 trades to analyze.',
+  jr_warn_mt_skipped: '{n} non-trade rows skipped (totals / summary).',
+  jr_warn_mt_grouped: 'Multi-order positions were combined into single trades.',
   jr_sample: 'Need a file? Download a sample CSV',
 
   // prop tab

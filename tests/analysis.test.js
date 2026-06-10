@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCsv, analyzeJournal } from '../src/analysis/journal.js';
+import { parseCsv, analyzeJournal, parseMetaTrader, looksLikeMetaTrader } from '../src/analysis/journal.js';
 import { runRobustness } from '../src/analysis/robustness.js';
 import { diagnose } from '../src/analysis/diagnose.js';
 import { buildReport, recommendPropRisk } from '../src/analysis/report.js';
@@ -35,6 +35,68 @@ describe('journal parsing', () => {
   it('rejects too-short input', () => {
     expect(parseCsv('pnl').error).toBe('csv_too_short');
     expect(parseCsv('pnl\n1\n2').error).toBe('too_few_trades');
+  });
+});
+
+describe('MetaTrader 4/5 parsing', () => {
+  // Minimal MT5 export shape: account preamble, a Positions table, then an
+  // Orders table that duplicates the same fills (and must be ignored).
+  function mtRows({ ru = true } = {}) {
+    const [pos, ord, time, posCol, sym, type, vol, price, comm, swap, profit] = ru
+      ? ['Позиции', 'Ордера', 'Время', 'Позиция', 'Символ', 'Тип', 'Объем', 'Цена', 'Комиссия', 'Своп', 'Прибыль']
+      : ['Positions', 'Orders', 'Time', 'Position', 'Symbol', 'Type', 'Volume', 'Price', 'Commission', 'Swap', 'Profit'];
+    return [
+      ['Отчет торговой истории'],
+      ['Счет:', null, null, '52742623'],
+      [pos],
+      [time, posCol, sym, type, vol, price, 'S / L', 'T / P', time, price, comm, swap, profit],
+      ['2026.02.14 01:53', 1001, 'BTCUSD', 'sell', '1', 68794, '', '', '2026.02.15 11:58', 70383, 0, 0, -1589.21],
+      ['2026.02.21 03:01', 1002, 'BTCUSD', 'sell', '2', 67836, '', '', '2026.02.23 17:30', 65791, 0, -5, 4091.10],
+      ['2026.02.25 01:53', 1003, 'BTCUSD', 'buy', '1', 64070, '', '', '2026.02.25 16:01', 66207, 0, 0, 2136.95],
+      ['2026.02.28 09:43', 1004, 'BTCUSD', 'buy', '2', 64144, '', '', '2026.03.01 05:14', 67739, 0, 0, 7189.02],
+      ['2026.03.01 19:00', 1005, 'BTCUSD', 'buy', '2', 66193, '', '', '2026.03.02 19:05', 69498, 0, 0, 6609.48],
+      // totals/summary row — no symbol/type, must be skipped not counted:
+      [null, null, null, null, null, null, null, null, -5, 0, 0, 0, 18437.34],
+      [ord], // next table starts — parser must stop here
+      [time, 'Ордер', sym, type, vol, price, 'S / L', 'T / P', time, 'Состояние'],
+      ['2026.02.14 01:53', 9001, 'BTCUSD', 'sell', '1 / 1', 'market', '', '', '2026.02.14 01:53', 'filled'],
+      ['2026.02.15 11:58', 9002, 'BTCUSD', 'buy', '1 / 1', 'market', '', '', '2026.02.15 11:58', 'filled'],
+    ];
+  }
+
+  it('detects MetaTrader layout by the Positions section label (RU + EN)', () => {
+    expect(looksLikeMetaTrader(mtRows({ ru: true }))).toBe(true);
+    expect(looksLikeMetaTrader(mtRows({ ru: false }))).toBe(true);
+    expect(looksLikeMetaTrader([['date', 'pnl'], ['2024-01-01', '10']])).toBe(false);
+  });
+
+  it('parses ONLY the Positions table and ignores Orders/Deals', () => {
+    const r = parseMetaTrader(mtRows({ ru: true }));
+    expect(r.error).toBeNull();
+    expect(r.format).toBe('MetaTrader');
+    expect(r.trades.length).toBe(5);          // 5 positions, not the order rows
+    expect(r.skipped).toBe(1);                // the totals row
+    // net P&L = profit + swap + commission (row 1002 had -5 swap)
+    expect(r.trades[1].pnl).toBeCloseTo(4086.10, 5);
+    expect(r.trades[0].direction).toBe('short');
+    expect(r.trades[2].direction).toBe('long');
+  });
+
+  it('feeds analyzeJournal a clean, deterministic sample', () => {
+    const r = parseMetaTrader(mtRows({ ru: false }));
+    const a = analyzeJournal(r);
+    expect(a.count).toBe(5);
+    expect(a.stats.count).toBe(5);
+  });
+
+  it('aggregates multiple fills of the same position id into one trade', () => {
+    const rows = mtRows({ ru: false });
+    // duplicate position 1001 (a second fill of the same position)
+    rows.splice(5, 0, ['2026.02.14 02:00', 1001, 'BTCUSD', 'sell', '1', 68800, '', '', '2026.02.15 11:58', 70383, 0, 0, -100]);
+    const r = parseMetaTrader(rows);
+    expect(r.trades.length).toBe(5);          // still 5 unique positions
+    expect(r.trades[0].pnl).toBeCloseTo(-1689.21, 5); // -1589.21 + -100
+    expect(r.warnings.some((w) => w.id === 'mt_grouped')).toBe(true);
   });
 });
 

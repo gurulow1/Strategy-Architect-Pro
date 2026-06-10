@@ -118,6 +118,8 @@ export default {
   jr_err_csv_too_short: 'CSV выглядит пустым.',
   jr_err_no_pnl_column: 'Не найдена колонка «pnl» или «r».',
   jr_err_too_few_trades: 'Нужно минимум 5 сделок.',
+  jr_warn_mt_skipped: 'Пропущено строк (итоги/сводка): {n}.',
+  jr_warn_mt_grouped: 'Позиции из нескольких ордеров объединены в одну сделку.',
   jr_sample: 'Нет файла? Скачать пример CSV',
 
   prop_title: 'Режим проп-челленджа',
