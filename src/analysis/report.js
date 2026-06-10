@@ -11,6 +11,9 @@ import { mean, median, percentile, bootstrapMeanCI } from '../engine/stats.js';
 import { createRng } from '../engine/rng.js';
 import { runRobustness } from './robustness.js';
 import { diagnose } from './diagnose.js';
+import { analyzeTemporalDrift } from './temporal.js';
+import { analyzeDirectionBias, analyzeInstrumentBias, analyzeDayOfWeekBias } from './blindspot.js';
+import { analyzeSkillVsLuck } from './skillLuck.js';
 
 // Summarize a finished simulation into UI-ready metrics.
 function summarizeSim(res, ruinThreshold) {
@@ -38,6 +41,9 @@ export function buildReport(input) {
     ruinThreshold = 0.5, seed = 1, sample = null,
     // Journal supplies real stats; parametric derives them from the sim.
     realStats = null,
+    // Raw journal trades ({ date, pnl, r, direction?, symbol? }) — enables the
+    // Edge Integrity analyses. `trades` above stays the planned trade COUNT.
+    tradeRecords = null,
   } = input;
 
   const rng = createRng(seed >>> 0);
@@ -73,9 +79,25 @@ export function buildReport(input) {
   const edgeSample = sample && sample.length ? sample : res.realizedR.slice(0, trades);
   const edge = bootstrapMeanCI(edgeSample, createRng((seed >>> 0) + 2), { iterations: 1500 });
 
+  // ── Edge Integrity — only from a REAL journal with enough trades. ───────────
+  // Pure parametric specs (Quick Check) have no per-trade records, so these stay
+  // null and the UI section is skipped entirely.
+  let temporal = null;
+  let blindspots = null;
+  let skillLuck = null;
+  if (Array.isArray(tradeRecords) && tradeRecords.length >= 20) {
+    temporal = analyzeTemporalDrift(tradeRecords);
+    blindspots = {
+      direction: analyzeDirectionBias(tradeRecords),
+      instrument: analyzeInstrumentBias(tradeRecords),
+      dayOfWeek: analyzeDayOfWeekBias(tradeRecords),
+    };
+    skillLuck = analyzeSkillVsLuck(edgeSample, stats, (seed >>> 0) + 3);
+  }
+
   const findings = diagnose({
     stats, sim, kelly, robustness, edge,
-    risk, cost,
+    risk, cost, temporal, blindspots, skillLuck,
   });
 
   return {
@@ -85,6 +107,7 @@ export function buildReport(input) {
     returns: res.returns,
     maxDDs: res.maxDDs,
     effWinRate, effRr,
+    temporal, blindspots, skillLuck,
   };
 }
 

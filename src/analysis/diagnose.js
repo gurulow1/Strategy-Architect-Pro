@@ -6,6 +6,13 @@
 
 const f = (id, vars = {}) => ({ id, vars });
 
+// Keep the first finding for any given id (some signals, e.g. collect_more_data,
+// can be triggered by more than one rule).
+const dedupe = (items) => {
+  const seen = new Set();
+  return items.filter((it) => (seen.has(it.id) ? false : seen.add(it.id)));
+};
+
 /**
  * @param {object} r consolidated report
  * @param {object} r.stats         { winRate, payoffRatio, profitFactor, expectancy, count }
@@ -22,7 +29,7 @@ export function diagnose(r) {
   const risks = [];
   const actions = [];
 
-  const { stats, sim, kelly, robustness, edge, prop, risk } = r;
+  const { stats, sim, kelly, robustness, edge, prop, risk, temporal, blindspots, skillLuck } = r;
   const profitable = stats.expectancy > 0;
 
   // ---------- STRENGTHS ----------
@@ -90,5 +97,63 @@ export function diagnose(r) {
       actions.push(f('within_tolerances', {}));
   }
 
-  return { strengths, weaknesses, risks, actions };
+  // ---------- TEMPORAL DRIFT (journal only) ----------
+  if (temporal && temporal.available && temporal.degrading) {
+    weaknesses.push(f('edge_degrading', {
+      earlyExpectancy: temporal.earlyStats.expectancy,
+      recentExpectancy: temporal.recentStats.expectancy,
+      delta: temporal.trend.expectancyDelta,
+    }));
+    actions.push(f('pause_and_review', {}));
+  }
+
+  // ---------- BLIND SPOTS (journal only) ----------
+  if (blindspots) {
+    const { direction, instrument, dayOfWeek } = blindspots;
+    if (direction && direction.available && direction.losingDirection) {
+      weaknesses.push(f('direction_bias', {
+        losingDirection: direction.losingDirection,
+        dominantShare: direction.dominantProfitShare,
+      }));
+    }
+    if (instrument && instrument.available && instrument.concentrated) {
+      weaknesses.push(f('instrument_concentration', {
+        symbol: instrument.topSymbol,
+        share: instrument.topSymbolShare,
+      }));
+    }
+    if (instrument && instrument.available && instrument.hiddenLosers.length > 0) {
+      risks.push(f('hidden_losing_instrument', {
+        symbols: instrument.hiddenLosers.map((s) => s.symbol).join(', '),
+      }));
+    }
+    if (dayOfWeek && dayOfWeek.available && dayOfWeek.toxicDay) {
+      // dayIndex is localized to a weekday name in tFinding (analysis stays neutral).
+      actions.push(f('avoid_day', { dayIndex: dayOfWeek.worstDay.dayIndex }));
+    }
+  }
+
+  // ---------- SKILL vs LUCK (journal only) ----------
+  if (skillLuck) {
+    if (skillLuck.verdict === 'unclear' || skillLuck.verdict === 'weak') {
+      weaknesses.push(f('luck_not_skill', {
+        verdict: skillLuck.verdict,
+        pAboveZero: skillLuck.expectancyCI.pAboveZero,
+        n: skillLuck.sampleSize,
+      }));
+      actions.push(f('collect_more_data', { n: skillLuck.sampleSize, target: 100 }));
+    } else if (skillLuck.verdict === 'strong') {
+      strengths.push(f('statistically_significant_skill', {
+        pAboveZero: skillLuck.expectancyCI.pAboveZero,
+        n: skillLuck.sampleSize,
+      }));
+    }
+  }
+
+  return {
+    strengths: dedupe(strengths),
+    weaknesses: dedupe(weaknesses),
+    risks: dedupe(risks),
+    actions: dedupe(actions),
+  };
 }

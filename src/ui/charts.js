@@ -223,6 +223,44 @@ export function renderRuinProfile(id, profile) {
   });
 }
 
+// Rolling expectancy over trade index — shows whether the edge is holding,
+// climbing, or fading. `series` is an array of expectancy values (in R or $).
+export function renderRollingLine(id, series, { zeroLine = true } = {}) {
+  const p = c();
+  const labels = series.map((_, i) => `${i + 1}`);
+  const datasets = [{
+    data: series,
+    borderColor: p.ACCENT,
+    backgroundColor: p.ACCENT_FILL,
+    pointRadius: 0,
+    borderWidth: 2,
+    fill: true,
+    tension: 0.25,
+  }];
+  if (zeroLine) {
+    datasets.push({
+      data: series.map(() => 0),
+      borderColor: p.tick,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      borderWidth: 1,
+      fill: false,
+    });
+  }
+  mount(id, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      ...common(),
+      plugins: { ...common().plugins, tooltip: { ...common().plugins.tooltip, filter: (item) => item.datasetIndex === 0 } },
+      scales: {
+        ...common().scales,
+        x: { ...common().scales.x, ticks: { ...common().scales.x.ticks, maxTicksLimit: 8 } },
+      },
+    },
+  });
+}
+
 export function renderPropLadder(id, ladder, recRisk) {
   const p = c();
   mount(id, {

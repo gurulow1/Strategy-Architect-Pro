@@ -79,9 +79,18 @@ function hideAuthOverlay() {
 function buildAuthOverlayHtml() {
   return `
     <div class="auth-card">
-      <div style="font-size:32px;margin-bottom:12px;">📐</div>
-      <h2>${t('brand')} <span class="brand-pro">${t('brand_pro')}</span></h2>
-      <p>${t('auth_tagline')}</p>
+      <div class="auth-glow" aria-hidden="true"></div>
+      <div class="auth-head">
+        <div class="brand-lockup">
+          <div class="brand-icon auth-hex" aria-hidden="true">⬡</div>
+          <div>
+            <div class="brand-name">${t('brand')} <span class="brand-pro">${t('brand_pro')}</span></div>
+            <div class="brand-tag">${t('tagline')}</div>
+          </div>
+        </div>
+        <span class="lab-chip">🧪 ${t('lab')}</span>
+      </div>
+      <p class="auth-lead">${t('auth_tagline')}</p>
       <div class="auth-features">
         <div class="auth-feature"><span>📊</span> ${t('auth_feat_1')}</div>
         <div class="auth-feature"><span>🎲</span> ${t('auth_feat_2')}</div>
@@ -92,10 +101,10 @@ function buildAuthOverlayHtml() {
         <input type="password" id="auth-key" placeholder="${t('auth_key_placeholder')}"
           maxlength="64" spellcheck="false" autocomplete="off">
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;">
-        <input type="checkbox" id="auth-remember" checked style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">
+      <label class="auth-remember">
+        <input type="checkbox" id="auth-remember" checked>
         <span class="small muted">${t('auth_remember')}</span>
-      </div>
+      </label>
       <div class="auth-error" id="auth-err"></div>
       <button class="btn-primary" id="auth-submit">${t('auth_unlock')}</button>
     </div>`;

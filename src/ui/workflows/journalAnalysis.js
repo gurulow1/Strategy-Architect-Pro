@@ -35,6 +35,7 @@ export function mountJournal(container) {
   wireSliders(inputs);
   const runBtn = container.querySelector('#jr-run');
   let analysis = null;
+  let tradeRecords = null;   // raw trades (with direction/symbol) for Edge Integrity
 
   createAIJournalParser(container.querySelector('#jr-ai-parser'), (aiTrades) => {
     // Number.isFinite (not `typeof === 'number'`) — the latter is TRUE for NaN
@@ -43,6 +44,9 @@ export function mountJournal(container) {
       date: tr.date || null,
       pnl:  Number.isFinite(tr.pnl) ? tr.pnl : null,
       r:    Number.isFinite(tr.r_multiple) ? tr.r_multiple : null,
+      // Preserved for Edge Integrity blind-spot analysis (MetaTrader imports).
+      direction: tr.direction || null,
+      symbol:    tr.symbol || null,
     }));
     let trades = mapped.filter((tr) => tr.pnl !== null || tr.r !== null);
     const dropped = mapped.length - trades.length;
@@ -54,6 +58,7 @@ export function mountJournal(container) {
     }
 
     analysis = analyzeJournal({ trades });
+    tradeRecords = trades;
     runBtn.disabled = false;
     run(dropped);
   });
@@ -72,6 +77,7 @@ export function mountJournal(container) {
       trades: analysis.count,
       sims: num('jr-sims'),
       sample: analysis.rSample,
+      tradeRecords,
       realStats: s,
       source: 'journal',
     };

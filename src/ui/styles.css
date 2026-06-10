@@ -476,6 +476,37 @@ button.btn-secondary:hover { background: var(--border-strong); }
 }
 .jr-status { margin: 10px 0 6px; min-height: 18px; }
 
+/* ── Edge Integrity ── */
+.ei { margin-top: 16px; }
+.ei-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px; margin-top: 14px;
+}
+.ei-sub {
+  padding: 16px; background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.ei-sub-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.ei-sub-head h4 {
+  margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-secondary);
+}
+.ei-line {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13px; margin: 5px 0; color: var(--text);
+}
+.ei-line.bad, .ei-line.bad strong { color: var(--bad); }
+.ei-line.small { font-size: 12px; }
+.ei-banner { padding: 8px 11px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+.ei-banner.bad { background: var(--bad-bg); color: var(--bad); }
+.ei-block { margin-top: 12px; }
+.ei-block:first-child { margin-top: 0; }
+.ei-block-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.ei-table { font-size: 12px; }
+.ei-table th { font-size: 11px; padding: 3px 8px; }
+.ei-table td { padding: 4px 8px; }
+.ei-table tr.ei-hot td, .ei-table tr.ei-toxic td { background: var(--bad-bg); color: var(--bad); font-weight: 600; }
+
 /* ── Auth overlay ── */
 .auth-overlay {
   position: fixed; inset: 0; z-index: 2000;
@@ -487,13 +518,31 @@ button.btn-secondary:hover { background: var(--border-strong); }
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .auth-card {
+  position: relative; overflow: hidden;
   background: var(--bg-elevated); border: 1px solid var(--border-strong);
-  border-radius: 20px; padding: 40px; width: 100%; max-width: 400px;
-  box-shadow: 0 24px 48px rgba(0,0,0,0.5);
-  text-align: center;
+  border-radius: var(--radius); padding: 32px; width: 100%; max-width: 420px;
+  box-shadow: var(--shadow-hover);
+  text-align: left;
 }
-.auth-card h2 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.03em; }
-.auth-card p { margin: 0 0 24px; color: var(--text-secondary); font-size: 14px; }
+/* Accent glow bleed at the top — same "risk laboratory" cue as the app shell. */
+.auth-glow {
+  position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+  width: 320px; height: 220px; pointer-events: none;
+  background: radial-gradient(closest-side, var(--accent-subtle), transparent 70%);
+}
+.auth-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 18px; position: relative;
+}
+.auth-hex { font-size: 30px; }
+.auth-head .brand-name { font-size: 18px; }
+.auth-head .brand-tag { margin-top: 2px; }
+.auth-lead { margin: 0 0 20px; color: var(--text-secondary); font-size: 14px; position: relative; }
+.auth-remember {
+  display: flex; align-items: center; gap: 8px; margin: 10px 0 14px; cursor: pointer;
+}
+.auth-remember input { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: var(--accent); }
+.auth-card .btn-primary { width: 100%; }
 .auth-field { margin-bottom: 12px; text-align: left; }
 .auth-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
 .auth-field input {

@@ -5,6 +5,7 @@ import { t, tFinding } from './i18n.js';
 import { fmtR, fmtPct, fmtPctSigned, fmtNum, fmtPct as pct } from './format.js';
 import {
   renderEquity, renderHistogram, renderDrawdownHist, renderStreaks, renderRuinProfile,
+  renderRollingLine,
 } from './charts.js';
 import { diagnostics } from '../engine/diagnostics.js';
 import { createAISummaryCard, createAIWeaknessPanel } from './aiComponents.js';
@@ -51,6 +52,138 @@ function findingList(items) {
 }
 
 const gradeKey = { robust: 'grade_robust', moderate: 'grade_moderate', thin: 'grade_thin', fragile: 'grade_fragile' };
+
+// ── Edge Integrity (journal only) ─────────────────────────────────────────────
+const verdictMeta = {
+  strong:            { key: 'ei_verdict_strong',       cls: 'good' },
+  probable:          { key: 'ei_verdict_probable',     cls: 'warn' },
+  weak:              { key: 'ei_verdict_weak',         cls: 'warn' },
+  unclear:           { key: 'ei_verdict_unclear',      cls: 'bad' },
+  insufficient_data: { key: 'ei_verdict_insufficient', cls: 'muted' },
+};
+const dayLabel = (idx) => t(`dow_${idx}`);
+const dirLabel = (d) => t(`dir_${d}`);
+
+function eiSkillCard(sl) {
+  const meta = verdictMeta[sl.verdict] || verdictMeta.unclear;
+  const lines = [];
+  if (sl.verdict === 'insufficient_data') {
+    lines.push(`<div class="muted small">${t('ei_insufficient', { n: sl.sampleSize })}</div>`);
+  } else {
+    lines.push(`<div class="ei-line">${t('ei_conf', { p: pct(sl.expectancyCI.pAboveZero, 0) })}</div>`);
+    const sig = sl.pValueVsCoin < 0.05 ? ` <span class="good small">${t('ei_pvalue_sig')}</span>` : '';
+    lines.push(`<div class="ei-line">${t('ei_pvalue', { p: fmtNum(sl.pValueVsCoin, 3) })}${sig}</div>`);
+    if (sl.extraLossesToBreakeven > 0)
+      lines.push(`<div class="ei-line">${t('ei_fragility', { n: sl.extraLossesToBreakeven })}</div>`);
+  }
+  return `
+    <section class="ei-sub card">
+      <div class="ei-sub-head"><h4>${t('ei_skill_title')}</h4><span class="badge ${meta.cls}">${t(meta.key)}</span></div>
+      ${lines.join('')}
+    </section>`;
+}
+
+function eiTimeCard(tp) {
+  if (!tp || !tp.available) return '';
+  const banner = tp.degrading ? `<div class="ei-banner bad">${t('ei_degrading')}</div>` : '';
+  const chart = tp.rolling.expectancy.length
+    ? `<div class="chart-wrap" style="height:160px;"><canvas id="c-rolling"></canvas></div>`
+    : `<div class="muted small">${t('ei_rolling_short')}</div>`;
+  const row = (label, e, r, fmt) =>
+    `<tr><td>${label}</td><td>${fmt(e)}</td><td>${fmt(r)}</td></tr>`;
+  return `
+    <section class="ei-sub card">
+      <div class="ei-sub-head"><h4>${t('ei_time_title')}</h4></div>
+      ${banner}
+      ${chart}
+      <table class="data-table ei-table">
+        <thead><tr><th></th><th>${t('ei_early')}</th><th>${t('ei_recent')}</th></tr></thead>
+        <tbody>
+          ${row(t('ei_col_wr'), tp.earlyStats.winRate, tp.recentStats.winRate, (v) => fmtPct(v, 0))}
+          ${row(t('ei_col_exp'), tp.earlyStats.expectancy, tp.recentStats.expectancy, (v) => fmtR(v))}
+          ${row(t('ei_col_pf'), tp.earlyStats.profitFactor, tp.recentStats.profitFactor, (v) => (v === Infinity ? '∞' : fmtNum(v)))}
+        </tbody>
+      </table>
+    </section>`;
+}
+
+function eiBlindCard(bs) {
+  if (!bs) return '';
+  const { direction, instrument, dayOfWeek } = bs;
+  const blocks = [];
+
+  if (direction && direction.available) {
+    const side = (label, grp, losing) => {
+      const net = grp.stats.expectancy * grp.count;
+      const cls = losing ? 'bad' : '';
+      return `<div class="ei-line ${cls}"><span>${label} (${grp.count})</span><strong>${fmtR(net)}</strong></div>`;
+    };
+    const note = direction.losingDirection
+      ? `<div class="ei-line bad small">${t('ei_dir_losing', { dir: dirLabel(direction.losingDirection) })}</div>`
+      : '';
+    blocks.push(`
+      <div class="ei-block">
+        <div class="ei-block-title">${t('ei_dir_title')}</div>
+        ${side(dirLabel('long'), direction.long, direction.losingDirection === 'long')}
+        ${side(dirLabel('short'), direction.short, direction.losingDirection === 'short')}
+        ${note}
+      </div>`);
+  }
+
+  if (instrument && instrument.available) {
+    const rows = instrument.bySymbol.slice(0, 6).map((s) => {
+      const hot = s.symbol === instrument.topSymbol && instrument.concentrated;
+      return `<tr class="${hot ? 'ei-hot' : ''}"><td>${s.symbol}</td><td>${s.count}</td><td>${pct(s.profitShare, 0)}</td></tr>`;
+    }).join('');
+    const losers = instrument.hiddenLosers.length
+      ? `<div class="ei-line bad small">${t('ei_losers', { symbols: instrument.hiddenLosers.map((s) => s.symbol).join(', ') })}</div>`
+      : '';
+    blocks.push(`
+      <div class="ei-block">
+        <div class="ei-block-title">${t('ei_instr_title')}</div>
+        <table class="data-table ei-table">
+          <thead><tr><th>${t('ei_col_symbol')}</th><th>${t('ei_col_trades')}</th><th>${t('ei_col_share')}</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${losers}
+      </div>`);
+  }
+
+  if (dayOfWeek && dayOfWeek.available) {
+    const rows = dayOfWeek.byDay.map((d) => {
+      const toxic = dayOfWeek.toxicDay && d.dayIndex === dayOfWeek.worstDay.dayIndex;
+      return `<tr class="${toxic ? 'ei-toxic' : ''}"><td>${dayLabel(d.dayIndex)}</td><td>${d.count}</td><td>${fmtR(d.stats.expectancy)}</td></tr>`;
+    }).join('');
+    blocks.push(`
+      <div class="ei-block">
+        <div class="ei-block-title">${t('ei_dow_title')}</div>
+        <table class="data-table ei-table">
+          <thead><tr><th>${t('ei_col_day')}</th><th>${t('ei_col_trades')}</th><th>${t('ei_col_exp')}</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`);
+  }
+
+  const body = blocks.length ? blocks.join('') : `<div class="muted small">${t('ei_no_blindspots')}</div>`;
+  return `
+    <section class="ei-sub card">
+      <div class="ei-sub-head"><h4>${t('ei_blind_title')}</h4></div>
+      ${body}
+    </section>`;
+}
+
+function renderEdgeIntegrity(report) {
+  if (!report.skillLuck && !report.temporal && !report.blindspots) return '';
+  return `
+    <div class="ei card pad result-enter" style="animation-delay:260ms">
+      <h3>${t('ei_title')}</h3>
+      <div class="ei-grid">
+        ${report.skillLuck ? eiSkillCard(report.skillLuck) : ''}
+        ${eiTimeCard(report.temporal)}
+        ${eiBlindCard(report.blindspots)}
+      </div>
+    </div>`;
+}
 
 export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
   const v = verdict(report);
@@ -107,6 +240,8 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
       </div>
     </div>
 
+    ${renderEdgeIntegrity(report)}
+
     <div class="chart-grid result-enter" style="animation-delay:320ms">
       <section class="card panel wide chart-hero">
         <div class="chart-hero-head">
@@ -144,6 +279,9 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
   renderHistogram('c-dist', report.returns);
   renderDrawdownHist('c-dd', report.maxDDs);
   renderRuinProfile('c-ruin', sim.ruinProfile);
+  if (report.temporal?.available && report.temporal.rolling.expectancy.length) {
+    renderRollingLine('c-rolling', report.temporal.rolling.expectancy);
+  }
   const streakLabels = Array.from({ length: 8 }, (_, i) => `${i + 1}`);
   renderStreaks('c-streaks', report.streaks.winDist.slice(1, 9), report.streaks.lossDist.slice(1, 9),
     streakLabels, { win: t('streak_win'), loss: t('streak_loss') });

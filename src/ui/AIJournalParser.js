@@ -197,6 +197,7 @@ export function createAIJournalParser(container, onTradesConfirmed) {
         pnl: Number.isFinite(tr.pnl) ? tr.pnl : null,
         r_multiple: null,
         direction: tr.direction,
+        symbol: tr.symbol,
         duration_minutes: null,
       })),
       detected_columns: { format: 'MetaTrader 4/5' },

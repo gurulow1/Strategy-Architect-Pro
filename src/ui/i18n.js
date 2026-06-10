@@ -35,6 +35,10 @@ export function t(key, vars) {
 export function tFinding(finding) {
   const vars = {};
   for (const [k, v] of Object.entries(finding.vars || {})) vars[k] = formatVar(k, v);
+  // Localize enum-valued vars (kept language-neutral in the pure analysis layer).
+  const raw = finding.vars || {};
+  if (raw.losingDirection) vars.losingDirection = t(`dir_${raw.losingDirection}`);
+  if (raw.dayIndex != null) vars.day = t(`dow_${raw.dayIndex}`);
   return t(`find.${finding.id}`, vars);
 }
 
