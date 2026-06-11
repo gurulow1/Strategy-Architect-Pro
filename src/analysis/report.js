@@ -22,6 +22,8 @@ function summarizeSim(res, ruinThreshold) {
     meanReturn: mean(res.returns),
     medianReturn: median(res.returns),
     p10Return: percentile(res.returns, 0.1),
+    p25Return: percentile(res.returns, 0.25),
+    p75Return: percentile(res.returns, 0.75),
     p90Return: percentile(res.returns, 0.9),
     probProfit: res.returns.filter((x) => x > 0).length / res.returns.length,
     medianDD: median(res.maxDDs),

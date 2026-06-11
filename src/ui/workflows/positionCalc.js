@@ -14,8 +14,16 @@ import { createRng } from '../../engine/rng.js';
 import { riskOfRuin } from '../../engine/riskOfRuin.js';
 import { mean, median, percentile } from '../../engine/stats.js';
 
-// Risk-per-trade ladder swept by the sensitivity table (deduplicated, sorted).
-const LEVELS = [0.0025, 0.005, 0.0075, 0.01, 0.0125, 0.015, 0.02, 0.03];
+// Build 8 risk levels centred around the Kelly-recommended risk.
+// Max is capped at min(kelly × 2, 5%) so the table stays meaningful for any
+// strategy — a 25% Kelly would otherwise produce absurd 50% risk rows.
+function buildLevels(kellyRisk) {
+  const rec = kellyRisk > 0 ? kellyRisk : 0.01;
+  const maxLevel = Math.min(rec * 2, 0.05);
+  const minLevel = 0.0025;
+  const step = (maxLevel - minLevel) / 7;
+  return Array.from({ length: 8 }, (_, i) => Math.round((minLevel + step * i) * 10000) / 10000);
+}
 
 // ── Entry points ─────────────────────────────────────────────────────────────
 export function mountPositionCalc(container) {
@@ -96,7 +104,7 @@ function renderStrategyHeader(report) {
 // ── BLOC B — risk sensitivity sweep ──────────────────────────────────────────
 // Run once when the panel loads. 800 sims/level is lighter than the main run
 // (2000) but honest enough to compare levels — and fast enough for real time.
-function precomputeSensitivity(report) {
+function precomputeSensitivity(report, levels) {
   const { spec } = report;
   const base = {
     capital: spec.capital,
@@ -108,7 +116,7 @@ function precomputeSensitivity(report) {
     rr: report.effRr,
   };
 
-  return LEVELS.map((risk, i) => {
+  return levels.map((risk, i) => {
     const rng = createRng(42 + i * 17);
     const res = simulate({ ...base, risk }, rng);
     return {
@@ -248,7 +256,7 @@ function updateRecovery(report, container) {
 
 // ── Full panel ───────────────────────────────────────────────────────────────
 async function renderSensitivityPanel(container, report) {
-  const kellyRisk = report.kelly.recommended || report.spec.risk;
+  const kellyRisk = report.kelly.recommended > 0 ? report.kelly.recommended : report.spec.risk;
 
   // Paint a loading state before the (synchronous) sweep so the UI never freezes
   // on a blank frame.
@@ -265,7 +273,8 @@ async function renderSensitivityPanel(container, report) {
   // The panel may have been re-rendered (tab switch / new analysis) while we
   // yielded — bail if our loading node is no longer in the DOM.
   if (!container.querySelector('.workflow')) return;
-  const levels = precomputeSensitivity(report);
+  const levelsArr = buildLevels(kellyRisk);
+  const levels = precomputeSensitivity(report, levelsArr);
 
   container.innerHTML = `
     <div class="workflow">

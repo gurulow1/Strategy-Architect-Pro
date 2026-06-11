@@ -1,30 +1,49 @@
 // Structured PDF export for Strategy Architect Pro.
-// Pages: (1) header + verdict + KPIs, (2) diagnostics,
-// (3) edge integrity + psychology (only if present), (4) equity + drawdown charts.
+// 5 pages: (1) Executive Summary, (2) Monte Carlo Detail, (3) Diagnostics,
+// (4) Edge Integrity (journal only), (5) Charts.
 //
-// Implementation note: rather than laying text out with jsPDF's built-in
-// Helvetica — which cannot render Cyrillic, leaving Russian reports as tofu —
-// each page is composed as a print-styled, off-screen DOM node and captured with
-// html2canvas. This keeps the export bilingual and fully offline (the browser
-// already has the fonts), and guarantees the numbers match what's on screen.
+// Each page is composed as an off-screen DOM node captured with html2canvas.
+// This keeps the export bilingual and fully offline (the browser has the fonts).
 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { t, getLang } from './i18n.js';
 import { tFinding } from './i18n.js';
-import { fmtPct, fmtPctSigned, fmtNum, fmtValue, fmtMoney } from './format.js';
+import { fmtPct, fmtPctSigned, fmtNum, fmtValue } from './format.js';
 
-// A4 at 96dpi, in CSS pixels (210mm × 297mm).
 const PX_W = 794;
 const PX_H = 1123;
 
 const C = {
-  ink: '#1a1a2e', muted: '#6b7280', line: '#e5e7eb', cardBg: '#f8f9fb',
-  green: '#16a34a', orange: '#d97706', red: '#dc2626', blue: '#2563eb',
-  chartBg: '#0d0d1a',
+  ink:        '#0f172a',
+  muted:      '#64748b',
+  faint:      '#94a3b8',
+  line:       '#e2e8f0',
+  rowEven:    '#f8fafc',
+  rowOdd:     '#ffffff',
+  cardBg:     '#f1f5f9',
+  good:       '#15803d',
+  goodBg:     '#dcfce7',
+  warn:       '#b45309',
+  warnBg:     '#fef3c7',
+  bad:        '#b91c1c',
+  badBg:      '#fee2e2',
+  accent:     '#4f46e5',
+  accentBg:   '#eef2ff',
+  chartBg:    '#ffffff',
+  headerBg:   '#0f172a',
+  headerText: '#f8fafc',
 };
 
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const F = {
+  xs: '9px', sm: '10px', base: '11px', md: '13px',
+  lg: '16px', xl: '20px', xxl: '28px',
+};
+
+const MARGIN = '0 40px';
+const CELL_PAD = '5px 10px';
+
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function localizedDate(lang) {
   try {
@@ -39,253 +58,492 @@ const gradeKey = { robust: 'grade_robust', moderate: 'grade_moderate', thin: 'gr
 
 function scoreColor(score) {
   if (!Number.isFinite(score)) return C.muted;
-  if (score >= 50) return C.green;
-  if (score > 0) return C.orange;
-  return C.red;
+  if (score >= 50) return C.good;
+  if (score > 0) return C.warn;
+  return C.bad;
 }
 
-// ── Page builders (return HTML strings) ──────────────────────────────────────
-function kpiCard(label, value, sub, color = C.ink) {
+// ── Shared layout components ──────────────────────────────────────────────────
+
+function pageHeader(lang) {
   return `
-    <div style="flex:1;min-width:0;background:${C.cardBg};border:1px solid ${C.line};
-      border-radius:10px;padding:14px 16px;">
-      <div style="font-size:11px;color:${C.muted};text-transform:uppercase;letter-spacing:.04em;">${esc(label)}</div>
-      <div style="font-size:22px;font-weight:700;color:${color};margin:6px 0 2px;">${esc(value)}</div>
-      <div style="font-size:10px;color:${C.muted};">${esc(sub)}</div>
+    <div style="background:${C.headerBg};color:${C.headerText};
+      height:36px;flex-shrink:0;display:flex;align-items:center;
+      padding:0 40px;justify-content:space-between;">
+      <span style="font-size:${F.sm};font-weight:700;letter-spacing:.08em;
+        text-transform:uppercase;opacity:.9;">Strategy Architect Pro</span>
+      <span style="font-size:${F.xs};opacity:.6;">${esc(t('brand'))} · ${esc(localizedDate(lang))}</span>
     </div>`;
 }
 
-function buildPage1(report, lang) {
+function pageFooter(pageNum, total) {
+  return `
+    <div style="height:28px;flex-shrink:0;border-top:1px solid ${C.line};
+      display:flex;align-items:center;padding:0 40px;justify-content:space-between;">
+      <span style="font-size:${F.xs};color:${C.faint};">${esc(t('pdf_confidential'))}</span>
+      <span style="font-size:${F.xs};color:${C.faint};">${esc(t('pdf_page'))} ${pageNum} / ${total}</span>
+    </div>`;
+}
+
+function page(content, pageNum, totalPages, lang) {
+  return `
+    <div style="width:${PX_W}px;height:${PX_H}px;background:#fff;
+      color:${C.ink};font-family:-apple-system,'Segoe UI',Arial,sans-serif;
+      box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;">
+      ${pageHeader(lang)}
+      <div style="flex:1;overflow:hidden;">${content}</div>
+      ${pageFooter(pageNum, totalPages)}
+    </div>`;
+}
+
+function sectionTitle(text, sub = '') {
+  return `
+    <div style="padding:18px 40px 10px;border-bottom:2px solid ${C.accent};margin-bottom:14px;">
+      <div style="font-size:${F.lg};font-weight:700;color:${C.ink};">${esc(text)}</div>
+      ${sub ? `<div style="font-size:${F.sm};color:${C.muted};margin-top:2px;">${esc(sub)}</div>` : ''}
+    </div>`;
+}
+
+function dataTable(headers, rows, { colWidths = null } = {}) {
+  const colStyle = (i) => colWidths ? `width:${colWidths[i]};` : '';
+  const head = headers.map((h, i) =>
+    `<th style="${colStyle(i)}padding:${CELL_PAD};text-align:left;
+      font-size:${F.xs};font-weight:700;color:${C.muted};text-transform:uppercase;
+      letter-spacing:.05em;border-bottom:2px solid ${C.line};
+      background:${C.cardBg};">${esc(h)}</th>`
+  ).join('');
+  const body = rows.map((cells, ri) => {
+    const bg = ri % 2 === 0 ? C.rowOdd : C.rowEven;
+    const tds = cells.map((cell, ci) => {
+      const v = typeof cell === 'object' && cell !== null ? cell : { value: cell };
+      const color = v.color || C.ink;
+      const cellBg = v.bg || bg;
+      const align = v.align || 'left';
+      const weight = v.bold ? '700' : '400';
+      return `<td style="${colStyle(ci)}padding:${CELL_PAD};font-size:${F.base};
+        color:${color};background:${cellBg};text-align:${align};
+        font-weight:${weight};border-bottom:1px solid ${C.line};">${esc(String(v.value ?? '—'))}</td>`;
+    }).join('');
+    return `<tr>${tds}</tr>`;
+  }).join('');
+  return `
+    <table style="width:100%;border-collapse:collapse;border:1px solid ${C.line};
+      border-radius:6px;overflow:hidden;">
+      <thead><tr>${head}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
+// ── Page 1 — Executive Summary ────────────────────────────────────────────────
+
+function buildVerdictBlock(report) {
+  const s = report.stats;
+  const score = report.robustness?.score;
+  const scoreDisp = Number.isFinite(score) ? score : '—';
+  const vKey = s.expectancy <= 0 ? 'verdict_noedge'
+    : (Number.isFinite(score) && score >= 50 ? 'verdict_viable' : 'verdict_marginal');
+  const col = scoreColor(score);
+  const st = report.status;
+  const statusCol = { green: C.good, yellow: C.warn, red: C.bad }[st?.color] || C.muted;
+
+  return `
+    <div style="margin:0 40px 12px;display:flex;align-items:center;gap:24px;
+      padding:18px 20px;background:${C.cardBg};border:1px solid ${C.line};border-radius:10px;">
+      <div style="width:76px;height:76px;border-radius:50%;flex-shrink:0;
+        background:${col};display:flex;flex-direction:column;align-items:center;
+        justify-content:center;color:#fff;">
+        <span style="font-size:24px;font-weight:800;line-height:1;">${esc(String(scoreDisp))}</span>
+        <span style="font-size:9px;opacity:.85;">/100</span>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:${F.xl};font-weight:800;color:${C.ink};margin-bottom:3px;">${esc(t(vKey))}</div>
+        <div style="font-size:${F.sm};color:${C.muted};margin-bottom:6px;">
+          ${esc(t('robustness_score'))}: ${esc(t(gradeKey[report.robustness?.grade] || 'grade_fragile'))}
+        </div>
+        <div style="font-size:${F.base};font-weight:600;color:${statusCol};">
+          ● ${esc(t(st?.textKey || 'status_yellow'))}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:${F.xxl};font-weight:800;color:${C.accent};">${esc(String(s.count || '—'))}</div>
+        <div style="font-size:${F.xs};color:${C.muted};">${esc(t('pdf_trades'))}</div>
+        ${report.displayUnit === 'currency'
+          ? `<div style="margin-top:5px;font-size:${F.xs};color:${C.warn};padding:2px 6px;
+              background:${C.warnBg};border-radius:4px;">${esc(t('pdf_normalized_note'))}</div>`
+          : ''}
+      </div>
+    </div>`;
+}
+
+function kpiRow(items) {
+  const cards = items.map((it) => {
+    const numVal = parseFloat(it.value);
+    let vcol = C.ink;
+    if (Number.isFinite(numVal)) {
+      if (it.good !== undefined && numVal >= it.good) vcol = C.good;
+      else if (it.bad !== undefined && numVal <= it.bad) vcol = C.bad;
+    }
+    return `
+      <div style="flex:1;padding:10px 14px;background:${C.cardBg};
+        border:1px solid ${C.line};border-radius:8px;">
+        <div style="font-size:${F.xs};color:${C.muted};text-transform:uppercase;
+          letter-spacing:.05em;margin-bottom:3px;">${esc(it.label)}</div>
+        <div style="font-size:${F.xl};font-weight:700;color:${vcol};margin-bottom:1px;">${esc(it.value)}</div>
+        <div style="font-size:${F.xs};color:${C.faint};">${esc(it.sub || '')}</div>
+      </div>`;
+  }).join('');
+  return `<div style="display:flex;gap:8px;margin:0 40px 8px;">${cards}</div>`;
+}
+
+function buildStatsTable(report) {
   const s = report.stats;
   const sim = report.sim;
   const k = report.kelly;
   const unit = report.displayUnit || 'R';
   const sym = report.currencySymbol || '$';
-  const score = report.robustness?.score;
-  const scoreDisp = Number.isFinite(score) ? score : 'N/A';
-  const e = s.expectancy;
-  const vKey = e <= 0 ? 'verdict_noedge' : (Number.isFinite(score) && score >= 50 ? 'verdict_viable' : 'verdict_marginal');
-  const col = scoreColor(score);
+  const fv = (v) => fmtValue(v, unit, sym);
   const pf = s.profitFactor === Infinity ? '∞' : fmtNum(s.profitFactor);
 
+  const rows = [
+    ['Win Rate',              fmtPct(s.winRate, 1),        t('kpi_winrate')],
+    ['Profit Factor',         pf,                           t('kpi_pf_sub')],
+    [t('kpi_expectancy'),     fv(s.expectancy),             t(unit === 'currency' ? 'kpi_expectancy_sub_cur' : 'kpi_expectancy_sub')],
+    ['Reward : Risk',         fmtNum(s.payoffRatio),        t('kpi_rr')],
+    ['Gross Profit',          fv(s.grossProfit),            ''],
+    ['Gross Loss',            fv(s.grossLoss),              ''],
+    [t('kpi_kelly') + ' Full',  fmtPct(k.fStar, 2),        ''],
+    [t('kpi_kelly') + ' Half',  fmtPct(k.fStar * 0.5, 2),  t('pdf_recommended')],
+    [t('kpi_ruin'),           fmtPct(sim.riskOfRuin),       t('kpi_ruin_sub', { threshold: '50%' })],
+    [t('kpi_pop'),            fmtPct(sim.probProfit, 0),    t('kpi_pop_sub')],
+    [t('kpi_return') + ' P10', fmtPctSigned(sim.p10Return), t('pdf_worst_decile')],
+    [t('kpi_return') + ' P90', fmtPctSigned(sim.p90Return), t('pdf_best_decile')],
+    [t('kpi_dd'),             fmtPct(sim.medianDD),          t('kpi_dd_sub', { worst: fmtPct(sim.worstDD) })],
+  ].map(([metric, value, note]) => [
+    metric,
+    { value, bold: true, align: 'right' },
+    { value: note, color: C.faint },
+  ]);
+
   return `
-    <div style="background:${C.ink};color:#fff;height:64px;display:flex;align-items:center;
-      justify-content:space-between;padding:0 40px;">
-      <div style="font-size:20px;font-weight:700;letter-spacing:-.01em;">${esc(t('brand'))} ${esc(t('brand_pro'))}</div>
-      <div style="font-size:13px;opacity:.8;">${esc(localizedDate(lang))}</div>
-    </div>
-
-    <div style="padding:32px 40px;">
-      <div style="display:flex;align-items:center;gap:20px;border:1px solid ${C.line};
-        border-radius:14px;padding:20px 24px;margin-bottom:28px;">
-        <div style="width:84px;height:84px;border-radius:50%;flex-shrink:0;
-          background:${col};color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-          <span style="font-size:28px;font-weight:800;line-height:1;">${esc(scoreDisp)}</span>
-          <span style="font-size:11px;opacity:.85;">/100</span>
-        </div>
-        <div>
-          <div style="font-size:22px;font-weight:700;color:${C.ink};">${esc(t(vKey))}</div>
-          <div style="font-size:14px;color:${C.muted};margin-top:4px;">
-            ${esc(t('robustness_score'))}: ${esc(t(gradeKey[report.robustness?.grade] || 'grade_fragile'))}</div>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:14px;margin-bottom:14px;">
-        ${kpiCard(t('kpi_expectancy'), fmtValue(s.expectancy, unit, sym), t(unit === 'currency' ? 'kpi_expectancy_sub_cur' : 'kpi_expectancy_sub'), e > 0 ? C.green : C.red)}
-        ${kpiCard(t('kpi_pf'), pf, t('kpi_pf_sub'))}
-        ${kpiCard(t('kpi_ruin'), fmtPct(sim.riskOfRuin), t('kpi_ruin_sub', { threshold: '50%' }), sim.riskOfRuin > 0.05 ? C.red : C.green)}
-      </div>
-      <div style="display:flex;gap:14px;">
-        ${kpiCard(t('kpi_return'), fmtPctSigned(sim.meanReturn), t('kpi_median_sub'), sim.meanReturn >= 0 ? C.green : C.red)}
-        ${kpiCard(t('kpi_pop'), fmtPct(sim.probProfit, 0), t('kpi_pop_sub'), sim.probProfit >= 0.5 ? C.green : C.orange)}
-        ${kpiCard(t('kpi_kelly'), k.profitable ? fmtPct(k.fStar, 1) : 'N/A', k.profitable ? t('kpi_kelly_sub', { mode: k.modeLabel, rec: fmtPct(k.recommended, 2) }) : t('verdict_noedge'))}
-      </div>
+    <div style="margin:0 40px;">
+      ${dataTable(
+        [t('pdf_metric'), t('pdf_value'), t('pdf_note')],
+        rows,
+        { colWidths: ['50%', '25%', '25%'] }
+      )}
     </div>`;
 }
 
-function findingColumn(title, items, color) {
-  const body = items.length
-    ? items.map((it) => `<li style="margin:0 0 8px;font-size:12px;line-height:1.45;color:${C.ink};">• ${esc(tFinding(it))}</li>`).join('')
-    : `<li style="font-size:12px;color:${C.muted};font-style:italic;">${esc(t('diag_none'))}</li>`;
-  return `
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:14px;font-weight:700;color:${color};margin-bottom:10px;
-        padding-bottom:6px;border-bottom:2px solid ${color};">${esc(title)}</div>
-      <ul style="list-style:none;margin:0;padding:0;">${body}</ul>
-    </div>`;
+function buildPage1(report, lang, totalPages) {
+  const s = report.stats;
+  const sim = report.sim;
+  const unit = report.displayUnit || 'R';
+  const sym = report.currencySymbol || '$';
+  const fv = (v) => fmtValue(v, unit, sym);
+
+  const content = `
+    ${sectionTitle(t('pdf_executive_summary'), localizedDate(lang))}
+    ${buildVerdictBlock(report)}
+    ${kpiRow([
+      { label: t('kpi_expectancy'), value: fv(s.expectancy), sub: t(unit === 'currency' ? 'kpi_expectancy_sub_cur' : 'kpi_expectancy_sub'), good: 0 },
+      { label: t('kpi_pf'), value: s.profitFactor === Infinity ? '∞' : fmtNum(s.profitFactor), sub: t('kpi_pf_sub'), good: 1.5 },
+      { label: t('kpi_ruin'), value: fmtPct(sim.riskOfRuin), sub: t('kpi_ruin_sub', { threshold: '50%' }), bad: 0.05 },
+    ])}
+    ${kpiRow([
+      { label: 'Win Rate', value: fmtPct(s.winRate, 1), sub: `${s.count} ${t('pdf_trades')}` },
+      { label: t('kpi_return'), value: fmtPctSigned(sim.meanReturn), sub: t('kpi_median_sub'), good: 0 },
+      { label: t('kpi_pop'), value: fmtPct(sim.probProfit, 0), sub: t('kpi_pop_sub'), good: 0.55 },
+    ])}
+    ${buildStatsTable(report)}`;
+
+  return page(content, 1, totalPages, lang);
 }
 
-function buildPage2(report) {
+// ── Page 2 — Monte Carlo Simulation Detail ────────────────────────────────────
+
+function buildPage2(report, lang, totalPages) {
+  const sim = report.sim;
+  const spec = report.spec || {};
+
+  const ruinRows = (sim.ruinProfile || []).map((r) => {
+    const { color, bg } = r.probability > 0.1
+      ? { color: C.bad, bg: C.badBg }
+      : r.probability > 0.02
+        ? { color: C.warn, bg: C.warnBg }
+        : { color: C.good, bg: C.goodBg };
+    return [
+      t('kpi_ruin_sub', { threshold: fmtPct(r.threshold, 0) }),
+      { value: fmtPct(r.probability), bold: true, align: 'right', color, bg },
+    ];
+  });
+
+  const retRows = [
+    [t('pdf_p10'),   { value: fmtPctSigned(sim.p10Return),  bold: true,  align: 'right', color: sim.p10Return < 0 ? C.bad : C.good }],
+    [t('pdf_p25'),   { value: fmtPctSigned(sim.p25Return ?? sim.p10Return), align: 'right' }],
+    ['Median',       { value: fmtPctSigned(sim.medianReturn), bold: true, align: 'right' }],
+    [t('pdf_p75'),   { value: fmtPctSigned(sim.p75Return ?? sim.p90Return), align: 'right' }],
+    [t('pdf_p90'),   { value: fmtPctSigned(sim.p90Return),  bold: true,  align: 'right', color: C.good }],
+    ['Mean',         { value: fmtPctSigned(sim.meanReturn), bold: true,  align: 'right' }],
+    [t('kpi_pop'),   { value: fmtPct(sim.probProfit, 0),    align: 'right' }],
+  ];
+
+  const specRows = [
+    [t('in_capital'), '$' + (spec.capital || 0).toLocaleString('en-US')],
+    [t('in_trades'),  String(spec.trades || 0)],
+    [t('in_sims'),    (spec.sims || 0).toLocaleString('en-US')],
+    [t('in_risk'),    fmtPct(spec.risk || 0, 2)],
+    [t('in_cost'),    fmtPct(spec.costPerTrade || 0, 2)],
+    [t('pdf_basis'),  report.displayUnit === 'currency' ? t('pdf_basis_pnl') : t('pdf_basis_r')],
+  ];
+
+  const content = `
+    ${sectionTitle(t('pdf_simulation_detail'), t('pdf_simulation_sub', { sims: (spec.sims || 0).toLocaleString('en-US') }))}
+    <div style="display:flex;gap:20px;margin:0 40px 16px;">
+      <div style="flex:1.2;">
+        <div style="font-size:${F.sm};font-weight:700;color:${C.muted};
+          text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
+          ${esc(t('pdf_return_distribution'))}</div>
+        ${dataTable([t('pdf_percentile'), t('pdf_return')], retRows, { colWidths: ['65%', '35%'] })}
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:${F.sm};font-weight:700;color:${C.muted};
+          text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
+          ${esc(t('pdf_ruin_profile'))}</div>
+        ${dataTable([t('pdf_threshold'), t('pdf_probability')], ruinRows, { colWidths: ['65%', '35%'] })}
+        <div style="height:14px;"></div>
+        <div style="font-size:${F.sm};font-weight:700;color:${C.muted};
+          text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
+          ${esc(t('pdf_sim_spec'))}</div>
+        ${dataTable(
+          [t('pdf_parameter'), t('pdf_value')],
+          specRows.map(([k, v]) => [k, { value: v, bold: true, align: 'right' }]),
+          { colWidths: ['60%', '40%'] }
+        )}
+      </div>
+    </div>`;
+
+  return page(content, 2, totalPages, lang);
+}
+
+// ── Page 3 — Diagnostics ──────────────────────────────────────────────────────
+
+function buildPage3(report, lang, totalPages) {
   const f = report.findings;
+
+  function column(titleKey, items, color, bg) {
+    const lines = items.length
+      ? items.map((it) => `
+          <div style="padding:6px 10px;margin-bottom:4px;background:${bg};
+            border-left:3px solid ${color};border-radius:0 4px 4px 0;
+            font-size:${F.base};line-height:1.5;color:${C.ink};">${esc(tFinding(it))}</div>`)
+        .join('')
+      : `<div style="font-size:${F.sm};color:${C.faint};font-style:italic;
+          padding:6px 0;">${esc(t('diag_none'))}</div>`;
+    return `
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:${F.sm};font-weight:700;color:${color};
+          text-transform:uppercase;letter-spacing:.05em;
+          margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid ${color};">
+          ${esc(t(titleKey))}</div>
+        ${lines}
+      </div>`;
+  }
+
   const note = report.displayUnit === 'currency'
-    ? `<div style="margin-top:24px;padding:12px 16px;border-radius:10px;background:#fef9c3;
-        border:1px solid #fde047;font-size:12px;color:#854d0e;">${esc(t('notice_currency_normalized'))}</div>`
+    ? `<div style="margin:12px 40px 0;padding:10px 14px;border-radius:6px;
+        background:${C.warnBg};border:1px solid ${C.warn};
+        font-size:${F.sm};color:${C.warn};">${esc(t('notice_currency_normalized'))}</div>`
     : '';
-  return `
-    <div style="padding:40px;">
-      <div style="font-size:20px;font-weight:700;color:${C.ink};margin-bottom:24px;">${esc(t('diag_title'))}</div>
-      <div style="display:flex;gap:20px;">
-        ${findingColumn(t('diag_strengths'), f.strengths, C.green)}
-        ${findingColumn(t('diag_weaknesses'), f.weaknesses, C.red)}
-      </div>
-      <div style="display:flex;gap:20px;margin-top:28px;">
-        ${findingColumn(t('diag_risks'), f.risks, C.orange)}
-        ${findingColumn(t('diag_actions'), f.actions, C.blue)}
-      </div>
-      ${note}
-    </div>`;
+
+  const content = `
+    ${sectionTitle(t('diag_title'))}
+    <div style="display:flex;gap:14px;margin:0 40px;">
+      ${column('diag_strengths', f.strengths, C.good, C.goodBg)}
+      ${column('diag_weaknesses', f.weaknesses, C.bad, C.badBg)}
+    </div>
+    <div style="display:flex;gap:14px;margin:14px 40px 0;">
+      ${column('diag_risks', f.risks, C.warn, C.warnBg)}
+      ${column('diag_actions', f.actions, C.accent, C.accentBg)}
+    </div>
+    ${note}`;
+
+  return page(content, 3, totalPages, lang);
 }
 
-function buildPage3(report) {
+// ── Page 4 — Edge Integrity (journal only) ────────────────────────────────────
+
+function buildPage4(report, lang, totalPages) {
   const unit = report.displayUnit || 'R';
   const sym = report.currencySymbol || '$';
   const sl = report.skillLuck;
   const tp = report.temporal;
   const bs = report.blindspots;
   const ps = report.psychology;
-  const blocks = [];
+  const sections = [];
 
-  if (sl) {
+  if (sl && sl.verdict !== 'insufficient_data') {
     const vmap = {
-      strong: ['ei_verdict_strong', C.green], probable: ['ei_verdict_probable', C.orange],
-      weak: ['ei_verdict_weak', C.orange], unclear: ['ei_verdict_unclear', C.red],
-      insufficient_data: ['ei_verdict_insufficient', C.muted],
+      strong:   [t('ei_verdict_strong'),   C.good, C.goodBg],
+      probable: [t('ei_verdict_probable'), C.warn, C.warnBg],
+      weak:     [t('ei_verdict_weak'),     C.warn, C.warnBg],
+      unclear:  [t('ei_verdict_unclear'),  C.bad,  C.badBg],
     };
-    const [vk, vc] = vmap[sl.verdict] || vmap.unclear;
-    const detail = sl.verdict === 'insufficient_data'
-      ? `<div style="font-size:12px;color:${C.muted};">${esc(t('ei_insufficient', { n: sl.sampleSize }))}</div>`
-      : `<div style="font-size:12px;color:${C.ink};margin:2px 0;">${esc(t('ei_conf', { p: fmtPct(sl.expectancyCI.pAboveZero, 0) }))}</div>
-         <div style="font-size:12px;color:${C.ink};margin:2px 0;">${esc(t('ei_pvalue', { p: fmtNum(sl.pValueVsCoin, 3) }))}</div>`;
-    blocks.push(`
-      <div style="flex:1;min-width:0;background:${C.cardBg};border:1px solid ${C.line};border-radius:10px;padding:16px;">
-        <div style="font-size:14px;font-weight:700;color:${C.ink};margin-bottom:8px;">${esc(t('ei_skill_title'))}</div>
-        <div style="display:inline-block;font-size:11px;font-weight:700;color:#fff;background:${vc};
-          padding:3px 10px;border-radius:20px;margin-bottom:8px;">${esc(t(vk))}</div>
-        ${detail}
+    const [vLabel, vcol, vbg] = vmap[sl.verdict] || vmap.unclear;
+    const extraRow = sl.extraLossesToBreakeven > 0
+      ? [[t('ei_fragility', { n: '' }).replace(':', ''), { value: sl.extraLossesToBreakeven, align: 'right' }]]
+      : [];
+    sections.push(`
+      <div style="margin-bottom:18px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div style="font-size:${F.md};font-weight:700;">${esc(t('ei_skill_title'))}</div>
+          <span style="font-size:${F.xs};font-weight:700;color:${vcol};
+            background:${vbg};padding:3px 10px;border-radius:20px;">${esc(vLabel)}</span>
+        </div>
+        ${dataTable(
+          [t('pdf_metric'), t('pdf_value')],
+          [
+            [t('ei_conf', { p: '' }).replace(':', '').trim(), { value: fmtPct(sl.expectancyCI.pAboveZero, 0), bold: true, align: 'right' }],
+            ['p-value vs 50/50', { value: fmtNum(sl.pValueVsCoin, 3), bold: true, align: 'right',
+              color: sl.pValueVsCoin < 0.05 ? C.good : C.ink }],
+            ...extraRow,
+          ],
+          { colWidths: ['70%', '30%'] }
+        )}
       </div>`);
   }
 
   if (tp && tp.available) {
     const banner = tp.degrading
-      ? `<div style="font-size:11px;color:#fff;background:${C.red};padding:4px 8px;border-radius:6px;margin-bottom:8px;">${esc(t('ei_degrading'))}</div>`
+      ? `<div style="font-size:${F.sm};color:${C.bad};font-weight:700;
+          background:${C.badBg};padding:5px 10px;border-radius:4px;margin-bottom:8px;">
+          ⚠ ${esc(t('ei_degrading'))}</div>`
       : '';
-    const row = (label, a, b, fmt) =>
-      `<tr><td style="padding:3px 6px;color:${C.muted};">${esc(label)}</td>
-        <td style="padding:3px 6px;text-align:right;">${esc(fmt(a))}</td>
-        <td style="padding:3px 6px;text-align:right;">${esc(fmt(b))}</td></tr>`;
-    blocks.push(`
-      <div style="flex:1;min-width:0;background:${C.cardBg};border:1px solid ${C.line};border-radius:10px;padding:16px;">
-        <div style="font-size:14px;font-weight:700;color:${C.ink};margin-bottom:8px;">${esc(t('ei_time_title'))}</div>
+    sections.push(`
+      <div style="margin-bottom:18px;">
+        <div style="font-size:${F.md};font-weight:700;margin-bottom:10px;">${esc(t('ei_time_title'))}</div>
         ${banner}
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-          <thead><tr><th></th>
-            <th style="text-align:right;color:${C.muted};font-weight:600;">${esc(t('ei_early'))}</th>
-            <th style="text-align:right;color:${C.muted};font-weight:600;">${esc(t('ei_recent'))}</th></tr></thead>
-          <tbody>
-            ${row(t('ei_col_wr'), tp.earlyStats.winRate, tp.recentStats.winRate, (v) => fmtPct(v, 0))}
-            ${row(t('ei_col_exp'), tp.earlyStats.expectancy, tp.recentStats.expectancy, (v) => fmtValue(v, unit, sym))}
-            ${row(t('ei_col_pf'), tp.earlyStats.profitFactor, tp.recentStats.profitFactor, (v) => (v === Infinity ? '∞' : fmtNum(v)))}
-          </tbody>
-        </table>
+        ${dataTable(
+          ['', t('ei_early'), t('ei_recent')],
+          [
+            [t('ei_col_wr'),
+              { value: fmtPct(tp.earlyStats.winRate, 0),  align: 'right' },
+              { value: fmtPct(tp.recentStats.winRate, 0), align: 'right', bold: true }],
+            [t('ei_col_exp'),
+              { value: fmtValue(tp.earlyStats.expectancy, unit, sym),  align: 'right' },
+              { value: fmtValue(tp.recentStats.expectancy, unit, sym), align: 'right', bold: true }],
+            [t('ei_col_pf'),
+              { value: tp.earlyStats.profitFactor === Infinity  ? '∞' : fmtNum(tp.earlyStats.profitFactor),  align: 'right' },
+              { value: tp.recentStats.profitFactor === Infinity ? '∞' : fmtNum(tp.recentStats.profitFactor), align: 'right', bold: true }],
+          ],
+          { colWidths: ['34%', '33%', '33%'] }
+        )}
       </div>`);
   }
 
-  // Blind spots — direction + worst day (instrument table is too wide for PDF).
-  const blindLines = [];
-  if (bs?.direction?.available && bs.direction.losingDirection) {
-    blindLines.push(t('ei_dir_losing', { dir: t(`dir_${bs.direction.losingDirection}`) }));
-  }
-  if (bs?.dayOfWeek?.available && bs.dayOfWeek.toxicDay) {
-    blindLines.push(t('find.avoid_day', { day: t(`dow_${bs.dayOfWeek.worstDay.dayIndex}`) }));
-  }
-  const blindBlock = blindLines.length
-    ? `<div style="margin-top:18px;background:${C.cardBg};border:1px solid ${C.line};border-radius:10px;padding:16px;">
-        <div style="font-size:14px;font-weight:700;color:${C.ink};margin-bottom:8px;">${esc(t('ei_blind_title'))}</div>
-        ${blindLines.map((l) => `<div style="font-size:12px;color:${C.ink};margin:3px 0;">• ${esc(l)}</div>`).join('')}
-       </div>`
-    : '';
-
-  // Psychology — stop signal + after-loss summary.
-  let psychBlock = '';
-  if (ps) {
-    const lines = [];
-    if (ps.stopSignal?.triggered) {
-      lines.push(`<div style="font-size:12px;color:#fff;background:${C.red};padding:6px 10px;border-radius:6px;margin-bottom:8px;">⚠ ${esc(t('psych_stop_signal', { n: ps.stopSignal.after, baseWR: fmtPct(ps.stopSignal.baseWR, 0), nextWR: fmtPct(ps.stopSignal.nextWR, 0) }))}</div>`);
+  if (bs) {
+    const bsRows = [];
+    if (bs.direction?.available && bs.direction.losingDirection) {
+      bsRows.push([t('ei_dir_title'), t('ei_dir_losing', { dir: t(`dir_${bs.direction.losingDirection}`) })]);
     }
-    for (const row of ps.afterLoss.filter((r) => r.sampleSize >= 5)) {
-      lines.push(`<div style="font-size:12px;color:${C.ink};margin:3px 0;">${esc(t('psych_after_n', { n: row.after }))}: ${esc(fmtPct(row.nextWR, 0))} <span style="color:${C.muted};">(${row.sampleSize})</span></div>`);
+    if (bs.dayOfWeek?.available && bs.dayOfWeek.toxicDay) {
+      bsRows.push([t('ei_dow_title'),
+        `${t(`dow_${bs.dayOfWeek.worstDay.dayIndex}`)} — ${fmtValue(bs.dayOfWeek.worstDay.stats.expectancy, unit, sym)}`]);
     }
-    if (lines.length) {
-      psychBlock = `<div style="margin-top:18px;background:${C.cardBg};border:1px solid ${C.line};border-radius:10px;padding:16px;">
-        <div style="font-size:14px;font-weight:700;color:${C.ink};margin-bottom:8px;">${esc(t('psych_title'))}</div>
-        ${lines.join('')}</div>`;
+    if (bs.instrument?.hiddenLosers?.length) {
+      bsRows.push([t('ei_blind_title'), bs.instrument.hiddenLosers.map((s) => s.symbol).join(', ')]);
+    }
+    if (bsRows.length) {
+      sections.push(`
+        <div style="margin-bottom:18px;">
+          <div style="font-size:${F.md};font-weight:700;margin-bottom:10px;">${esc(t('ei_blind_title'))}</div>
+          ${dataTable([t('pdf_category'), t('pdf_finding')], bsRows)}
+        </div>`);
     }
   }
 
-  return `
-    <div style="padding:40px;">
-      <div style="font-size:20px;font-weight:700;color:${C.ink};margin-bottom:24px;">${esc(t('ei_title'))}</div>
-      <div style="display:flex;gap:20px;">${blocks.join('')}</div>
-      ${blindBlock}
-      ${psychBlock}
-    </div>`;
+  if (ps?.stopSignal?.triggered) {
+    const sg = ps.stopSignal;
+    sections.push(`
+      <div style="padding:10px 14px;background:${C.badBg};border:1px solid ${C.bad};
+        border-radius:6px;font-size:${F.sm};color:${C.bad};">
+        ⚠ ${esc(t('psych_stop_signal', { n: sg.after, baseWR: fmtPct(sg.baseWR, 0), nextWR: fmtPct(sg.nextWR, 0) }))}
+      </div>`);
+  }
+
+  if (!sections.length) return null;
+
+  const content = `
+    ${sectionTitle(t('ei_title'), t('pdf_journal_only'))}
+    <div style="margin:0 40px;">${sections.join('')}</div>`;
+
+  return page(content, 4, totalPages, lang);
 }
 
-function chartImgTag(id, label) {
+// ── Page 5 — Charts ───────────────────────────────────────────────────────────
+
+function chartBox(id, label, height = 280) {
   const canvas = document.getElementById(id);
   let src = null;
-  // JPEG @ 90% keeps chart screenshots a fraction of the PNG size with no visible
-  // loss — the difference between a 20 MB and a ~3 MB report.
-  try { if (canvas && canvas.toDataURL) src = canvas.toDataURL('image/jpeg', 0.90); } catch (_) { src = null; }
-  const inner = src
-    ? `<img src="${src}" style="width:100%;display:block;" alt="${esc(label)}">`
-    : `<div style="height:200px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:13px;">Chart unavailable</div>`;
+  try { if (canvas) src = canvas.toDataURL('image/jpeg', 0.88); } catch (_) { src = null; }
   return `
-    <div style="background:${C.chartBg};border-radius:12px;padding:16px;margin-bottom:18px;">
-      <div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:10px;">${esc(label)}</div>
-      ${inner}
+    <div style="margin-bottom:14px;">
+      <div style="font-size:${F.sm};font-weight:700;color:${C.muted};
+        text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">${esc(label)}</div>
+      ${src
+        ? `<img src="${src}" style="width:100%;height:${height}px;object-fit:contain;
+            border:1px solid ${C.line};border-radius:6px;background:${C.chartBg};">`
+        : `<div style="height:${height}px;border:1px solid ${C.line};border-radius:6px;
+            display:flex;align-items:center;justify-content:center;
+            color:${C.faint};font-size:${F.sm};">Chart not available</div>`}
     </div>`;
 }
 
-function buildPage4(report) {
+function buildPageCharts(report, lang, pageNum, totalPages) {
   const spec = report.spec || {};
-  const simNote = t('pdf_sim_note', {
-    capital: fmtMoney(spec.capital),
-    trades: spec.trades,
-    sims: (spec.sims || 0).toLocaleString(),
-    risk: fmtPct(spec.risk, 1),
-  });
-  const basisNote = report.displayUnit === 'currency'
-    ? ` · ${t('notice_currency_normalized')}` : '';
-  return `
-    <div style="padding:40px;">
-      <div style="font-size:20px;font-weight:700;color:${C.ink};margin-bottom:24px;">${esc(t('chart_equity'))} · ${esc(t('chart_dd'))}</div>
-      ${chartImgTag('c-equity', t('chart_equity'))}
-      ${chartImgTag('c-dd', t('chart_dd'))}
-      <div style="font-size:11px;color:${C.muted};margin-top:8px;">${esc(simNote + basisNote)}</div>
+  const simNote = `${t('in_capital')}: $${(spec.capital || 0).toLocaleString('en-US')} · `
+    + `${t('in_trades')}: ${spec.trades} · ${t('in_sims')}: ${(spec.sims || 0).toLocaleString('en-US')} · `
+    + `${t('in_risk')}: ${fmtPct(spec.risk || 0, 2)}`;
+
+  const content = `
+    ${sectionTitle(t('pdf_charts_title'))}
+    <div style="margin:0 40px;">
+      ${chartBox('c-equity', t('chart_equity'), 310)}
+      <div style="display:flex;gap:14px;">
+        <div style="flex:1;">${chartBox('c-dist', t('chart_dist'), 195)}</div>
+        <div style="flex:1;">${chartBox('c-dd',   t('chart_dd'),   195)}</div>
+      </div>
+      <div style="font-size:${F.xs};color:${C.faint};margin-top:6px;">${esc(simNote)}</div>
     </div>`;
+
+  return page(content, pageNum, totalPages, lang);
 }
+
+// ── Document assembly ─────────────────────────────────────────────────────────
 
 function buildDocument(report, lang) {
   const root = document.createElement('div');
   root.style.cssText = 'position:fixed;left:-99999px;top:0;z-index:-1;';
 
-  // Only emit the Edge Integrity page when it would actually carry content —
-  // Quick Check has no per-trade records, leaving the page near-empty otherwise.
-  const hasEdge = report.skillLuck || report.temporal || report.psychology
-    || (report.blindspots && (
-      report.blindspots.direction?.available
-      || report.blindspots.instrument?.available
-      || report.blindspots.dayOfWeek?.available
-    ));
-  const pagesHtml = [buildPage1(report, lang), buildPage2(report)];
-  if (hasEdge) pagesHtml.push(buildPage3(report));
-  pagesHtml.push(buildPage4(report));
+  const hasEdge = report.skillLuck || report.temporal
+    || (report.blindspots && Object.values(report.blindspots).some((b) => b?.available))
+    || report.psychology?.stopSignal?.triggered;
 
-  root.innerHTML = pagesHtml.map((html) => `
-    <div class="pdf-page" style="width:${PX_W}px;height:${PX_H}px;background:#fff;
-      color:${C.ink};font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
-      overflow:hidden;box-sizing:border-box;">${html}</div>`).join('');
+  const totalPages = hasEdge ? 5 : 4;
+
+  const pagesList = [
+    buildPage1(report, lang, totalPages),
+    buildPage2(report, lang, totalPages),
+    buildPage3(report, lang, totalPages),
+  ];
+
+  if (hasEdge) {
+    const p4 = buildPage4(report, lang, totalPages);
+    if (p4) pagesList.push(p4);
+  }
+
+  pagesList.push(buildPageCharts(report, lang, pagesList.length + 1, totalPages));
+
+  root.innerHTML = pagesList.map((html) => `<div class="pdf-page">${html}</div>`).join('');
   return root;
 }
 
@@ -296,25 +554,18 @@ export async function generatePDF(report) {
   document.body.appendChild(root);
 
   try {
-    const pages = [...root.querySelectorAll('.pdf-page')];
-    for (let i = 0; i < pages.length; i++) {
+    const pageEls = [...root.querySelectorAll('.pdf-page')];
+    for (let i = 0; i < pageEls.length; i++) {
       let imgData = null;
       try {
-        const canvas = await html2canvas(pages[i], {
+        const canvas = await html2canvas(pageEls[i], {
           scale: 1.5, backgroundColor: '#ffffff', logging: false, useCORS: true,
         });
-        imgData = canvas.toDataURL('image/jpeg', 0.90);
-      } catch (err) {
-        // Never let one bad page abort the whole export.
-        imgData = null;
-      }
+        imgData = canvas.toDataURL('image/jpeg', 0.88);
+      } catch (_) { imgData = null; }
       if (i > 0) pdf.addPage();
-      if (imgData) {
-        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-      } else {
-        pdf.setFontSize(12);
-        pdf.text('Page unavailable', 20, 20);
-      }
+      if (imgData) pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+      else { pdf.setFontSize(10); pdf.text('Page unavailable', 20, 20); }
     }
     pdf.save(`strategy-report-${new Date().toISOString().slice(0, 10)}.pdf`);
   } finally {
