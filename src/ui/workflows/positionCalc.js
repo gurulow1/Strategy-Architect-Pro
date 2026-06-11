@@ -14,14 +14,13 @@ import { createRng } from '../../engine/rng.js';
 import { riskOfRuin } from '../../engine/riskOfRuin.js';
 import { mean, median, percentile } from '../../engine/stats.js';
 
-// Build 8 risk levels centred around the Kelly-recommended risk.
-// Max is capped at min(kelly × 2, 5%) so the table stays meaningful for any
-// strategy — a 25% Kelly would otherwise produce absurd 50% risk rows.
-function buildLevels(kellyRisk) {
-  const rec = kellyRisk > 0 ? kellyRisk : 0.01;
-  const maxLevel = Math.min(rec * 2, 0.05);
+// Always sweep 0.25% → 3% in 8 equal steps. This is the PRACTICAL trading range;
+// Kelly may sit above it (a high-edge strategy can recommend 10%+), in which case
+// the panel shows a warning rather than charting absurd risk levels.
+function buildLevels() {
+  const PRACTICAL_MAX = 0.03;
   const minLevel = 0.0025;
-  const step = (maxLevel - minLevel) / 7;
+  const step = (PRACTICAL_MAX - minLevel) / 7;
   return Array.from({ length: 8 }, (_, i) => Math.round((minLevel + step * i) * 10000) / 10000);
 }
 
@@ -151,13 +150,23 @@ function renderSensitivityBlock(levels, kellyRisk) {
     const isKelly = i === kellyIdx;
     const color = l.ror > 0.15 ? 'bad' : l.ror < 0.05 ? 'good' : '';
     return `<tr class="rs-row ${isKelly ? 'rs-kelly' : ''} ${isKelly ? 'rs-selected' : ''}" data-idx="${i}">
-      <td>${fmtPct(l.risk, 2)}</td>
+      <td>${fmtPct(l.risk, 2)}${isKelly ? ' ★' : ''}</td>
       <td class="${l.meanRet >= 0 ? 'good' : 'bad'}">${fmtPctSigned(l.meanRet)}</td>
       <td class="warn">${fmtPct(l.medDD)}</td>
       <td class="${color}">${fmtPct(l.ror)}</td>
       <td class="muted small">${fmtPctSigned(l.p10)}</td>
     </tr>`;
   }).join('');
+
+  // When Kelly sits above the practical 3% ceiling, the ★ marks the closest row
+  // and we warn instead of pretending the table covers the optimum.
+  const kellyNote = kellyRisk > 0.03
+    ? `<div class="notice warn" style="margin-top:10px;font-size:12px;">
+        ${t('risk_sens_kelly_above', { kelly: fmtPct(kellyRisk, 1), practical: '3%' })}
+       </div>`
+    : `<div class="risk-sens-legend muted small" style="margin-top:8px;">
+        ${t('risk_sens_kelly_note', { kelly: fmtPct(kellyRisk, 2) })}
+       </div>`;
 
   return `
     <div class="card pad">
@@ -176,7 +185,7 @@ function renderSensitivityBlock(levels, kellyRisk) {
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <div class="risk-sens-legend muted small">${t('risk_sens_kelly_note', { kelly: fmtPct(kellyRisk, 2) })}</div>
+      ${kellyNote}
     </div>`;
 }
 
@@ -249,7 +258,9 @@ function updateRecovery(report, container) {
 
   q('#rc-out-loss').textContent = '$' + lossAmount.toLocaleString('en-US', { maximumFractionDigits: 0 });
   q('#rc-out-trades').textContent = tradesNeeded !== null
-    ? `~${tradesNeeded} ${t('recovery_trades_unit')}`
+    ? (tradesNeeded <= 1
+        ? t('recovery_less_than_one')
+        : `~${tradesNeeded} ${t('recovery_trades_unit')}`)
     : t('recovery_trades_na');
   q('#rc-out-pct').textContent = Number.isFinite(gainPct) ? gainPct.toFixed(1) + '%' : '—';
 }
@@ -273,7 +284,7 @@ async function renderSensitivityPanel(container, report) {
   // The panel may have been re-rendered (tab switch / new analysis) while we
   // yielded — bail if our loading node is no longer in the DOM.
   if (!container.querySelector('.workflow')) return;
-  const levelsArr = buildLevels(kellyRisk);
+  const levelsArr = buildLevels();
   const levels = precomputeSensitivity(report, levelsArr);
 
   container.innerHTML = `

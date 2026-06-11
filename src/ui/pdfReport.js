@@ -177,11 +177,15 @@ function buildVerdictBlock(report) {
 
 function kpiRow(items) {
   const cards = items.map((it) => {
-    const numVal = parseFloat(it.value);
+    // Color logic needs the raw number, not the formatted string: parseFloat on
+    // "+6,627R" or "2.3%" yields NaN/garbage. Prefer an explicit rawValue.
+    const raw = typeof it.rawValue === 'number'
+      ? it.rawValue
+      : parseFloat(String(it.value).replace(/[^0-9.eE+-]/g, ''));
     let vcol = C.ink;
-    if (Number.isFinite(numVal)) {
-      if (it.good !== undefined && numVal >= it.good) vcol = C.good;
-      else if (it.bad !== undefined && numVal <= it.bad) vcol = C.bad;
+    if (Number.isFinite(raw)) {
+      if (it.good !== undefined && raw >= it.good) vcol = C.good;
+      else if (it.bad !== undefined && raw <= it.bad) vcol = C.bad;
     }
     return `
       <div style="flex:1;padding:10px 14px;background:${C.cardBg};
@@ -234,7 +238,7 @@ function buildStatsTable(report) {
     </div>`;
 }
 
-function buildPage1(report, lang, totalPages) {
+function buildPage1(report, lang, pageNum, totalPages) {
   const s = report.stats;
   const sim = report.sim;
   const unit = report.displayUnit || 'R';
@@ -245,23 +249,29 @@ function buildPage1(report, lang, totalPages) {
     ${sectionTitle(t('pdf_executive_summary'), localizedDate(lang))}
     ${buildVerdictBlock(report)}
     ${kpiRow([
-      { label: t('kpi_expectancy'), value: fv(s.expectancy), sub: t(unit === 'currency' ? 'kpi_expectancy_sub_cur' : 'kpi_expectancy_sub'), good: 0 },
-      { label: t('kpi_pf'), value: s.profitFactor === Infinity ? '∞' : fmtNum(s.profitFactor), sub: t('kpi_pf_sub'), good: 1.5 },
-      { label: t('kpi_ruin'), value: fmtPct(sim.riskOfRuin), sub: t('kpi_ruin_sub', { threshold: '50%' }), bad: 0.05 },
+      { label: t('kpi_expectancy'), value: fv(s.expectancy), rawValue: s.expectancy,
+        sub: t(unit === 'currency' ? 'kpi_expectancy_sub_cur' : 'kpi_expectancy_sub'), good: 0 },
+      { label: t('kpi_pf'), value: s.profitFactor === Infinity ? '∞' : fmtNum(s.profitFactor),
+        rawValue: s.profitFactor === Infinity ? 999 : s.profitFactor, sub: t('kpi_pf_sub'), good: 1.5 },
+      { label: t('kpi_ruin'), value: fmtPct(sim.riskOfRuin), rawValue: sim.riskOfRuin,
+        sub: t('kpi_ruin_sub', { threshold: '50%' }), bad: 0.05 },
     ])}
     ${kpiRow([
-      { label: 'Win Rate', value: fmtPct(s.winRate, 1), sub: `${s.count} ${t('pdf_trades')}` },
-      { label: t('kpi_return'), value: fmtPctSigned(sim.meanReturn), sub: t('kpi_median_sub'), good: 0 },
-      { label: t('kpi_pop'), value: fmtPct(sim.probProfit, 0), sub: t('kpi_pop_sub'), good: 0.55 },
+      { label: 'Win Rate', value: fmtPct(s.winRate, 1), rawValue: s.winRate,
+        sub: `${s.count} ${t('pdf_trades')}` },
+      { label: t('kpi_return'), value: fmtPctSigned(sim.meanReturn), rawValue: sim.meanReturn,
+        sub: t('kpi_median_sub'), good: 0 },
+      { label: t('kpi_pop'), value: fmtPct(sim.probProfit, 0), rawValue: sim.probProfit,
+        sub: t('kpi_pop_sub'), good: 0.55 },
     ])}
     ${buildStatsTable(report)}`;
 
-  return page(content, 1, totalPages, lang);
+  return page(content, pageNum, totalPages, lang);
 }
 
 // ── Page 2 — Monte Carlo Simulation Detail ────────────────────────────────────
 
-function buildPage2(report, lang, totalPages) {
+function buildPage2(report, lang, pageNum, totalPages) {
   const sim = report.sim;
   const spec = report.spec || {};
 
@@ -322,12 +332,12 @@ function buildPage2(report, lang, totalPages) {
       </div>
     </div>`;
 
-  return page(content, 2, totalPages, lang);
+  return page(content, pageNum, totalPages, lang);
 }
 
 // ── Page 3 — Diagnostics ──────────────────────────────────────────────────────
 
-function buildPage3(report, lang, totalPages) {
+function buildPage3(report, lang, pageNum, totalPages) {
   const f = report.findings;
 
   function column(titleKey, items, color, bg) {
@@ -367,12 +377,12 @@ function buildPage3(report, lang, totalPages) {
     </div>
     ${note}`;
 
-  return page(content, 3, totalPages, lang);
+  return page(content, pageNum, totalPages, lang);
 }
 
 // ── Page 4 — Edge Integrity (journal only) ────────────────────────────────────
 
-function buildPage4(report, lang, totalPages) {
+function buildPage4(report, lang, pageNum, totalPages) {
   const unit = report.displayUnit || 'R';
   const sym = report.currencySymbol || '$';
   const sl = report.skillLuck;
@@ -464,9 +474,30 @@ function buildPage4(report, lang, totalPages) {
   if (ps?.stopSignal?.triggered) {
     const sg = ps.stopSignal;
     sections.push(`
-      <div style="padding:10px 14px;background:${C.badBg};border:1px solid ${C.bad};
+      <div style="margin-bottom:14px;padding:10px 14px;background:${C.badBg};border:1px solid ${C.bad};
         border-radius:6px;font-size:${F.sm};color:${C.bad};">
         ⚠ ${esc(t('psych_stop_signal', { n: sg.after, baseWR: fmtPct(sg.baseWR, 0), nextWR: fmtPct(sg.nextWR, 0) }))}
+      </div>`);
+  }
+
+  // After-loss behavior carries intel even without a hard stop signal — show the
+  // win-rate-after-N-losses table whenever there's a meaningful sample.
+  if (ps && ps.afterLoss && ps.afterLoss.some((r) => r.sampleSize >= 5)) {
+    const lossRows = ps.afterLoss
+      .filter((r) => r.sampleSize >= 5)
+      .map((r) => [
+        t('psych_after_n', { n: r.after }),
+        { value: fmtPct(r.nextWR, 0), bold: true, align: 'right' },
+        { value: String(r.sampleSize), align: 'right', color: C.muted },
+      ]);
+    sections.push(`
+      <div style="margin-bottom:14px;">
+        <div style="font-size:${F.md};font-weight:700;margin-bottom:8px;">${esc(t('psych_loss_title'))}</div>
+        ${dataTable(
+          [t('psych_col_after'), t('kpi_winrate'), t('psych_col_n')],
+          lossRows,
+          { colWidths: ['50%', '30%', '20%'] }
+        )}
       </div>`);
   }
 
@@ -476,7 +507,7 @@ function buildPage4(report, lang, totalPages) {
     ${sectionTitle(t('ei_title'), t('pdf_journal_only'))}
     <div style="margin:0 40px;">${sections.join('')}</div>`;
 
-  return page(content, 4, totalPages, lang);
+  return page(content, pageNum, totalPages, lang);
 }
 
 // ── Page 5 — Charts ───────────────────────────────────────────────────────────
@@ -524,24 +555,25 @@ function buildDocument(report, lang) {
   const root = document.createElement('div');
   root.style.cssText = 'position:fixed;left:-99999px;top:0;z-index:-1;';
 
-  const hasEdge = report.skillLuck || report.temporal
+  // Include psychology (afterLoss intel) even without a hard stop signal.
+  const hasEdge = !!(report.skillLuck || report.temporal
     || (report.blindspots && Object.values(report.blindspots).some((b) => b?.available))
-    || report.psychology?.stopSignal?.triggered;
+    || report.psychology);
 
-  const totalPages = hasEdge ? 5 : 4;
-
-  const pagesList = [
-    buildPage1(report, lang, totalPages),
-    buildPage2(report, lang, totalPages),
-    buildPage3(report, lang, totalPages),
+  // Assemble the builder list first so the real page count is known before any
+  // page is stamped — otherwise a null page 4 would leave footers reading "/5".
+  const builders = [
+    (n, total) => buildPage1(report, lang, n, total),
+    (n, total) => buildPage2(report, lang, n, total),
+    (n, total) => buildPage3(report, lang, n, total),
   ];
-
-  if (hasEdge) {
-    const p4 = buildPage4(report, lang, totalPages);
-    if (p4) pagesList.push(p4);
+  if (hasEdge && buildPage4(report, lang, 1, 5)) {
+    builders.push((n, total) => buildPage4(report, lang, n, total));
   }
+  builders.push((n, total) => buildPageCharts(report, lang, n, total));
 
-  pagesList.push(buildPageCharts(report, lang, pagesList.length + 1, totalPages));
+  const totalPages = builders.length;
+  const pagesList = builders.map((fn, i) => fn(i + 1, totalPages));
 
   root.innerHTML = pagesList.map((html) => `<div class="pdf-page">${html}</div>`).join('');
   return root;

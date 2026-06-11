@@ -427,7 +427,7 @@ export default {
   risk_panel_title: 'Risk Sensitivity Analysis',
   risk_panel_desc: 'How strategy health changes across different per-trade risk levels.',
   risk_panel_no_data: 'No analysis data',
-  risk_panel_no_data_sub: 'Run Journal Analysis first — then the full strategy picture appears here.',
+  risk_panel_no_data_sub: 'Run Quick Check or upload a journal first — then the risk sensitivity analysis will appear here.',
   risk_panel_computing: 'Computing scenarios…',
   risk_updated: 'Data as of {time}',
   risk_level_label: 'Risk per trade',
@@ -448,5 +448,9 @@ export default {
   recovery_gain_needed: 'Gain needed',
   recovery_trades_unit: 'trades',
   recovery_trades_na: 'Cannot calculate',
+  recovery_less_than_one: '< 1 trade (single-trade expectancy covers this drawdown)',
   recovery_note: 'Linear approximation. Your journal expectancy: {exp}/trade.',
+  risk_sens_kelly_above: 'Kelly optimum ({kelly}) is above the table\'s practical range ({practical}). '
+    + 'This is a theoretical maximum — real trading should use 1–2%. '
+    + 'The star (★) marks the closest level in the table.',
 };

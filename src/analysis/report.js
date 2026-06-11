@@ -33,6 +33,22 @@ function summarizeSim(res, ruinThreshold) {
   };
 }
 
+// When PnL was normalized to R (no explicit R column), the raw payoffRatio is
+// inflated by the normalization factor. Recompute win rate / RR from the same
+// clipped sample the simulation used, so Kelly stays consistent with the sim.
+function clippedStats(sample) {
+  if (!Array.isArray(sample) || sample.length === 0) return null;
+  const wins = sample.filter((v) => v > 0);
+  const losses = sample.filter((v) => v < 0);
+  if (!wins.length || !losses.length) return null;
+  const avgWin = wins.reduce((a, b) => a + b, 0) / wins.length;
+  const avgLoss = Math.abs(losses.reduce((a, b) => a + b, 0) / losses.length);
+  return {
+    winRate: wins.length / sample.length,
+    payoffRatio: avgLoss > 0 ? avgWin / avgLoss : 0,
+  };
+}
+
 /**
  * Strategy health signal. Summarizes all analyses into one color.
  * GREEN = trade normally. YELLOW = reduce risk. RED = stop and review.
@@ -98,9 +114,21 @@ export function buildReport(input) {
 
   // Effective WR/RR used for Kelly & robustness (journal-derived if present).
   const effWinRate = realStats ? realStats.winRate : winRate;
-  const effRr = realStats ? realStats.payoffRatio : rr;
+  // For normalized journals (no explicit R column), realStats.payoffRatio is
+  // avgWin/avgLoss in raw currency — inflated by the normalization factor and
+  // inconsistent with the ±10R-clipped sample the sim actually ran on. Derive
+  // Kelly's RR from the clipped sample so the recommendation matches the sim.
+  const kellyStats = (rBasis === 'normalized' && sample && sample.length)
+    ? clippedStats(sample)
+    : null;
+  const effRr = kellyStats ? kellyStats.payoffRatio : (realStats ? realStats.payoffRatio : rr);
 
-  const kelly = kellySizing(effWinRate, effRr, kellyMode, fixedFraction);
+  const kelly = kellySizing(
+    kellyStats ? kellyStats.winRate : effWinRate,
+    effRr,
+    kellyMode,
+    fixedFraction,
+  );
   const sim = summarizeSim(res, ruinThreshold);
 
   const robustness = runRobustness(

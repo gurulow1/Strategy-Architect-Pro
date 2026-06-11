@@ -15,11 +15,23 @@ function magnitude(n, d) {
   return Math.abs(n) > 999999 ? n.toExponential(2) : n.toFixed(d);
 }
 
-export const fmtPct = (v, d = 1) => (isBad(v) ? DASH : `${magnitude(v * 100, d)}%`);
+// Percentages get a friendlier cap than raw scientific notation: a high-Kelly
+// strategy can produce returns of millions of percent, which read as garbage in
+// a table cell. Clamp the display to "> 9,999%" / "< -9,999%" instead.
+const PCT_MAX = 9999;
+
+export const fmtPct = (v, d = 1) => {
+  if (isBad(v)) return DASH;
+  const p = v * 100;
+  if (Math.abs(p) > PCT_MAX) return p > 0 ? `> ${PCT_MAX.toLocaleString('en-US')}%` : `< -${PCT_MAX.toLocaleString('en-US')}%`;
+  return `${magnitude(p, d)}%`;
+};
 
 export const fmtPctSigned = (v, d = 1) => {
   if (isBad(v)) return DASH;
   const p = v * 100;
+  if (p > PCT_MAX) return `> +${PCT_MAX.toLocaleString('en-US')}%`;
+  if (p < -PCT_MAX) return `< -${PCT_MAX.toLocaleString('en-US')}%`;
   return `${p >= 0 ? '+' : ''}${magnitude(p, d)}%`;
 };
 
