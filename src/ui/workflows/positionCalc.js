@@ -1,149 +1,296 @@
-// Position Size Calculator: the trader's most immediate question — "how much do
-// I put on this trade?" — answered in real time. Standalone: works with no
-// journal loaded. If an analysis has been run, it pre-fills the Kelly-optimal risk.
+// Risk Sensitivity Panel — the laboratory's answer to "what changes if I push
+// my risk, or pull back?". Reads the last journal/quick-check report and runs a
+// light Monte Carlo sweep across risk levels on the SAME trade distribution, so
+// the trader can see how return, drawdown and risk-of-ruin move with risk.
+//
+// No business logic of its own: every number comes from the pure engine
+// (simulate / riskOfRuin / stats). When no analysis has been run, it shows a
+// call-to-action placeholder instead.
 import { t } from '../i18n.js';
 import { state } from '../state.js';
+import { fmtPct, fmtPctSigned, fmtValue } from '../format.js';
+import { simulate } from '../../engine/simulate.js';
+import { createRng } from '../../engine/rng.js';
+import { riskOfRuin } from '../../engine/riskOfRuin.js';
+import { mean, median, percentile } from '../../engine/stats.js';
 
-// $ value of 1 pip per standard lot (approximate for USD-quoted majors).
-const PIP_VALUES = {
-  EURUSD: 10, GBPUSD: 10, AUDUSD: 10, NZDUSD: 10,
-  USDCAD: 7.7, USDCHF: 10.9, USDJPY: 9.0,
-  XAUUSD: 1.0, BTCUSD: 1.0,
-};
+// Risk-per-trade ladder swept by the sensitivity table (deduplicated, sorted).
+const LEVELS = [0.0025, 0.005, 0.0075, 0.01, 0.0125, 0.015, 0.02, 0.03];
 
-export function mountPositionCalc(container, lastReport = null) {
+// ── Entry points ─────────────────────────────────────────────────────────────
+export function mountPositionCalc(container) {
+  render(container);
+  // selectTab() calls controller.rerender() on every tab entry — picking up a
+  // freshly run analysis without a manual refresh.
+  return { rerender: () => render(container) };
+}
+
+// Called by app.js right after an analysis completes, so the panel updates even
+// while the user is already looking at it (no tab switch needed).
+export function refreshPositionCalc(container) {
+  if (container) render(container);
+}
+
+function render(container) {
+  const report = state.lastReport;
+  if (!report) {
+    renderPlaceholder(container);
+  } else {
+    renderSensitivityPanel(container, report);
+  }
+}
+
+// ── Placeholder (no analysis loaded) ─────────────────────────────────────────
+function renderPlaceholder(container) {
   container.innerHTML = `
     <div class="workflow">
       <div class="wf-head">
-        <h2>${t('pos_calc_title')}</h2>
-        <p class="muted">${t('pos_calc_desc')}</p>
+        <h2>${t('risk_panel_title')}</h2>
+        <p class="muted">${t('risk_panel_desc')}</p>
       </div>
+      <div class="card pad" style="margin-top:40px;padding:60px 40px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;">📊</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px;">${t('risk_panel_no_data')}</div>
+        <div class="muted small">${t('risk_panel_no_data_sub')}</div>
+      </div>
+    </div>`;
+}
 
-      <div class="pos-calc card pad">
-        <div class="pos-form">
-          <label>${t('pos_calc_balance')}
-            <div class="input-wrap"><span class="input-prefix">$</span>
-              <input id="pc-balance" type="number" min="100" step="100" value="10000">
-            </div>
-          </label>
+// ── BLOC A — strategy summary header ─────────────────────────────────────────
+function renderStrategyHeader(report) {
+  const s = report.status;
+  const k = report.kelly;
+  const sim = report.sim;
+  const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dot = { green: '🟢', yellow: '🟡', red: '🔴' }[s?.color] || '⚪';
 
-          <label>${t('pos_calc_risk')}
-            <div class="input-wrap">
-              <input id="pc-risk" type="number" min="0.1" max="20" step="0.1" value="1">
-              <span class="input-suffix">%</span>
-            </div>
-          </label>
-
-          <label>${t('pos_calc_sl_mode')}
-            <select id="pc-sl-mode">
-              <option value="dollars">${t('pos_calc_sl_dollars')}</option>
-              <option value="pips">${t('pos_calc_sl_pips')}</option>
-              <option value="percent">${t('pos_calc_sl_percent')}</option>
-            </select>
-          </label>
-
-          <label id="pc-sl-label">${t('pos_calc_sl_dollars')}
-            <input id="pc-sl" type="number" min="1" step="1" value="100">
-          </label>
-
-          <label id="pc-instr-row" style="display:none">${t('pos_calc_instrument')}
-            <select id="pc-instrument">
-              <option value="EURUSD">EURUSD (0.0001 / lot)</option>
-              <option value="GBPUSD">GBPUSD (0.0001 / lot)</option>
-              <option value="USDJPY">USDJPY (0.01 / lot)</option>
-              <option value="XAUUSD">XAUUSD (0.01 / lot)</option>
-              <option value="BTCUSD">BTCUSD (1.0 / lot)</option>
-              <option value="custom">${t('pos_calc_custom')}</option>
-            </select>
-          </label>
+  return `
+    <div class="card pad risk-header">
+      <div class="risk-header-row">
+        <div class="risk-status">
+          <span class="risk-dot">${dot}</span>
+          <span class="risk-status-text">${t(s?.textKey || 'status_yellow')}</span>
         </div>
-
-        <div class="pos-result card" id="pc-result">
-          <div class="pos-result-main">
-            <div class="pos-line">
-              <span>${t('pos_calc_risk_amount')}</span>
-              <strong id="pc-out-risk">$100</strong>
-            </div>
-            <div class="pos-line" id="pc-lot-row">
-              <span>${t('pos_calc_lotsize')}</span>
-              <strong id="pc-out-lot">—</strong>
-            </div>
-          </div>
-          <div class="pos-kelly-note muted small" id="pc-kelly-note"></div>
+        <div class="risk-ts muted small">${t('risk_updated', { time: ts })}</div>
+      </div>
+      <div class="risk-metrics">
+        <div class="risk-metric">
+          <div class="risk-metric-label">${t('kpi_kelly')}</div>
+          <div class="risk-metric-val">${k.profitable ? fmtPct(k.fStar, 1) : 'N/A'}</div>
+          <div class="risk-metric-sub">${k.profitable ? t('kpi_kelly_sub', { mode: k.modeLabel, rec: fmtPct(k.recommended, 2) }) : ''}</div>
+        </div>
+        <div class="risk-metric">
+          <div class="risk-metric-label">${t('kpi_ruin')}</div>
+          <div class="risk-metric-val ${sim.riskOfRuin > 0.1 ? 'bad' : 'good'}">${fmtPct(sim.riskOfRuin)}</div>
+          <div class="risk-metric-sub">${t('kpi_ruin_sub', { threshold: '50%' })}</div>
+        </div>
+        <div class="risk-metric">
+          <div class="risk-metric-label">${t('kpi_sig')}</div>
+          <div class="risk-metric-val">${fmtPct(report.edge.pAboveZero, 0)}</div>
+          <div class="risk-metric-sub">${t('kpi_sig_sub')}</div>
         </div>
       </div>
     </div>`;
+}
 
-  const q = (id) => container.querySelector('#' + id);
-
-  function calculate() {
-    const balance = parseFloat(q('pc-balance').value) || 0;
-    const riskPct = parseFloat(q('pc-risk').value) || 0;
-    const slMode = q('pc-sl-mode').value;
-    const slVal = parseFloat(q('pc-sl').value) || 0;
-
-    const riskAmount = balance * riskPct / 100;
-    q('pc-out-risk').textContent = '$' + riskAmount.toFixed(2);
-
-    let lotSize = null;
-    if (slMode === 'dollars' && slVal > 0) {
-      lotSize = riskAmount / slVal;
-    } else if (slMode === 'pips' && slVal > 0) {
-      const instr = q('pc-instrument').value;
-      const pipVal = PIP_VALUES[instr] || null;
-      if (pipVal) lotSize = riskAmount / (slVal * pipVal);
-    } else if (slMode === 'percent' && slVal > 0) {
-      const slDollars = balance * slVal / 100;
-      if (slDollars > 0) lotSize = riskAmount / slDollars;
-    }
-
-    const lotEl = q('pc-out-lot');
-    const lotRow = q('pc-lot-row');
-    if (lotSize !== null && Number.isFinite(lotSize) && lotSize > 0) {
-      lotEl.textContent = lotSize.toFixed(2) + ' lots';
-      lotRow.style.display = '';
-    } else {
-      // For a custom/unknown pip instrument we genuinely can't size — hide the row.
-      lotRow.style.display = slMode === 'dollars' ? '' : 'none';
-      lotEl.textContent = '—';
-    }
-  }
-
-  // Toggle the instrument selector + stop-loss field label with the SL mode.
-  function syncMode() {
-    const mode = q('pc-sl-mode').value;
-    q('pc-instr-row').style.display = mode === 'pips' ? '' : 'none';
-    const labelKey = mode === 'pips' ? 'pos_calc_sl_pips'
-      : mode === 'percent' ? 'pos_calc_sl_percent' : 'pos_calc_sl_dollars';
-    // First text node of the label carries the caption (the <input> follows it).
-    q('pc-sl-label').childNodes[0].nodeValue = t(labelKey) + ' ';
-    calculate();
-  }
-
-  // Pre-fill the Kelly-optimal risk if a journal/quick-check report exists.
-  function applyKelly() {
-    const rep = lastReport || state.lastReport;
-    const note = q('pc-kelly-note');
-    if (rep?.kelly?.recommended > 0) {
-      const rec = (rep.kelly.recommended * 100).toFixed(2);
-      q('pc-risk').value = rec;
-      note.textContent = t('pos_calc_kelly_note', { mode: rep.kelly.modeLabel, rec: rec + '%' });
-    } else {
-      note.textContent = '';
-    }
-    calculate();
-  }
-
-  container.querySelectorAll('input, select').forEach((el) => {
-    el.addEventListener('input', calculate);
-  });
-  q('pc-sl-mode').addEventListener('change', syncMode);
-
-  syncMode();
-  applyKelly();
-
-  return {
-    // On re-entry (e.g. after running an analysis), refresh the Kelly pre-fill.
-    rerender: () => applyKelly(),
+// ── BLOC B — risk sensitivity sweep ──────────────────────────────────────────
+// Run once when the panel loads. 800 sims/level is lighter than the main run
+// (2000) but honest enough to compare levels — and fast enough for real time.
+function precomputeSensitivity(report) {
+  const { spec } = report;
+  const base = {
+    capital: spec.capital,
+    trades: spec.trades,
+    sims: 800,
+    costPerTrade: spec.costPerTrade || 0,
+    sample: spec.sample || null,
+    winRate: report.effWinRate,
+    rr: report.effRr,
   };
+
+  return LEVELS.map((risk, i) => {
+    const rng = createRng(42 + i * 17);
+    const res = simulate({ ...base, risk }, rng);
+    return {
+      risk,
+      meanRet: mean(res.returns),
+      medDD: median(res.maxDDs),
+      ror: riskOfRuin(res.ddFromStart, 0.5),
+      p10: percentile(res.returns, 0.1),
+    };
+  });
+}
+
+function renderSensitivityBlock(levels, kellyRisk) {
+  // Index of the level closest to the Kelly-recommended risk.
+  const kellyIdx = levels.reduce((best, l, i) =>
+    (Math.abs(l.risk - kellyRisk) < Math.abs(levels[best].risk - kellyRisk) ? i : best), 0);
+
+  const sliderHtml = `
+    <div class="risk-slider-wrap">
+      <label class="risk-slider-label">
+        <span>${t('risk_level_label')}</span>
+        <strong id="rs-risk-display">${fmtPct(levels[kellyIdx].risk, 2)}</strong>
+      </label>
+      <input id="rs-slider" type="range" min="0" max="${levels.length - 1}"
+             step="1" value="${kellyIdx}" class="risk-slider">
+      <div class="risk-slider-ticks">
+        ${levels.map((l) => `<span>${fmtPct(l.risk, 2)}</span>`).join('')}
+      </div>
+    </div>`;
+
+  const rows = levels.map((l, i) => {
+    const isKelly = i === kellyIdx;
+    const color = l.ror > 0.15 ? 'bad' : l.ror < 0.05 ? 'good' : '';
+    return `<tr class="rs-row ${isKelly ? 'rs-kelly' : ''} ${isKelly ? 'rs-selected' : ''}" data-idx="${i}">
+      <td>${fmtPct(l.risk, 2)}</td>
+      <td class="${l.meanRet >= 0 ? 'good' : 'bad'}">${fmtPctSigned(l.meanRet)}</td>
+      <td class="warn">${fmtPct(l.medDD)}</td>
+      <td class="${color}">${fmtPct(l.ror)}</td>
+      <td class="muted small">${fmtPctSigned(l.p10)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="card pad">
+      <h3>${t('risk_sens_title')}</h3>
+      <p class="muted small">${t('risk_sens_desc')}</p>
+      ${sliderHtml}
+      <table class="data-table" id="rs-table">
+        <thead>
+          <tr>
+            <th>${t('risk_sens_col_risk')}</th>
+            <th>${t('risk_sens_col_return')}</th>
+            <th>${t('risk_sens_col_dd')}</th>
+            <th>${t('risk_sens_col_ruin')}</th>
+            <th>${t('risk_sens_col_p10')}</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="risk-sens-legend muted small">${t('risk_sens_kelly_note', { kelly: fmtPct(kellyRisk, 2) })}</div>
+    </div>`;
+}
+
+// ── BLOC C — drawdown recovery calculator ────────────────────────────────────
+function renderRecoveryBlock(report) {
+  return `
+    <div class="card pad">
+      <h3>${t('recovery_title')}</h3>
+      <p class="muted small">${t('recovery_desc')}</p>
+      <div class="pos-form recovery-form">
+        <label>${t('recovery_dd_input')}
+          <div class="input-wrap">
+            <input id="rc-dd" type="number" min="1" max="90" step="1" value="20">
+            <span class="input-suffix">%</span>
+          </div>
+        </label>
+        <label>${t('recovery_balance')}
+          <div class="input-wrap">
+            <span class="input-prefix">$</span>
+            <input id="rc-balance" type="number" min="100" step="100" value="${report.spec?.capital || 10000}">
+          </div>
+        </label>
+      </div>
+      <div class="pos-result card recovery-result" id="rc-result">
+        <div class="pos-line">
+          <span>${t('recovery_loss_amount')}</span>
+          <strong id="rc-out-loss">—</strong>
+        </div>
+        <div class="pos-line">
+          <span>${t('recovery_trades_needed')}</span>
+          <strong id="rc-out-trades">—</strong>
+        </div>
+        <div class="pos-line">
+          <span>${t('recovery_gain_needed')}</span>
+          <strong id="rc-out-pct">—</strong>
+        </div>
+      </div>
+      <div class="muted small" style="margin-top:8px;">${t('recovery_note', { exp: fmtValue(report.stats.expectancy, report.displayUnit || 'R', report.currencySymbol || '$') })}</div>
+    </div>`;
+}
+
+function updateRecovery(report, container) {
+  const ddPct = parseFloat(container.querySelector('#rc-dd').value) || 0;
+  const balance = parseFloat(container.querySelector('#rc-balance').value) || 0;
+  const exp = report.stats.expectancy; // per trade, in displayUnit
+
+  const q = (id) => container.querySelector(id);
+  if (ddPct <= 0 || balance <= 0 || !Number.isFinite(exp) || exp <= 0) {
+    q('#rc-out-loss').textContent = '—';
+    q('#rc-out-trades').textContent = '—';
+    q('#rc-out-pct').textContent = '—';
+    return;
+  }
+
+  const lossAmount = balance * ddPct / 100;
+  const reducedBalance = balance - lossAmount;
+  // Gain needed as a % of the (reduced) balance to get back to even.
+  const gainPct = reducedBalance > 0 ? lossAmount / reducedBalance * 100 : Infinity;
+
+  // Linear approximation of trades-to-recover (NOT compound — kept simple to
+  // explain). In currency mode expectancy is already $/trade; in R mode we
+  // translate R × risk × balance into $/trade.
+  let tradesNeeded = null;
+  if (report.displayUnit === 'currency' && exp > 0) {
+    tradesNeeded = Math.ceil(lossAmount / exp);
+  } else if (exp > 0 && report.spec?.risk > 0) {
+    const dollarPerTrade = exp * report.spec.risk * reducedBalance;
+    if (dollarPerTrade > 0) tradesNeeded = Math.ceil(lossAmount / dollarPerTrade);
+  }
+
+  q('#rc-out-loss').textContent = '$' + lossAmount.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  q('#rc-out-trades').textContent = tradesNeeded !== null
+    ? `~${tradesNeeded} ${t('recovery_trades_unit')}`
+    : t('recovery_trades_na');
+  q('#rc-out-pct').textContent = Number.isFinite(gainPct) ? gainPct.toFixed(1) + '%' : '—';
+}
+
+// ── Full panel ───────────────────────────────────────────────────────────────
+async function renderSensitivityPanel(container, report) {
+  const kellyRisk = report.kelly.recommended || report.spec.risk;
+
+  // Paint a loading state before the (synchronous) sweep so the UI never freezes
+  // on a blank frame.
+  container.innerHTML = `
+    <div class="workflow">
+      <div class="wf-head">
+        <h2>${t('risk_panel_title')}</h2>
+        <p class="muted">${t('risk_panel_desc')}</p>
+      </div>
+      <div class="muted" style="padding:40px;text-align:center;">${t('risk_panel_computing')}</div>
+    </div>`;
+
+  await new Promise((r) => setTimeout(r, 0));
+  // The panel may have been re-rendered (tab switch / new analysis) while we
+  // yielded — bail if our loading node is no longer in the DOM.
+  if (!container.querySelector('.workflow')) return;
+  const levels = precomputeSensitivity(report);
+
+  container.innerHTML = `
+    <div class="workflow">
+      <div class="wf-head">
+        <h2>${t('risk_panel_title')}</h2>
+        <p class="muted">${t('risk_panel_desc')}</p>
+      </div>
+      ${renderStrategyHeader(report)}
+      ${renderSensitivityBlock(levels, kellyRisk)}
+      ${renderRecoveryBlock(report)}
+    </div>`;
+
+  // Slider → live highlight + risk readout.
+  const slider = container.querySelector('#rs-slider');
+  slider?.addEventListener('input', (e) => {
+    const idx = parseInt(e.target.value, 10);
+    container.querySelector('#rs-risk-display').textContent = fmtPct(levels[idx].risk, 2);
+    container.querySelectorAll('.rs-row').forEach((row) => {
+      row.classList.toggle('rs-selected', parseInt(row.dataset.idx, 10) === idx);
+    });
+  });
+
+  // Recovery calculator.
+  ['#rc-dd', '#rc-balance'].forEach((sel) => {
+    container.querySelector(sel)?.addEventListener('input', () => updateRecovery(report, container));
+  });
+  updateRecovery(report, container);
 }

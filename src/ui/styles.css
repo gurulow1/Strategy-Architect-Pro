@@ -1012,3 +1012,40 @@ html.dark .topbar.scrolled {
 @media (max-width: 600px) {
   .pos-form { grid-template-columns: 1fr; }
 }
+
+/* ── Risk Sensitivity Panel ── */
+.risk-header { margin-bottom: 12px; }
+.risk-header-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+}
+.risk-status { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+.risk-dot { font-size: 14px; }
+.risk-metrics { display: flex; gap: 24px; flex-wrap: wrap; }
+.risk-metric { min-width: 120px; }
+.risk-metric-label {
+  font-size: 11px; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.risk-metric-val { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.risk-metric-sub { font-size: 10px; color: var(--text-secondary); }
+
+.risk-slider-wrap { margin: 16px 0 8px; }
+.risk-slider-label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;
+}
+.risk-slider-label strong { font-size: 16px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.risk-slider { width: 100%; margin: 8px 0; accent-color: var(--accent); cursor: pointer; }
+.risk-slider-ticks {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--text-secondary); margin-top: 2px;
+}
+.rs-row { transition: background 0.15s ease; }
+.rs-kelly td:first-child::after { content: ' ★'; color: var(--accent); font-size: 10px; }
+.rs-selected { background: var(--accent-subtle) !important; }
+.risk-sens-legend { margin-top: 12px; }
+
+.recovery-form { margin-top: 8px; }
+.recovery-result { margin-top: 20px; }
+.recovery-result .pos-line strong { font-size: 20px; }

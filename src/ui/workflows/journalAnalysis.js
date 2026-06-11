@@ -110,6 +110,7 @@ export function mountJournal(container) {
       const report = buildReport({ ...strategy, seed: state.seed });
       state.lastReport = report;
       renderReport(report, results);
+      window.__sap_refreshRisk?.();
       maybeNotifyDegradation(report);
       if (dropped > 0) {
         const note = document.createElement('div');

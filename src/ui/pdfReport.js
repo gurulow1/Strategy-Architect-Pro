@@ -234,7 +234,9 @@ function buildPage3(report) {
 function chartImgTag(id, label) {
   const canvas = document.getElementById(id);
   let src = null;
-  try { if (canvas && canvas.toDataURL) src = canvas.toDataURL('image/png'); } catch (_) { src = null; }
+  // JPEG @ 90% keeps chart screenshots a fraction of the PNG size with no visible
+  // loss — the difference between a 20 MB and a ~3 MB report.
+  try { if (canvas && canvas.toDataURL) src = canvas.toDataURL('image/jpeg', 0.90); } catch (_) { src = null; }
   const inner = src
     ? `<img src="${src}" style="width:100%;display:block;" alt="${esc(label)}">`
     : `<div style="height:200px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:13px;">Chart unavailable</div>`;
@@ -268,10 +270,16 @@ function buildDocument(report, lang) {
   const root = document.createElement('div');
   root.style.cssText = 'position:fixed;left:-99999px;top:0;z-index:-1;';
 
+  // Only emit the Edge Integrity page when it would actually carry content —
+  // Quick Check has no per-trade records, leaving the page near-empty otherwise.
+  const hasEdge = report.skillLuck || report.temporal || report.psychology
+    || (report.blindspots && (
+      report.blindspots.direction?.available
+      || report.blindspots.instrument?.available
+      || report.blindspots.dayOfWeek?.available
+    ));
   const pagesHtml = [buildPage1(report, lang), buildPage2(report)];
-  if (report.skillLuck || report.temporal || report.psychology) {
-    pagesHtml.push(buildPage3(report));
-  }
+  if (hasEdge) pagesHtml.push(buildPage3(report));
   pagesHtml.push(buildPage4(report));
 
   root.innerHTML = pagesHtml.map((html) => `
@@ -293,16 +301,16 @@ export async function generatePDF(report) {
       let imgData = null;
       try {
         const canvas = await html2canvas(pages[i], {
-          scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true,
+          scale: 1.5, backgroundColor: '#ffffff', logging: false, useCORS: true,
         });
-        imgData = canvas.toDataURL('image/png');
+        imgData = canvas.toDataURL('image/jpeg', 0.90);
       } catch (err) {
         // Never let one bad page abort the whole export.
         imgData = null;
       }
       if (i > 0) pdf.addPage();
       if (imgData) {
-        pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
       } else {
         pdf.setFontSize(12);
         pdf.text('Page unavailable', 20, 20);

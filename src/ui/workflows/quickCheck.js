@@ -85,6 +85,7 @@ export function mountQuickCheck(container) {
       const report = buildReport({ ...strategy, seed: state.seed });
       state.lastReport = report;
       renderReport(report, results);
+      window.__sap_refreshRisk?.();
 
       if (isDemo) {
         const banner = document.createElement('div');
