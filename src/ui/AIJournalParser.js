@@ -59,9 +59,10 @@ export function createAIJournalParser(container, onTradesConfirmed) {
 
   function showIdle() {
     container.innerHTML = `
-      <div class="dropzone" id="ai-jp-drop">
-        <div>Drop CSV, XLSX, or TXT file here</div>
-        <div class="muted small">or click to choose &mdash; .csv, .xlsx, .txt</div>
+      <div class="dropzone" id="ai-jp-drop" role="button" tabindex="0" aria-label="${t('jr_upload_btn')}">
+        <div class="dropzone-icon" aria-hidden="true">📂</div>
+        <strong>${t('jr_upload_btn')}</strong>
+        <div class="muted small">${t('jr_upload_hint')}</div>
         <input type="file" id="ai-jp-file" accept=".csv,.xlsx,.xls,.txt" hidden>
       </div>`;
 
@@ -69,6 +70,9 @@ export function createAIJournalParser(container, onTradesConfirmed) {
     const fileInput = container.querySelector('#ai-jp-file');
 
     drop.addEventListener('click', () => fileInput.click());
+    drop.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
     drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
     drop.addEventListener('dragleave', () => drop.classList.remove('over'));
     drop.addEventListener('drop', (e) => {

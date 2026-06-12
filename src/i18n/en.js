@@ -15,6 +15,14 @@ export default {
   tab_journal_sub: 'Upload your trade history',
   tab_robustness_sub: 'What happens if you are wrong?',
   tab_prop_sub: 'Can it pass a funded challenge?',
+  // short labels for the mobile bottom tab bar
+  tab_quick_short: 'Quick',
+  tab_journal_short: 'Journal',
+  tab_robustness_short: 'Robust',
+  tab_prop_short: 'Prop',
+  tab_calc_short: 'Risk',
+  // mobile inputs accordion
+  in_params: 'Parameters',
 
   // quick check inputs
   qc_title: 'Quick Check',
@@ -123,6 +131,8 @@ export default {
   jr_title: 'Journal Analysis',
   jr_desc: 'Upload your real trade history. We compute the truth, then simulate thousands of futures from it.',
   jr_drop: 'Drop a CSV here, or click to choose',
+  jr_upload_btn: 'Tap to upload CSV / XLSX',
+  jr_upload_hint: 'or drag & drop — .csv, .xlsx, .txt',
   jr_cols: 'Columns: pnl (required) · r / r_multiple · date (optional)',
   jr_loaded: '{n} trades loaded',
   jr_basis_explicit: 'Using your R-multiples directly.',

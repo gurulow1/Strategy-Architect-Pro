@@ -1,6 +1,6 @@
 // Journal Analysis: upload real trades → real stats → Monte Carlo from YOUR data.
 import { t } from '../i18n.js';
-import { slider, wireSliders, num } from '../controls.js';
+import { slider, wireSliders, num, makeInputsCollapsible, collapseInputsOnMobile } from '../controls.js';
 import { state, setStrategy } from '../state.js';
 import { analyzeJournal } from '../../analysis/journal.js';
 import { buildReport } from '../../analysis/report.js';
@@ -39,6 +39,7 @@ export function mountJournal(container) {
 
   const inputs = container.querySelector('.inputs');
   wireSliders(inputs);
+  makeInputsCollapsible(container);
   const runBtn = container.querySelector('#jr-run');
   let analysis = null;
   let tradeRecords = null;   // raw trades (with direction/symbol) for Edge Integrity
@@ -112,6 +113,10 @@ export function mountJournal(container) {
       renderReport(report, results);
       window.__sap_refreshRisk?.();
       maybeNotifyDegradation(report);
+      collapseInputsOnMobile(container);
+      if (window.innerWidth <= 768) {
+        requestAnimationFrame(() => results.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }
       if (dropped > 0) {
         const note = document.createElement('div');
         note.className = 'small muted';

@@ -1,7 +1,7 @@
 // Quick Check: three numbers in → instant verdict. No business logic here;
 // it gathers inputs, calls the analysis layer, and renders the shared results.
 import { t } from '../i18n.js';
-import { slider, select, wireSliders, num, val } from '../controls.js';
+import { slider, select, wireSliders, num, val, makeInputsCollapsible, collapseInputsOnMobile } from '../controls.js';
 import { state, setStrategy } from '../state.js';
 import { buildReport } from '../../analysis/report.js';
 import { renderReport } from '../results.js';
@@ -36,6 +36,7 @@ export function mountQuickCheck(container) {
 
   const inputs = container.querySelector('.inputs');
   wireSliders(inputs);
+  makeInputsCollapsible(container);
   container.querySelector('#qc-run').addEventListener('click', () => run());
 
   // First-visit demo: pre-run a solid example so the UI is never empty.
@@ -97,35 +98,15 @@ export function mountQuickCheck(container) {
           ?.addEventListener('click', () => banner.remove());
       }
 
-      // On mobile, slide results up as an overlay sheet.
-      if (window.innerWidth <= 768) showMobileResults(results);
+      // On mobile, fold the inputs away so the verdict leads, then ease the
+      // results into view (the sticky topbar leaves them readable).
+      collapseInputsOnMobile(container);
+      if (window.innerWidth <= 768 && !isDemo) {
+        requestAnimationFrame(() => results.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }
     }, 20);
   }
 
   return { run, rerender: () => state.lastReport && state.strategy?.source === 'quick'
     && renderReport(state.lastReport, container.querySelector('#qc-results')) };
-}
-
-// Mobile: present results as a slide-up bottom sheet so the user doesn't have
-// to scroll past all the inputs after hitting Run.
-function showMobileResults(resultsEl) {
-  if (document.getElementById('mobile-results-sheet')) return;
-
-  const sheet = document.createElement('div');
-  sheet.id = 'mobile-results-sheet';
-  sheet.className = 'mobile-results-sheet';
-  sheet.innerHTML = `
-    <div class="mobile-sheet-handle-bar">
-      <div class="mobile-sheet-handle"></div>
-    </div>
-    <div class="mobile-sheet-scroll"></div>`;
-
-  const scroll = sheet.querySelector('.mobile-sheet-scroll');
-  scroll.appendChild(resultsEl.cloneNode(true));
-
-  sheet.querySelector('.mobile-sheet-handle-bar')
-    .addEventListener('click', () => sheet.remove());
-
-  document.body.appendChild(sheet);
-  requestAnimationFrame(() => sheet.classList.add('open'));
 }

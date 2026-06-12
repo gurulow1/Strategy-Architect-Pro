@@ -57,10 +57,10 @@ function render(container) {
         <div class="chart-wrap tall"><canvas id="c-scen"></canvas></div></section>
       <section class="card panel">
         <h3 data-i18n="rob_scenario"></h3>
-        <table class="data-table">
+        <div class="table-wrap"><table class="data-table">
           <thead><tr><th>${t('rob_scenario')}</th><th>${t('rob_return')}</th><th>R</th><th>${t('rob_survives')}</th></tr></thead>
           <tbody>${rows}</tbody>
-        </table>
+        </table></div>
       </section>
     </div>
 

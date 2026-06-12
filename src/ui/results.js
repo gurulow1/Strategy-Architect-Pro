@@ -99,14 +99,14 @@ function eiTimeCard(tp, unit, sym) {
       <div class="ei-sub-head"><h4>${t('ei_time_title')}</h4></div>
       ${banner}
       ${chart}
-      <table class="data-table ei-table">
+      <div class="table-wrap"><table class="data-table ei-table">
         <thead><tr><th></th><th>${t('ei_early')}</th><th>${t('ei_recent')}</th></tr></thead>
         <tbody>
           ${row(t('ei_col_wr'), tp.earlyStats.winRate, tp.recentStats.winRate, (v) => fmtPct(v, 0))}
           ${row(t('ei_col_exp'), tp.earlyStats.expectancy, tp.recentStats.expectancy, (v) => fmtValue(v, unit, sym))}
           ${row(t('ei_col_pf'), tp.earlyStats.profitFactor, tp.recentStats.profitFactor, (v) => (v === Infinity ? '∞' : fmtNum(v)))}
         </tbody>
-      </table>
+      </table></div>
     </section>`;
 }
 
@@ -144,10 +144,10 @@ function eiBlindCard(bs, unit, sym) {
     blocks.push(`
       <div class="ei-block">
         <div class="ei-block-title">${t('ei_instr_title')}</div>
-        <table class="data-table ei-table">
+        <div class="table-wrap"><table class="data-table ei-table">
           <thead><tr><th>${t('ei_col_symbol')}</th><th>${t('ei_col_trades')}</th><th>${t('ei_col_share')}</th></tr></thead>
           <tbody>${rows}</tbody>
-        </table>
+        </table></div>
         ${losers}
       </div>`);
   }
@@ -160,10 +160,10 @@ function eiBlindCard(bs, unit, sym) {
     blocks.push(`
       <div class="ei-block">
         <div class="ei-block-title">${t('ei_dow_title')}</div>
-        <table class="data-table ei-table">
+        <div class="table-wrap"><table class="data-table ei-table">
           <thead><tr><th>${t('ei_col_day')}</th><th>${t('ei_col_trades')}</th><th>${t('ei_col_exp')}</th></tr></thead>
           <tbody>${rows}</tbody>
-        </table>
+        </table></div>
       </div>`);
   }
 
@@ -250,10 +250,10 @@ function renderPsychology(report) {
   const lossTable = lossRows
     ? `<div class="ei-block">
         <div class="ei-block-title">${t('psych_loss_title')}</div>
-        <table class="data-table ei-table">
+        <div class="table-wrap"><table class="data-table ei-table">
           <thead><tr><th>${t('psych_col_after')}</th><th>Win Rate</th><th>${t('psych_col_n')}</th></tr></thead>
           <tbody>${lossRows}</tbody>
-        </table>
+        </table></div>
        </div>`
     : '';
 

@@ -173,7 +173,7 @@ function renderSensitivityBlock(levels, kellyRisk) {
       <h3>${t('risk_sens_title')}</h3>
       <p class="muted small">${t('risk_sens_desc')}</p>
       ${sliderHtml}
-      <table class="data-table" id="rs-table">
+      <div class="table-wrap"><table class="data-table" id="rs-table">
         <thead>
           <tr>
             <th>${t('risk_sens_col_risk')}</th>
@@ -184,7 +184,7 @@ function renderSensitivityBlock(levels, kellyRisk) {
           </tr>
         </thead>
         <tbody>${rows}</tbody>
-      </table>
+      </table></div>
       ${kellyNote}
     </div>`;
 }

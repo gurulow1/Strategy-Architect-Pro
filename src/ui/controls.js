@@ -52,3 +52,31 @@ export function wireSliders(container, onInput) {
 export const num = (id) => parseFloat(document.getElementById(id).value);
 export const val = (id) => document.getElementById(id).value;
 export const checked = (id) => document.getElementById(id).checked;
+
+// Wrap an `aside.inputs` panel's content in a collapsible body with a header
+// toggle. The toggle and collapse behaviour are CSS-gated to mobile (≤768px),
+// so on desktop this is an invisible no-op wrapper. Call AFTER wireSliders so
+// the (already-attached) input listeners ride along when the nodes are moved.
+export function makeInputsCollapsible(container) {
+  const inputs = container.querySelector('.inputs');
+  if (!inputs || inputs.querySelector('.inputs-toggle')) return inputs;
+
+  const body = document.createElement('div');
+  body.className = 'inputs-body';
+  while (inputs.firstChild) body.appendChild(inputs.firstChild);
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'inputs-toggle';
+  toggle.innerHTML = `<span>⚙ ${t('in_params')}</span><span class="inputs-toggle-icon">▾</span>`;
+  toggle.addEventListener('click', () => inputs.classList.toggle('collapsed'));
+
+  inputs.appendChild(toggle);
+  inputs.appendChild(body);
+  return inputs;
+}
+
+// After running an analysis on a phone, fold the inputs away so results lead.
+export function collapseInputsOnMobile(container) {
+  if (window.innerWidth <= 768) container.querySelector('.inputs')?.classList.add('collapsed');
+}

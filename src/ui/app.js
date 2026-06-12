@@ -19,6 +19,24 @@ const TABS = [
   { id: 'calc',       titleKey: 'tab_calc',        subKey: 'tab_calc_sub',       mount: mountPositionCalc, step: 5, badge: null },
 ];
 
+// Icons for the mobile bottom tab bar — keyed by tab id.
+const TAB_ICONS = {
+  quick: '⚡', journal: '📋', robustness: '🎲', prop: '🏆', calc: '📊',
+};
+// Short labels (full titles like "Robustness Test" overflow a 10px bottom label).
+const TAB_SHORT_KEY = {
+  quick: 'tab_quick_short', journal: 'tab_journal_short',
+  robustness: 'tab_robustness_short', prop: 'tab_prop_short', calc: 'tab_calc_short',
+};
+
+function bottomTabHtml(tb) {
+  return `
+    <button class="bottom-tab" data-tab="${tb.id}">
+      <span class="bt-icon" aria-hidden="true">${TAB_ICONS[tb.id] || '•'}</span>
+      <span class="bt-label">${t(TAB_SHORT_KEY[tb.id])}</span>
+    </button>`;
+}
+
 // Single source for tab button markup (used by both the desktop bar and the
 // mobile drawer) — keeps step numbers and the "Start here" badge in sync.
 function tabButtonHtml(tb) {
@@ -140,6 +158,9 @@ function wireAuthOverlay(el) {
 
 // ── Background grid parallax (max ±5px shift on mouse move) ──────────────────
 (function initGridParallax() {
+  // Touch devices never fire mousemove usefully — skip so the listener and its
+  // per-move style recalc never exist on phones/tablets.
+  if (window.matchMedia('(pointer: coarse)').matches) return;
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   let rafId = null;
   let tx = 0, ty = 0;
@@ -155,14 +176,16 @@ function wireAuthOverlay(el) {
   }, { passive: true });
 }());
 
-// ── Primary-button radial highlight follows the cursor ─────────────────────────
-document.addEventListener('mousemove', (e) => {
-  const btn = e.target.closest('button.btn-primary');
-  if (!btn) return;
-  const r = btn.getBoundingClientRect();
-  btn.style.setProperty('--rx', ((e.clientX - r.left) / r.width  * 100).toFixed(1) + '%');
-  btn.style.setProperty('--ry', ((e.clientY - r.top)  / r.height * 100).toFixed(1) + '%');
-}, { passive: true });
+// ── Primary-button radial highlight follows the cursor (pointer devices only) ──
+if (!window.matchMedia('(pointer: coarse)').matches) {
+  document.addEventListener('mousemove', (e) => {
+    const btn = e.target.closest('button.btn-primary');
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    btn.style.setProperty('--rx', ((e.clientX - r.left) / r.width  * 100).toFixed(1) + '%');
+    btn.style.setProperty('--ry', ((e.clientY - r.top)  / r.height * 100).toFixed(1) + '%');
+  }, { passive: true });
+}
 
 // ── Shell rendering ───────────────────────────────────────────────────────────
 export function boot() {
@@ -175,7 +198,7 @@ export function boot() {
 
   // Topbar gains a subtle glass effect once the page is scrolled.
   window.addEventListener('scroll', () => {
-    document.querySelector('.topbar')?.classList.toggle('scrolled', window.scrollY > 10);
+    document.getElementById('topbar-shell')?.classList.toggle('scrolled', window.scrollY > 10);
   }, { passive: true });
 
   onLangChange((lang) => {
@@ -216,8 +239,19 @@ function renderShell() {
   const app = document.getElementById('app');
   const dark = document.documentElement.classList.contains('dark');
 
-  app.innerHTML = `
-    <header class="topbar">
+  // The header lives in a full-bleed sticky shell OUTSIDE the centered #app
+  // column, so its background spans the entire viewport width. (Inside #app it
+  // rendered as a centered rectangle floating over the side margins on wide
+  // screens.) The inner .topbar keeps the content constrained to #app's width.
+  let shell = document.getElementById('topbar-shell');
+  if (!shell) {
+    shell = document.createElement('header');
+    shell.id = 'topbar-shell';
+    shell.className = 'topbar-shell';
+    app.parentNode.insertBefore(shell, app);
+  }
+  shell.innerHTML = `
+    <div class="topbar">
       <div class="brand">
         <div class="brand-lockup">
           <div class="brand-icon" aria-hidden="true">⬡</div>
@@ -237,27 +271,35 @@ function renderShell() {
         <div id="header-auth"></div>
         <button class="hamburger-btn" id="hamburger-btn" aria-label="Menu">☰ Menu</button>
       </div>
-    </header>
+    </div>`;
+
+  app.innerHTML = `
     <nav id="mobile-drawer" class="mobile-nav-drawer">
       ${TABS.map(tabButtonHtml).join('')}
     </nav>
     <nav class="tabbar">
       ${TABS.map(tabButtonHtml).join('')}
     </nav>
-    <main class="panels" id="panels"></main>`;
+    <main class="panels" id="panels"></main>
+    <nav class="bottom-tabbar" id="bottom-tabbar" aria-label="Primary">
+      <div class="bottom-tabbar-inner">
+        ${TABS.map(bottomTabHtml).join('')}
+      </div>
+    </nav>`;
 
-  // Language buttons
-  app.querySelectorAll('.lang-btn').forEach((b) => {
+  // Language buttons (live in the shell now — query the document).
+  // Run before updateHeaderAuth so the auth button (also .lang-btn) isn't caught.
+  document.querySelectorAll('.lang-switch .lang-btn').forEach((b) => {
     b.classList.toggle('active', b.dataset.lang === getLang());
     b.addEventListener('click', () => setLang(b.dataset.lang));
   });
   document.documentElement.lang = getLang();
 
   // Theme toggle
-  app.querySelector('#theme-toggle').addEventListener('click', toggleTheme);
+  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
-  // Tabs (both desktop bar and mobile drawer)
-  app.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
+  // Tabs (desktop bar, mobile drawer, and the mobile bottom bar)
+  document.querySelectorAll('.tab, .bottom-tab').forEach((b) => b.addEventListener('click', () => {
     const id = b.dataset.tab;
     if (!canAccess(id)) {
       showAccessDenied(id);
@@ -266,10 +308,12 @@ function renderShell() {
     selectTab(id);
     // Close mobile drawer on tab select.
     document.getElementById('mobile-drawer')?.classList.remove('open');
+    // Scroll back to the top so the new tab starts at its header.
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }));
 
   // Hamburger
-  app.querySelector('#hamburger-btn')?.addEventListener('click', (e) => {
+  document.getElementById('hamburger-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
     document.getElementById('mobile-drawer')?.classList.toggle('open');
   });
@@ -333,6 +377,10 @@ function showAccessDenied(tabId) {
 function selectTab(id) {
   activeTab = id;
   document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.bottom-tab').forEach((b) => {
+    b.classList.toggle('active', b.dataset.tab === id);
+    b.classList.toggle('locked', !canAccess(b.dataset.tab));
+  });
   const host = document.getElementById('panels');
 
   if (!panels[id]) {

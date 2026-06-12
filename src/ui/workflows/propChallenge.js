@@ -1,7 +1,7 @@
 // Prop Challenge Mode: will the current strategy pass a funded challenge,
 // and at what risk? Sweeps risk levels and recommends the best.
 import { t } from '../i18n.js';
-import { slider, select, checkbox, wireSliders, num, val, checked } from '../controls.js';
+import { slider, select, checkbox, wireSliders, num, val, checked, makeInputsCollapsible, collapseInputsOnMobile } from '../controls.js';
 import { state } from '../state.js';
 import { fmtPct, fmtNum } from '../format.js';
 import { PROP_PRESETS } from '../../engine/propChallenge.js';
@@ -42,6 +42,7 @@ export function mountProp(container) {
 
   const inputs = container.querySelector('.inputs');
   wireSliders(inputs);
+  makeInputsCollapsible(container);
   const firmSel = container.querySelector('#pp-firm');
   firmSel.addEventListener('change', () => applyPreset(container, firmSel.value));
   applyPreset(container, firmSel.value);
@@ -119,6 +120,10 @@ function run(container) {
     renderPropLadder('c-ladder', ladder, rec.risk);
     // re-apply data-i18n on freshly injected nodes
     results.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.getAttribute('data-i18n')); });
+    collapseInputsOnMobile(container);
+    if (window.innerWidth <= 768) {
+      requestAnimationFrame(() => results.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
 
     // ── Prop Coach AI card ─────────────────────────────────────────────────
     const coachContainer = document.createElement('div');

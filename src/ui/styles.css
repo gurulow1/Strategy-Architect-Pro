@@ -69,17 +69,23 @@ html.dark {
   --grid-line: rgba(255,255,255,0.012);
 }
 
-/* ── Theme transitions ── */
-*, *::before, *::after {
+/* ── Theme transitions ──
+   Scoped to interactive surfaces only. A global `* { transition }` forced a
+   repaint on every DOM mutation (hundreds when rendering KPIs); transitioning
+   only the elements that actually change color/border keeps theme switches
+   smooth without taxing result rendering. */
+.card, .tab, .lang-btn, .theme-btn, .btn-primary, .btn-secondary,
+.broker-tab, .broker-toggle, .user-pill, .ai-sugg-btn, .hamburger-btn,
+.mobile-nav-drawer, .bottom-tab, .topbar-shell, .select, .check input,
+input[type=range], .verdict, .kpi, .dropzone, .badge {
   transition:
-    background-color 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    border-color 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    color 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    box-shadow 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    background-color 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    border-color 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    color 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-button, a, .lang-btn, .theme-btn {
-  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
+/* Theme-switch colour fade for the page body and text, without a per-node cost. */
+body { transition: background-color 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+button, a { transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
 
 /* ── Base ── */
 * { box-sizing: border-box; }
@@ -98,7 +104,11 @@ body {
   background-size: 40px 40px;
   background-position: var(--grid-x) var(--grid-y);
 }
-#app { max-width: 1400px; margin: 0 auto; padding: 24px 32px 80px; }
+#app {
+  max-width: 1400px; margin: 0 auto;
+  padding: 24px 32px;
+  padding-bottom: max(80px, calc(32px + env(safe-area-inset-bottom)));
+}
 
 /* ── Typography ── */
 h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
@@ -110,11 +120,29 @@ h3 {
 /* Bolder section headers on dark — thin uppercase gray reads as mush */
 html.dark h3 { font-weight: 700; }
 
-/* ── Top bar ── */
+/* ── Top bar — full-bleed sticky shell + centered content row ──
+   The shell spans the whole viewport width and stays pinned to the top; the
+   inner .topbar row is constrained to the same max-width as #app so its content
+   lines up with the page below it. */
+.topbar-shell {
+  position: sticky; top: 0; z-index: 200;
+  background: var(--bg);
+  border-bottom: 1px solid transparent;
+}
+.topbar-shell.scrolled {
+  background: rgba(250, 250, 250, 0.82);
+  backdrop-filter: blur(14px) saturate(180%);
+  border-bottom-color: var(--border);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.05);
+}
+html.dark .topbar-shell { background: var(--bg); }
+html.dark .topbar-shell.scrolled { background: rgba(20, 20, 22, 0.82); }
+
 .topbar {
+  max-width: 1400px; margin: 0 auto;
   display: flex; justify-content: space-between; align-items: center; gap: 12px;
-  margin-bottom: 24px; flex-wrap: wrap;
-  border-bottom: 1px solid var(--border); padding-bottom: 16px;
+  flex-wrap: wrap;
+  padding: 14px 32px;
 }
 .brand-name { font-size: 20px; font-weight: 700; letter-spacing: -0.03em; }
 .brand-pro { color: var(--text); opacity: 0.5; font-weight: 500; }
@@ -178,6 +206,42 @@ html.dark h3 { font-weight: 700; }
   border-radius: var(--radius-sm); padding: 12px 14px; text-align: left;
 }
 
+/* ── Bottom tab bar (mobile primary navigation, thumb zone) ── */
+.bottom-tabbar {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  z-index: 300;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  backdrop-filter: blur(16px) saturate(180%);
+}
+.bottom-tabbar-inner { display: flex; height: 58px; align-items: stretch; }
+.bottom-tab {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 3px;
+  border: none; background: transparent; color: var(--text-tertiary);
+  cursor: pointer; padding: 6px 2px; position: relative;
+  font-weight: 600; -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s ease, transform 0.12s ease;
+}
+.bottom-tab .bt-icon { font-size: 20px; line-height: 1; }
+.bottom-tab .bt-label {
+  font-size: 10px; letter-spacing: 0.01em;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bottom-tab.active { color: var(--accent); }
+.bottom-tab.active::before {
+  content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 22px; height: 3px; border-radius: 0 0 999px 999px; background: var(--accent);
+}
+.bottom-tab.locked { opacity: 0.5; }
+.bottom-tab:active { transform: scale(0.92); }
+
+/* ── Collapsible inputs accordion (mobile) ── */
+.inputs-toggle { display: none; }
+.inputs-toggle-icon { transition: transform 0.25s ease; }
+
 /* ── Tabs — pill fill animation ── */
 .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
 .tab {
@@ -185,6 +249,7 @@ html.dark h3 { font-weight: 700; }
   text-align: left; background: var(--surface-1); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 16px; cursor: pointer;
   display: flex; flex-direction: column; gap: 3px;
+  will-change: transform;
 }
 /* The fill sweeps left→right via scaleX */
 .tab::before {
@@ -306,6 +371,7 @@ button.btn-primary {
   background: var(--accent);
   position: relative; overflow: hidden;
   letter-spacing: 0.01em;
+  will-change: transform;
   transition:
     background  0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
     transform   0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -333,32 +399,42 @@ button.btn-secondary {
 }
 button.btn-secondary:hover { background: var(--border-strong); }
 
-/* ── Verdict — beacon card, pulse at half strength ── */
-@keyframes pulseGood {
-  from { box-shadow: var(--shadow), 0 0 20px rgba(34,197,94,0.15); }
-  to   { box-shadow: var(--shadow), 0 0 44px rgba(34,197,94,0.03); }
+/* ── Verdict — beacon card, pulse at half strength ──
+   The glow pulses via the OPACITY of a fixed-shadow pseudo-element. Animating
+   `opacity` is GPU-composited (no repaint), unlike animating `box-shadow`,
+   which re-rasterised the card on every frame. */
+@keyframes pulseGoodOpacity {
+  from { opacity: 1; }
+  to   { opacity: 0.15; }
 }
-@keyframes pulseBad {
-  0%   { box-shadow: var(--shadow), 0 0 22px rgba(239,68,68,0.16); }
-  25%  { box-shadow: var(--shadow), 0 0  6px rgba(239,68,68,0.03); }
-  50%  { box-shadow: var(--shadow), 0 0 28px rgba(239,68,68,0.12); }
-  75%  { box-shadow: var(--shadow), 0 0  4px rgba(239,68,68,0.02); }
-  100% { box-shadow: var(--shadow), 0 0 22px rgba(239,68,68,0.16); }
+@keyframes pulseBadOpacity {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.12; }
 }
 
 .verdict {
+  position: relative;
   padding: 22px 26px; margin-bottom: 20px;
   background: var(--surface-1);
   border-left: 4px solid var(--text-tertiary);
 }
-.verdict.good {
-  border-left-color: var(--good);
-  animation: pulseGood 3s ease-in-out infinite alternate;
+.verdict::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+}
+.verdict.good { border-left-color: var(--good); }
+.verdict.good::after {
+  box-shadow: 0 0 36px rgba(34,197,94,0.22);
+  animation: pulseGoodOpacity 3s ease-in-out infinite alternate;
 }
 .verdict.warn { border-left-color: var(--warn); }
-.verdict.bad  {
-  border-left-color: var(--bad);
-  animation: pulseBad 3s steps(4) infinite;
+.verdict.bad  { border-left-color: var(--bad); }
+.verdict.bad::after {
+  box-shadow: 0 0 36px rgba(239,68,68,0.22);
+  animation: pulseBadOpacity 3s ease-in-out infinite;
 }
 .verdict-main { display: flex; align-items: center; gap: 18px; }
 /* Hierarchy: colored number → white bold grade → gray sub */
@@ -443,6 +519,11 @@ button.btn-secondary:hover { background: var(--border-strong); }
 }
 
 /* ── Tables ── */
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-sm);
+}
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .data-table th {
   text-align: left; color: var(--text-secondary); font-size: 11px;
@@ -465,14 +546,21 @@ button.btn-secondary:hover { background: var(--border-strong); }
 .break b { font-size: 13px; }
 .break-num { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; margin: 6px 0; }
 
-/* ── Dropzone ── */
+/* ── Dropzone — tap-first on mobile, drag-and-drop on desktop ── */
 .dropzone {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
   border: 2px dashed var(--border); border-radius: var(--radius-sm);
   padding: 22px 14px; text-align: center; cursor: pointer;
   font-size: 13px; color: var(--text-secondary);
+  -webkit-tap-highlight-color: transparent;
 }
-.dropzone:hover, .dropzone.over {
-  border-color: var(--accent); background: var(--accent-subtle);
+.dropzone strong { color: var(--text); font-size: 14px; }
+.dropzone-icon { font-size: 26px; line-height: 1; margin-bottom: 2px; }
+.dropzone:hover, .dropzone.over, .dropzone:focus-visible {
+  border-color: var(--accent); background: var(--accent-subtle); outline: none;
+}
+@media (pointer: coarse) {
+  .dropzone { padding: 26px 16px; }
 }
 .jr-status { margin: 10px 0 6px; min-height: 18px; }
 
@@ -652,10 +740,18 @@ button.btn-secondary:hover { background: var(--border-strong); }
 }
 
 @media (max-width: 768px) {
+  /* Desktop tab bar, hamburger and drawer give way to the bottom tab bar. */
   .tabbar { display: none; }
-  .hamburger-btn { display: inline-flex; align-items: center; gap: 6px; }
+  .hamburger-btn, .mobile-nav-drawer { display: none !important; }
+  .bottom-tabbar { display: block; }
   .lab-chip { display: none; }
+  /* Leave room above the fixed bottom bar (incl. iPhone home indicator). */
+  #app { padding-bottom: calc(58px + env(safe-area-inset-bottom) + 16px); }
+
   .wf-head h2 { font-size: 20px; }
+  /* Single column on phones; inputs are no longer a sticky sidebar. */
+  .wf-body { grid-template-columns: 1fr; }
+  .inputs { position: static; padding: 0; }
   /* Disable scale + parallax on touch devices */
   .card:hover { transform: none; }
   .chart-3d canvas { transform: none; }
@@ -663,15 +759,36 @@ button.btn-secondary:hover { background: var(--border-strong); }
   .lang-btn { padding: 8px 12px; font-size: 13px; }
   .theme-btn { padding: 8px 10px; }
   button.btn-primary { padding: 13px 20px; font-size: 15px; }
-  /* Mobile drawer — readable tap targets */
-  .mobile-nav-drawer .tab { padding: 14px 16px; }
-  .mobile-nav-drawer .tab-title { font-size: 16px; }
-  .mobile-nav-drawer .tab-sub { font-size: 13px; }
+
+  /* Inputs become a collapsible accordion to surface results faster. */
+  .inputs-toggle {
+    display: flex; width: 100%; align-items: center; justify-content: space-between;
+    background: none; border: none; cursor: pointer;
+    padding: 16px 18px; font-size: 15px; font-weight: 600; color: var(--text);
+  }
+  .inputs.collapsed .inputs-toggle-icon { transform: rotate(-90deg); }
+  .inputs-body {
+    overflow: hidden; max-height: 2200px; padding: 0 18px 18px;
+    transition: max-height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                padding 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .inputs.collapsed .inputs-body { max-height: 0; padding-top: 0; padding-bottom: 0; }
+
+  /* Compact topbar (keep horizontal padding aligned with #app) */
+  .topbar { padding-top: 10px; padding-bottom: 10px; }
+  .brand-name { font-size: 17px; }
+  .brand-icon { font-size: 18px; }
+  .topbar-right { gap: 8px; }
+
+  /* Lift the floating AI chat trigger + hint above the bottom tab bar.
+     (Their base position is set via inline styles, so override needs !important.) */
+  #ai-chat-trigger { bottom: calc(58px + env(safe-area-inset-bottom) + 14px) !important; }
+  #ai-hint-chip { bottom: calc(58px + env(safe-area-inset-bottom) + 62px) !important; }
 }
 
 @media (max-width: 640px) {
-  #app { padding: 14px 16px 80px; }
-  .topbar { gap: 8px; margin-bottom: 16px; }
+  #app { padding-left: 14px; padding-right: 14px; padding-top: 10px; }
+  .topbar { gap: 8px; padding-left: 14px; padding-right: 14px; }
   .brand-tag { display: none; }
   .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .kpi { padding: 14px 16px; }
@@ -690,10 +807,14 @@ button.btn-secondary:hover { background: var(--border-strong); }
 }
 
 @media (max-width: 420px) {
-  .kpi-grid { grid-template-columns: 1fr; }
+  /* Keep two compact KPI columns rather than one very long list. */
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi { padding: 12px 12px; }
   .break-grid { grid-template-columns: 1fr; }
   .auth-btn-row { flex-direction: column; }
   .topbar-right { gap: 8px; }
+  .hmap-cell { width: 26px; height: 26px; border-radius: 4px; }
+  .hmap-hour { font-size: 9px; }
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -780,7 +901,7 @@ button.btn-secondary:hover { background: var(--border-strong); }
 }
 @media (max-width: 420px) {
   .kpi-grid.kpi-primary,
-  .kpi-grid.kpi-secondary { grid-template-columns: 1fr; }
+  .kpi-grid.kpi-secondary { grid-template-columns: 1fr 1fr; }
 }
 
 /* ── Numbered tabs ── */
@@ -812,33 +933,6 @@ body.sap-ran-once .tab-badge { display: none; }
   transition: background 0.15s, color 0.15s;
 }
 .ai-sugg-btn:hover { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); }
-
-/* ── Mobile results slide-up sheet ── */
-.mobile-results-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  height: 90vh;
-  background: var(--bg-elevated);
-  border-radius: 20px 20px 0 0;
-  border: 1px solid var(--border);
-  z-index: 500;
-  display: flex; flex-direction: column;
-  transform: translateY(100%);
-  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  box-shadow: 0 -8px 40px rgba(0,0,0,0.2);
-}
-.mobile-results-sheet.open { transform: translateY(0); }
-.mobile-sheet-handle-bar {
-  padding: 14px; display: flex; justify-content: center; cursor: pointer; flex-shrink: 0;
-}
-.mobile-sheet-handle {
-  width: 40px; height: 4px; background: var(--border-strong); border-radius: 999px;
-}
-.mobile-sheet-scroll {
-  flex: 1; overflow-y: auto; padding: 0 16px 40px;
-}
-@media (min-width: 769px) {
-  .mobile-results-sheet { display: none !important; }
-}
 
 /* ── Equity hero chart ── */
 .chart-hero-head {
@@ -874,16 +968,8 @@ body.sap-ran-once .tab-badge { display: none; }
 }
 .auth-feature span { font-size: 16px; width: 20px; text-align: center; }
 
-/* ── Smooth scroll + topbar glass on scroll ── */
+/* ── Smooth scroll (topbar glass handled by .topbar-shell.scrolled above) ── */
 html { scroll-behavior: smooth; }
-.topbar.scrolled {
-  backdrop-filter: blur(12px) saturate(160%);
-  background: rgba(var(--bg-rgb, 250,250,250), 0.85);
-  position: sticky; top: 0; z-index: 100;
-}
-html.dark .topbar.scrolled {
-  background: rgba(20,20,22,0.85);
-}
 
 /* ── Notice variants ── */
 .notice.bad { background: var(--bad-bg); color: var(--bad); }
