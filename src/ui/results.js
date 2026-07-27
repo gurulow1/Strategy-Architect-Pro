@@ -9,6 +9,7 @@ import {
 } from './charts.js';
 import { diagnostics } from '../engine/diagnostics.js';
 import { createAISummaryCard, createAIWeaknessPanel } from './aiComponents.js';
+import { escapeHtml } from './safeDom.js';
 
 function verdict(report) {
   const e = report.stats.expectancy;
@@ -28,30 +29,18 @@ function kpi(label, value, sub, cls = '', id = '', tip = '') {
     <div class="kpi-sub">${sub}</div></div>`;
 }
 
-// Wire dynamic accent: whole UI shifts color based on strategy health.
-function setDynamicAccent(profitFactor) {
+// Keep navigation and controls visually stable; health remains semantic content
+// inside verdicts/KPIs instead of recoloring the entire application.
+function setDynamicAccent() {
   const root = document.documentElement;
-  const dark = root.classList.contains('dark');
-  let accent, accentHover, accentSubtle;
-  if (profitFactor >= 2.0) {
-    accent = '#22c55e'; accentHover = '#16a34a'; accentSubtle = 'rgba(34,197,94,0.12)';
-  } else if (profitFactor >= 1.0) {
-    accent = dark ? '#6366f1' : '#4f46e5';
-    accentHover = dark ? '#818cf8' : '#4338ca';
-    accentSubtle = dark ? 'rgba(99,102,241,0.12)' : 'rgba(79,70,229,0.08)';
-  } else if (profitFactor >= 0) {
-    accent = '#ef4444'; accentHover = '#dc2626'; accentSubtle = 'rgba(239,68,68,0.12)';
-  } else {
-    accent = '#7f1d1d'; accentHover = '#991b1b'; accentSubtle = 'rgba(127,29,29,0.15)';
-  }
-  root.style.setProperty('--accent', accent);
-  root.style.setProperty('--accent-hover', accentHover);
-  root.style.setProperty('--accent-subtle', accentSubtle);
+  root.style.removeProperty('--accent');
+  root.style.removeProperty('--accent-hover');
+  root.style.removeProperty('--accent-subtle');
 }
 
 function findingList(items) {
   if (!items.length) return `<li class="muted">${t('diag_none')}</li>`;
-  return items.map((it) => `<li>${tFinding(it)}</li>`).join('');
+  return items.map((it) => `<li>${escapeHtml(tFinding(it))}</li>`).join('');
 }
 
 const gradeKey = { robust: 'grade_robust', moderate: 'grade_moderate', thin: 'grade_thin', fragile: 'grade_fragile' };
@@ -73,9 +62,10 @@ function eiSkillCard(sl) {
   if (sl.verdict === 'insufficient_data') {
     lines.push(`<div class="muted small">${t('ei_insufficient', { n: sl.sampleSize })}</div>`);
   } else {
+    const pValue = sl.pValueExpectancy ?? sl.pValueVsCoin;
     lines.push(`<div class="ei-line">${t('ei_conf', { p: pct(sl.expectancyCI.pAboveZero, 0) })}</div>`);
-    const sig = sl.pValueVsCoin < 0.05 ? ` <span class="good small">${t('ei_pvalue_sig')}</span>` : '';
-    lines.push(`<div class="ei-line">${t('ei_pvalue', { p: fmtNum(sl.pValueVsCoin, 3) })}${sig}</div>`);
+    const sig = pValue < 0.05 ? ` <span class="good small">${t('ei_pvalue_sig')}</span>` : '';
+    lines.push(`<div class="ei-line">${t('ei_pvalue', { p: fmtNum(pValue, 3) })}${sig}</div>`);
     if (sl.extraLossesToBreakeven > 0)
       lines.push(`<div class="ei-line">${t('ei_fragility', { n: sl.extraLossesToBreakeven })}</div>`);
   }
@@ -136,10 +126,10 @@ function eiBlindCard(bs, unit, sym) {
   if (instrument && instrument.available) {
     const rows = instrument.bySymbol.slice(0, 6).map((s) => {
       const hot = s.symbol === instrument.topSymbol && instrument.concentrated;
-      return `<tr class="${hot ? 'ei-hot' : ''}"><td>${s.symbol}</td><td>${s.count}</td><td>${pct(s.profitShare, 0)}</td></tr>`;
+      return `<tr class="${hot ? 'ei-hot' : ''}"><td>${escapeHtml(s.symbol)}</td><td>${s.count}</td><td>${pct(s.profitShare, 0)}</td></tr>`;
     }).join('');
     const losers = instrument.hiddenLosers.length
-      ? `<div class="ei-line bad small">${t('ei_losers', { symbols: instrument.hiddenLosers.map((s) => s.symbol).join(', ') })}</div>`
+      ? `<div class="ei-line bad small">${escapeHtml(t('ei_losers', { symbols: instrument.hiddenLosers.map((s) => s.symbol).join(', ') }))}</div>`
       : '';
     blocks.push(`
       <div class="ei-block">
@@ -323,6 +313,12 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
       ${kpi(t('kpi_sig'), sigPct, t('kpi_sig_sub'), '', 'kpi-sig', t('kpi_sig_tip'))}
     </div>
     ${unit === 'currency' ? `<div class="notice warn result-enter" style="animation-delay:210ms">${t('notice_currency_normalized')}</div>` : ''}
+    ${report.dataQuality?.simulationHorizonCapped
+      ? `<div class="notice info result-enter" style="animation-delay:215ms">${t('notice_simulation_horizon', {
+        observed: report.dataQuality.observedTrades,
+        simulated: report.dataQuality.simulationTrades,
+      })}</div>`
+      : ''}
 
     <div class="diag card result-enter" style="animation-delay:220ms">
       <h3>${t('diag_title')}</h3>
@@ -438,7 +434,6 @@ export function renderReport(report, mount, { ruinThreshold = 0.5 } = {}) {
 
   window.__sap_currentAnalysis = {
     metrics,
-    tradeHistory: report.spec?.sample ?? null,
     diagnostics: diag,
   };
 

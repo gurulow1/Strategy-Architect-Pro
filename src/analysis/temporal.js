@@ -7,6 +7,16 @@ import { tradeStats } from '../engine/metrics.js';
 
 // Native per-trade result: prefer explicit R, else PnL (matches analyzeJournal).
 const valueOf = (t) => (Number.isFinite(t.r) ? t.r : t.pnl);
+const MAX_ROLLING_POINTS = 1_000;
+
+function decimate(values) {
+  if (values.length <= MAX_ROLLING_POINTS) return values;
+  const step = values.length / MAX_ROLLING_POINTS;
+  return Array.from(
+    { length: MAX_ROLLING_POINTS },
+    (_, index) => values[Math.min(values.length - 1, Math.floor((index + 0.5) * step))],
+  );
+}
 
 // Robust date parser: ISO / native first, then a fallback for MetaTrader's
 // "YYYY.MM.DD HH:MM:SS" (and YYYY/MM/DD, YYYY-MM-DD) which V8 won't parse.
@@ -78,7 +88,12 @@ export function analyzeTemporalDrift(trades, { minPeriodTrades = 10 } = {}) {
     recentStats,
     earlyCount: earlyVals.length,
     recentCount: recentVals.length,
-    rolling: { winRate: rollingWinRate, expectancy: rollingExpectancy, pf: rollingPF },
+    rolling: {
+      winRate: decimate(rollingWinRate),
+      expectancy: decimate(rollingExpectancy),
+      pf: decimate(rollingPF),
+      totalPoints: rollingExpectancy.length,
+    },
     degrading,
     trend: {
       expectancyDelta: recentStats.expectancy - earlyStats.expectancy,

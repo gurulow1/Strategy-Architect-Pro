@@ -23,7 +23,30 @@ describe('skill vs luck', () => {
     const r = analyzeSkillVsLuck(sample, tradeStats(sample), 3);
     expect(r.verdict).toBe('strong');
     expect(r.expectancyCI.pAboveZero).toBeGreaterThanOrEqual(0.95);
-    expect(r.pValueVsCoin).toBeLessThan(0.05);
+    expect(r.pValueExpectancy).toBeLessThan(0.05);
+    expect(r.pValueVsCoin).toBe(r.pValueExpectancy);
+  });
+
+  it('detects positive expectancy even when win rate is exactly 50%', () => {
+    const sample = [...Array(50).fill(2), ...Array(50).fill(-1)];
+    const r = analyzeSkillVsLuck(sample, tradeStats(sample), 17);
+    expect(r.verdict).toBe('strong');
+    expect(r.pValueExpectancy).toBeLessThan(0.05);
+  });
+
+  it('does not call a high-win-rate negative-expectancy system skill', () => {
+    const sample = [...Array(80).fill(0.1), ...Array(20).fill(-1)];
+    const r = analyzeSkillVsLuck(sample, tradeStats(sample), 17);
+    expect(r.verdict).toBe('unclear');
+    expect(r.pValueExpectancy).toBe(1);
+  });
+
+  it('is deterministic for a fixed bootstrap seed', () => {
+    const sample = [...Array(45).fill(1.5), ...Array(35).fill(-1)];
+    const a = analyzeSkillVsLuck(sample, tradeStats(sample), 99);
+    const b = analyzeSkillVsLuck(sample, tradeStats(sample), 99);
+    expect(a.expectancyCI).toEqual(b.expectancyCI);
+    expect(a.pValueExpectancy).toBe(b.pValueExpectancy);
   });
 
   it('extraLossesToBreakeven is a positive integer when expectancy > 0', () => {

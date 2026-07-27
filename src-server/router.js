@@ -1,12 +1,19 @@
-import { getModel } from './groqClient.js';
+import crypto from 'node:crypto';
+import { getModel } from './openaiClient.js';
 import { parseJournal, generateSummary, answerQuestion, explainWeaknesses } from './aiService.js';
 
-export async function handleFeature(feature, payload) {
+function safetyIdentifier(subject) {
+  return typeof subject === 'string' && subject
+    ? crypto.createHash('sha256').update(subject, 'utf8').digest('hex')
+    : undefined;
+}
+
+export async function handleFeature(feature, payload, context = {}) {
   const lang = payload?.lang || 'en';
+  const model = getModel(safetyIdentifier(context.subject));
 
   switch (feature) {
     case 'parseJournal': {
-      const model = getModel(lang);
       try {
         return { status: 200, body: await parseJournal(payload.rawText, model, lang) };
       } catch (err) {
@@ -16,7 +23,6 @@ export async function handleFeature(feature, payload) {
     }
 
     case 'generateSummary': {
-      const model = getModel(lang);
       try {
         return { status: 200, body: await generateSummary(payload.metrics, payload.diagnostics, model, lang) };
       } catch (err) {
@@ -26,12 +32,11 @@ export async function handleFeature(feature, payload) {
     }
 
     case 'answerQuestion': {
-      const model = getModel(lang);
       try {
         return {
           status: 200,
           body: await answerQuestion(
-            payload.question, payload.metrics, payload.tradeHistory, payload.diagnostics, model, lang
+            payload.question, payload.metrics, payload.diagnostics, model, lang
           ),
         };
       } catch (err) {
@@ -41,7 +46,6 @@ export async function handleFeature(feature, payload) {
     }
 
     case 'explainWeaknesses': {
-      const model = getModel(lang);
       try {
         return { status: 200, body: await explainWeaknesses(payload.diagnostics, model, lang) };
       } catch (err) {

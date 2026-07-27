@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f2f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#10161b" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="Terms of Service for Strategy Architect Pro trading strategy analytics.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Terms of Service — Strategy Architect Pro</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f2f5f7;
+      --surface: #fff;
+      --soft: #eaf1f5;
+      --text: #17212b;
+      --muted: #61717e;
+      --line: rgba(23, 33, 43, .12);
+      --accent: #2481cc;
+      --accent-soft: rgba(36, 129, 204, .11);
+      --warning: #9b6517;
+      --warning-soft: rgba(155, 101, 23, .10);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #10161b;
+        --surface: #182128;
+        --soft: #202b33;
+        --text: #f2f6f8;
+        --muted: #a8b4bd;
+        --line: rgba(230, 240, 247, .13);
+        --accent: #5eb5f7;
+        --accent-soft: rgba(94, 181, 247, .13);
+        --warning: #e3aa55;
+        --warning-soft: rgba(227, 170, 85, .11);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { min-width: 320px; scroll-behavior: smooth; scroll-padding-top: 88px; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 3px; border-radius: 6px; }
+    .skip {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 20;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: var(--surface);
+      transform: translateY(-150%);
+    }
+    .skip:focus { transform: none; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: var(--bg);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      -webkit-backdrop-filter: blur(22px) saturate(145%);
+      backdrop-filter: blur(22px) saturate(145%);
+    }
+    .topbar-inner, main, .footer-inner { width: min(100% - 40px, 1120px); margin-inline: auto; }
+    .topbar-inner {
+      display: flex;
+      min-height: 68px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .brand {
+      display: inline-flex;
+      min-width: 0;
+      align-items: center;
+      gap: 11px;
+      color: var(--text);
+      font-weight: 750;
+      letter-spacing: -.025em;
+      text-decoration: none;
+    }
+    .brand-mark {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      flex: 0 0 36px;
+      place-items: center;
+      border-radius: 12px;
+      background: var(--accent);
+      box-shadow: 0 6px 18px rgba(36, 129, 204, .22);
+      color: #fff;
+      font-size: 17px;
+    }
+    .topnav { display: flex; align-items: center; gap: 8px; }
+    .topnav a {
+      min-height: 40px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 650;
+      text-decoration: none;
+    }
+    .topnav a:hover, .topnav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+    main { padding-block: clamp(42px, 7vw, 82px) 72px; }
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      max-width: 900px;
+      margin: 0;
+      font-size: clamp(36px, 6vw, 64px);
+      line-height: 1.04;
+      letter-spacing: -.045em;
+    }
+    .lede { max-width: 850px; margin: 22px 0 0; color: var(--muted); font-size: clamp(17px, 2vw, 20px); }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 24px; color: var(--muted); font-size: 14px; }
+    .language-nav {
+      display: inline-flex;
+      gap: 4px;
+      margin-top: 34px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--surface);
+    }
+    .language-nav a {
+      min-width: 92px;
+      padding: 9px 15px;
+      border-radius: 11px;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+    }
+    .language-nav a:hover { background: var(--accent-soft); }
+    .language { margin-top: 68px; }
+    .language-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 18px;
+      border-bottom: 2px solid var(--text);
+    }
+    .language-heading h2 { margin: 0; font-size: clamp(26px, 4vw, 36px); letter-spacing: -.03em; }
+    .language-heading span { color: var(--muted); font-size: 14px; }
+    section { padding-block: 30px; border-bottom: 1px solid var(--line); }
+    section h3 { margin: 0 0 13px; font-size: 21px; letter-spacing: -.018em; }
+    section h4 { margin: 22px 0 8px; font-size: 16px; }
+    section p { max-width: 900px; margin: 0 0 13px; }
+    ul { max-width: 900px; margin: 12px 0 0; padding-left: 23px; }
+    li + li { margin-top: 9px; }
+    .notice {
+      max-width: 900px;
+      margin-top: 18px;
+      padding: 17px 19px;
+      border-left: 3px solid var(--warning);
+      border-radius: 4px 15px 15px 4px;
+      background: var(--warning-soft);
+    }
+    footer { border-top: 1px solid var(--line); background: var(--surface); }
+    .footer-inner {
+      display: flex;
+      min-height: 110px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 14px 22px; }
+    @media (max-width: 680px) {
+      .topbar-inner, main, .footer-inner { width: min(100% - 28px, 1120px); }
+      .brand span:last-child { display: none; }
+      .topnav { gap: 2px; }
+      .topnav a { padding-inline: 9px; }
+      .language-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .footer-inner { padding-block: 28px; align-items: flex-start; flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-reduced-transparency: reduce) {
+      .topbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/" aria-label="Strategy Architect Pro home">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span>Strategy Architect Pro</span>
+      </a>
+      <nav class="topnav" aria-label="Legal navigation">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html" aria-current="page">Terms</a>
+        <a href="/">App</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <p class="eyebrow">Legal · Terms</p>
+    <h1>Analysis for better questions—not promises of profit.</h1>
+    <p class="lede">These terms define access to Strategy Architect Pro and the boundary between quantitative risk analysis and your own trading decisions.</p>
+    <div class="meta">
+      <span><strong>Effective:</strong> <time datetime="2026-07-27">2026-07-27</time></span>
+      <span><strong>Operator:</strong> Strategy Architect Pro</span>
+      <span><strong>Contact:</strong> <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0 on Telegram</a></span>
+    </div>
+    <nav class="language-nav" aria-label="Choose language">
+      <a href="#english" lang="en">English</a>
+      <a href="#russian" lang="ru">Русский</a>
+    </nav>
+
+    <article class="language" id="english" lang="en">
+      <div class="language-heading">
+        <h2>Terms of Service</h2>
+        <span>English version</span>
+      </div>
+
+      <section>
+        <h3>1. Agreement and eligibility</h3>
+        <p>These Terms of Service (“Terms”) form an agreement between you and the service operated under the name Strategy Architect Pro (“we”, “us”, or the “Service”). By starting a trial, activating a licence, or using the Service, you confirm that you have read and agree to these Terms and the <a href="/privacy.html">Privacy Policy</a>.</p>
+        <p>You must be at least 18 years old and legally capable of entering this agreement. If you use the Service for an organisation, you confirm that you have authority to bind it. Do not use the Service where doing so is prohibited by law.</p>
+      </section>
+
+      <section>
+        <h3>2. What the Service does</h3>
+        <p>Strategy Architect Pro is a quantitative analytics and risk-management tool. It can analyse user-supplied strategy assumptions or trading records, run simulations and robustness checks, model prop-challenge rules, generate reports, propose a Personal Risk Contract, and explain existing results with AI.</p>
+        <p>Features, integrations, limits, and supported formats may change as the Service develops. Beta or optional integrations may be unavailable, incomplete, or withdrawn. The Service does not place, route, block, copy, or execute trades.</p>
+      </section>
+
+      <section>
+        <h3>3. Not financial advice</h3>
+        <div class="notice"><strong>Important:</strong> the Service provides software-generated analytics for information and education. It is not investment, financial, legal, tax, accounting, or personalised professional advice.</div>
+        <ul>
+          <li>We are not acting as your broker, dealer, investment adviser, portfolio manager, commodity trading adviser, fiduciary, or agent.</li>
+          <li>No result is a recommendation or solicitation to buy, sell, hold, or trade any instrument or to use any broker or strategy.</li>
+          <li>Scores, probabilities, Monte Carlo paths, risk-of-ruin estimates, and prop-challenge projections are models—not forecasts or guarantees.</li>
+          <li>Past results, backtests, and simulated performance do not predict future results. Real trading includes slippage, fees, latency, liquidity, regime changes, execution errors, and losses beyond model assumptions.</li>
+          <li>You remain solely responsible for checking the data, deciding whether and how to trade, selecting a regulated professional where appropriate, and accepting the risk of losing some or all capital.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>4. AI features</h3>
+        <p>AI explanations are generated from limited context and may be incomplete, inaccurate, outdated, inconsistent, or fabricated. Structured output and safety instructions reduce—but do not remove—this risk. AI does not independently verify your journal, market conditions, broker rules, regulations, or personal circumstances.</p>
+        <p>Do not rely solely on AI output for an investment decision. Compare the underlying metrics, verify important facts with independent sources, and consult a suitably qualified professional when needed. AI output cannot override the deterministic calculations shown by the Service; if they conflict, treat the AI explanation as unreliable and report it.</p>
+      </section>
+
+      <section>
+        <h3>5. Trial, licences, and devices</h3>
+        <ul>
+          <li>The standard trial is one two-hour session. Completing an analysis consumes the trial, but access may continue until that session expires. A consumed or expired trial cannot be restarted.</li>
+          <li>A trial is personal and may be limited by browser, device, or privacy-preserving network-abuse controls. You must not evade those controls, automate registrations, or create identities to obtain repeated trials.</li>
+          <li>Continued use requires a valid activation key. A licence is personal, limited, non-exclusive, non-transferable, and subject to its stated term and device cap. Unless a different limit is communicated when issued, the Service may apply its standard device limit.</li>
+          <li>Keep activation keys and access tokens confidential. You are responsible for use made through them until you notify us of suspected compromise.</li>
+          <li>Purchase price, duration, renewal, cancellation, and any refund right must be disclosed in the offer through which a key is sold. Nothing in these Terms removes mandatory consumer cancellation, refund, or warranty rights.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>6. Your data and responsibilities</h3>
+        <p>You retain rights in trading journals, questions, and other material you submit. You grant us a limited permission to process that material only to provide, secure, and support the Service as described in the Privacy Policy.</p>
+        <p>You are responsible for the legality, accuracy, and quality of your inputs. You must have the necessary rights and notices before submitting another person’s data. Remove account numbers, credentials, private notes, and irrelevant personal data. Never upload broker passwords, secret API keys, authentication cookies, or data whose disclosure could create trading or security risk.</p>
+      </section>
+
+      <section>
+        <h3>7. Acceptable use</h3>
+        <p>You must not:</p>
+        <ul>
+          <li>attack, probe, overload, disrupt, bypass, or gain unauthorised access to the Service or another user’s data;</li>
+          <li>circumvent trial, licence, quota, device, authentication, or security restrictions;</li>
+          <li>share, resell, publish, or commercially distribute an activation key unless we expressly permit it;</li>
+          <li>use automated traffic, scraping, or extraction that materially burdens the Service;</li>
+          <li>submit malware, unlawful material, stolen data, or content that infringes another person’s rights;</li>
+          <li>misrepresent outputs as guaranteed returns, regulated advice, our endorsement, or independently verified results; or</li>
+          <li>reverse engineer a closed component except where applicable law or an applicable open-source licence expressly permits it.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>8. Ownership and open-source software</h3>
+        <p>The Strategy Architect Pro name, branding, hosted service, original interface assets, documentation, and non-open-source content belong to us or their respective licensors. These Terms give you only the right to use the Service during authorised access; they do not transfer ownership.</p>
+        <p>Source code or components distributed under Apache License 2.0 or another open-source licence remain governed by that licence and their notices. Nothing in these Terms restricts permissions that an applicable open-source licence grants you. Third-party libraries, model services, brokers, and platforms are governed by their own terms.</p>
+        <p>Optional feedback may be used to improve the Service without payment or attribution, provided we do not identify you publicly without permission.</p>
+      </section>
+
+      <section>
+        <h3>9. Availability and changes</h3>
+        <p>We aim for a reliable Service but do not promise uninterrupted, error-free, or permanently available operation. Maintenance, provider outages, security events, law, or technical constraints may interrupt a feature. Keep your own copy of any data you need; the Service is not a journal archive or disaster-recovery system.</p>
+        <p>We may improve, replace, limit, or discontinue features. If a material change adversely affects a paid, unexpired licence, mandatory law and the specific purchase offer determine any notice, remedy, or refund right.</p>
+      </section>
+
+      <section>
+        <h3>10. Suspension and termination</h3>
+        <p>You may stop using the Service at any time. We may suspend or terminate access where reasonably necessary for a material breach, key sharing, fraud, abusive traffic, security risk, legal requirement, non-payment, or protection of users and infrastructure. Where practical and lawful, we will provide notice and an opportunity to cure a remediable breach.</p>
+        <p>On termination, your permission to use the hosted Service ends. Provisions that by nature should survive—including ownership, disclaimers, liability limits, and dispute terms—continue to apply. Privacy rights and deletion requests are handled under the Privacy Policy.</p>
+      </section>
+
+      <section>
+        <h3>11. Disclaimers and liability</h3>
+        <p>To the maximum extent permitted by applicable law, the Service and all outputs are provided “as is” and “as available”, without implied warranties of merchantability, fitness for a particular purpose, accuracy, non-infringement, profitability, or compatibility with any broker or prop-firm rules.</p>
+        <p>To the maximum extent permitted by law, we are not liable for trading losses, lost profit, lost opportunity, lost data, business interruption, or indirect, incidental, special, consequential, exemplary, or punitive damages arising from use of or inability to use the Service. Our aggregate liability for all claims relating to the Service will not exceed the greater of the amount you paid for it in the 12 months before the event and any minimum liability that applicable law does not allow us to exclude.</p>
+        <p>These exclusions do not apply to fraud, wilful misconduct, or any liability that cannot lawfully be limited, including mandatory consumer rights and liability for death or personal injury where applicable.</p>
+      </section>
+
+      <section>
+        <h3>12. Applicable law and disputes</h3>
+        <p>Before filing a claim, please contact <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0</a> with a concise description and allow a reasonable opportunity to resolve it informally. This does not limit urgent remedies or deadlines imposed by law.</p>
+        <p>These Terms are governed by the laws that mandatorily apply to the operator and your relationship with the Service, including applicable conflict-of-laws and consumer-protection rules. Nothing here deprives a consumer of non-waivable protections or access to a court or regulator available under the law of their habitual residence. Jurisdiction and venue are determined by those applicable rules; these Terms do not invent or select a jurisdiction that has not otherwise been established.</p>
+      </section>
+
+      <section>
+        <h3>13. Changes and general terms</h3>
+        <p>We may update these Terms for legal, security, or product reasons. The effective date will change, and material changes will be presented through the Service where reasonably possible. Changes do not retroactively reduce accrued mandatory rights. Continued use after the new effective date means acceptance where permitted by law; otherwise, stop using the Service.</p>
+        <p>If a provision is unenforceable, it will be limited to the minimum necessary and the remainder will continue. Failure to enforce a provision is not a waiver. You may not transfer this agreement without our consent; we may transfer it with the Service subject to applicable notice and consumer law. These Terms, the Privacy Policy, and any specific written purchase terms form the agreement about the Service.</p>
+        <p>The English and Russian texts are intended to communicate the same terms. If wording differs, the English text guides interpretation except where mandatory local-language or consumer law requires otherwise.</p>
+      </section>
+    </article>
+
+    <article class="language" id="russian" lang="ru">
+      <div class="language-heading">
+        <h2>Условия использования</h2>
+        <span>Русская версия</span>
+      </div>
+
+      <section>
+        <h3>1. Соглашение и возраст</h3>
+        <p>Настоящие Условия использования («Условия») образуют соглашение между вами и сервисом, работающим под наименованием Strategy Architect Pro («мы», «нас» или «Сервис»). Начав trial, активировав лицензию или используя Сервис, вы подтверждаете, что прочитали и приняли Условия и <a href="/privacy.html">Политику конфиденциальности</a>.</p>
+        <p>Вам должно быть не менее 18 лет, и вы должны иметь право заключить это соглашение. Используя Сервис от имени организации, вы подтверждаете необходимые полномочия. Не используйте Сервис там, где это запрещено законом.</p>
+      </section>
+
+      <section>
+        <h3>2. Назначение Сервиса</h3>
+        <p>Strategy Architect Pro — инструмент количественной аналитики и риск-менеджмента. Он анализирует заданные пользователем параметры стратегии или торговую историю, выполняет симуляции и проверку устойчивости, моделирует правила prop challenge, формирует отчёты, предлагает Персональный риск-контракт и поясняет готовые результаты с помощью ИИ.</p>
+        <p>Функции, интеграции, лимиты и форматы могут меняться по мере развития. Beta- и необязательные интеграции могут быть недоступны, неполны или отключены. Сервис не выставляет, не маршрутизирует, не блокирует, не копирует и не исполняет торговые заявки.</p>
+      </section>
+
+      <section>
+        <h3>3. Не является финансовой рекомендацией</h3>
+        <div class="notice"><strong>Важно:</strong> Сервис предоставляет программно сформированную аналитику для информации и обучения. Это не инвестиционная, финансовая, юридическая, налоговая, бухгалтерская или персональная профессиональная консультация.</div>
+        <ul>
+          <li>Мы не выступаем вашим брокером, дилером, инвестиционным или портфельным управляющим, советником по товарной торговле, фидуциарием либо агентом.</li>
+          <li>Ни один результат не является рекомендацией или предложением купить, продать, удерживать либо торговать инструментом, выбрать брокера или стратегию.</li>
+          <li>Оценки, вероятности, пути Монте-Карло, риск разорения и прогнозы prop challenge являются моделями, а не предсказаниями или гарантиями.</li>
+          <li>Прошлые результаты, бэктесты и симуляции не предсказывают будущие. Реальная торговля включает проскальзывание, комиссии, задержки, ликвидность, смену режима, ошибки исполнения и убытки сверх допущений модели.</li>
+          <li>Только вы отвечаете за проверку данных, решение о торговле, выбор регулируемого специалиста при необходимости и риск потери части или всего капитала.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>4. Функции ИИ</h3>
+        <p>Пояснения ИИ создаются из ограниченного контекста и могут быть неполными, неточными, устаревшими, противоречивыми или вымышленными. Структурированный ответ и системные ограничения снижают, но не исключают этот риск. ИИ самостоятельно не проверяет ваш журнал, рынок, правила брокера, законодательство и личные обстоятельства.</p>
+        <p>Не принимайте инвестиционное решение только по ответу ИИ. Сверяйте исходные метрики, проверяйте существенные факты по независимым источникам и при необходимости обращайтесь к квалифицированному специалисту. ИИ не может отменять детерминированные расчёты Сервиса; при противоречии считайте пояснение ИИ ненадёжным и сообщите о нём.</p>
+      </section>
+
+      <section>
+        <h3>5. Trial, лицензии и устройства</h3>
+        <ul>
+          <li>Стандартный trial — одна двухчасовая сессия. Завершение анализа расходует trial, но доступ может продолжаться до конца текущей сессии. Израсходованный или истёкший trial нельзя начать заново.</li>
+          <li>Trial является персональным и может ограничиваться браузером, устройством или псевдонимной сетевой защитой. Запрещено обходить контроль, автоматизировать регистрации и создавать новые идентичности ради повторных trial.</li>
+          <li>Для продолжения нужен действующий ключ. Лицензия персональная, ограниченная, неисключительная, непередаваемая и действует в пределах объявленного срока и лимита устройств. Если при выдаче не сообщено иное, может применяться стандартный лимит Сервиса.</li>
+          <li>Храните ключи и токены в тайне. Вы отвечаете за их использование до уведомления нас о возможной компрометации.</li>
+          <li>Цена, срок, продление, отмена и возврат должны быть указаны в предложении, по которому продаётся ключ. Условия не отменяют обязательные права потребителя на отказ, возврат или гарантии.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>6. Ваши данные и обязанности</h3>
+        <p>Вы сохраняете права на торговые журналы, вопросы и иные переданные материалы. Вы даёте нам ограниченное разрешение обрабатывать их лишь для предоставления, защиты и поддержки Сервиса согласно Политике конфиденциальности.</p>
+        <p>Вы отвечаете за законность, точность и качество исходных данных. До передачи данных другого лица вы обязаны иметь необходимые права и предоставить ему требуемую информацию. Удаляйте номера счетов, реквизиты, частные заметки и ненужные персональные данные. Никогда не загружайте пароли брокера, секретные API-ключи, cookie аутентификации или данные, раскрытие которых создаёт торговый либо технический риск.</p>
+      </section>
+
+      <section>
+        <h3>7. Допустимое использование</h3>
+        <p>Запрещено:</p>
+        <ul>
+          <li>атаковать, сканировать, перегружать, нарушать работу, обходить защиту или получать несанкционированный доступ к Сервису либо чужим данным;</li>
+          <li>обходить trial, лицензию, квоту, лимит устройств, аутентификацию или иные ограничения безопасности;</li>
+          <li>передавать, перепродавать, публиковать или коммерчески распространять ключ без нашего явного разрешения;</li>
+          <li>использовать автоматический трафик, scraping или извлечение, создающее существенную нагрузку;</li>
+          <li>передавать вредоносное ПО, незаконные или похищенные данные либо нарушающий чужие права контент;</li>
+          <li>представлять результаты как гарантированную доходность, регулируемую рекомендацию, наше одобрение или независимо подтверждённые сведения; или</li>
+          <li>исследовать закрытый компонент, кроме случаев, прямо разрешённых законом или применимой open-source лицензией.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>8. Права и открытое ПО</h3>
+        <p>Название Strategy Architect Pro, бренд, размещённый онлайн-сервис, оригинальные элементы интерфейса, документация и закрытый контент принадлежат нам либо соответствующим правообладателям. Условия дают лишь право пользоваться Сервисом во время разрешённого доступа и не передают право собственности.</p>
+        <p>Исходный код и компоненты, распространяемые по Apache License 2.0 или иной open-source лицензии, регулируются именно этой лицензией и сопутствующими notices. Условия не ограничивают предоставленные open-source лицензией разрешения. Сторонние библиотеки, модели, брокеры и платформы регулируются их собственными условиями.</p>
+        <p>Добровольные предложения можно использовать для улучшения Сервиса без оплаты или указания автора, но мы не станем публично идентифицировать вас без разрешения.</p>
+      </section>
+
+      <section>
+        <h3>9. Доступность и изменения функций</h3>
+        <p>Мы стремимся к надёжности, но не обещаем непрерывную, безошибочную или постоянную работу. Обслуживание, сбой провайдера, событие безопасности, закон или техническое ограничение могут прервать функцию. Храните собственную копию нужных данных: Сервис не является архивом журнала или системой аварийного восстановления.</p>
+        <p>Мы можем улучшать, заменять, ограничивать и прекращать функции. Если существенное изменение негативно влияет на оплаченную действующую лицензию, уведомление, средство защиты или возврат определяются обязательным законом и конкретными условиями покупки.</p>
+      </section>
+
+      <section>
+        <h3>10. Приостановка и прекращение</h3>
+        <p>Вы можете прекратить использование в любое время. Мы можем приостановить или закрыть доступ, если это разумно необходимо из-за существенного нарушения, передачи ключа, мошенничества, вредоносной нагрузки, угрозы безопасности, требования закона, неоплаты либо защиты пользователей и инфраструктуры. Когда это практически возможно и законно, мы сообщим о нарушении, которое можно исправить, и дадим разумную возможность сделать это.</p>
+        <p>После прекращения заканчивается разрешение использовать размещённый Сервис. Положения, которые по своей природе должны сохраняться, включая права, отказ от гарантий, пределы ответственности и порядок споров, продолжают действовать. Запросы об удалении регулируются Политикой конфиденциальности.</p>
+      </section>
+
+      <section>
+        <h3>11. Отказ от гарантий и ответственность</h3>
+        <p>В максимально допустимой законом степени Сервис и результаты предоставляются «как есть» и «по доступности» без подразумеваемых гарантий товарного качества, пригодности для конкретной цели, точности, отсутствия нарушений, прибыльности или совместимости с правилами брокера либо prop-фирмы.</p>
+        <p>В максимально допустимой степени мы не отвечаем за торговые убытки, упущенную прибыль или возможность, потерю данных, остановку бизнеса и косвенный, случайный, специальный, последующий, штрафной или показательный ущерб из-за использования либо недоступности Сервиса. Совокупная ответственность по всем требованиям не превышает большую из величин: сумму, уплаченную вами за Сервис за 12 месяцев до события, или минимальную ответственность, которую применимый закон не позволяет исключить.</p>
+        <p>Ограничения не распространяются на мошенничество, умышленное нарушение и ответственность, которую нельзя законно ограничить, включая обязательные права потребителей и, где применимо, вред жизни или здоровью.</p>
+      </section>
+
+      <section>
+        <h3>12. Применимое право и споры</h3>
+        <p>До подачи требования напишите <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0</a>, кратко опишите проблему и дайте разумную возможность решить её неформально. Это не ограничивает срочные меры и установленные законом сроки.</p>
+        <p>Условия регулируются нормами, которые в обязательном порядке применяются к оператору и вашим отношениям с Сервисом, включая правила коллизионного и потребительского права. Ничто не лишает потребителя неотчуждаемых гарантий и доступа к суду либо регулятору, доступному по закону места его обычного проживания. Компетентный суд определяется такими правилами; Условия не выдумывают и не выбирают юрисдикцию, которая не установлена иным образом.</p>
+      </section>
+
+      <section>
+        <h3>13. Изменения и общие положения</h3>
+        <p>Мы можем обновить Условия по правовым, техническим или продуктовым причинам. Дата вступления в силу изменится, а существенные поправки по возможности будут показаны в Сервисе. Они не уменьшают задним числом уже возникшие обязательные права. Продолжение использования после новой даты означает принятие там, где это допускается законом; иначе прекратите использование.</p>
+        <p>Если положение неисполнимо, оно ограничивается минимально необходимым образом, а остальные продолжают действовать. Неисполнение положения не является отказом от него. Вы не вправе передавать соглашение без нашего согласия; мы можем передать его вместе с Сервисом с соблюдением обязательного уведомления и потребительского права. Условия, Политика конфиденциальности и отдельные письменные условия покупки образуют соглашение о Сервисе.</p>
+        <p>Английский и русский тексты призваны передать одинаковые условия. При расхождении английский текст направляет толкование, кроме случаев, когда обязательное право о языке или защите потребителя требует иного.</p>
+      </section>
+    </article>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <span>© 2026 Strategy Architect Pro</span>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="/">Back to app</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="https://t.me/djordano0" rel="noopener noreferrer">Contact</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!--
+    Drafting references (not a certification, registration, or legal-advice claim):
+    SEC/FINRA/NASAA AI investor alert: https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-alerts/artificial-intelligence-fraud
+    CFTC AI trading-bot advisory: https://www.cftc.gov/sites/default/files/2024/01/AITradingBots_0.pdf
+    Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+  -->
+</body>
+</html>

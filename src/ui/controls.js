@@ -68,8 +68,12 @@ export function makeInputsCollapsible(container) {
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'inputs-toggle';
-  toggle.innerHTML = `<span>⚙ ${t('in_params')}</span><span class="inputs-toggle-icon">▾</span>`;
-  toggle.addEventListener('click', () => inputs.classList.toggle('collapsed'));
+  toggle.setAttribute('aria-expanded', 'true');
+  toggle.innerHTML = `<span>${t('in_params')}</span><span class="inputs-toggle-icon" aria-hidden="true">▾</span>`;
+  toggle.addEventListener('click', () => {
+    const collapsed = inputs.classList.toggle('collapsed');
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+  });
 
   inputs.appendChild(toggle);
   inputs.appendChild(body);
@@ -78,5 +82,9 @@ export function makeInputsCollapsible(container) {
 
 // After running an analysis on a phone, fold the inputs away so results lead.
 export function collapseInputsOnMobile(container) {
-  if (window.innerWidth <= 768) container.querySelector('.inputs')?.classList.add('collapsed');
+  if (window.innerWidth <= 768) {
+    const inputs = container.querySelector('.inputs');
+    inputs?.classList.add('collapsed');
+    inputs?.querySelector('.inputs-toggle')?.setAttribute('aria-expanded', 'false');
+  }
 }

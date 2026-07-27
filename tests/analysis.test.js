@@ -4,6 +4,7 @@ import { runRobustness } from '../src/analysis/robustness.js';
 import { diagnose } from '../src/analysis/diagnose.js';
 import { buildReport, recommendPropRisk } from '../src/analysis/report.js';
 import { createRng } from '../src/engine/rng.js';
+import { tradeStats } from '../src/engine/metrics.js';
 
 describe('journal parsing', () => {
   it('parses a pnl column and computes real stats', () => {
@@ -176,6 +177,30 @@ describe('buildReport', () => {
     expect(r.stats.count).toBe(100);
     // Edge confidence must not be a trivially-certain 100%.
     expect(r.edge.pAboveZero).toBeLessThan(1);
+  });
+
+  it('bounds resampling work while reporting the full journal size', () => {
+    const sample = Array.from({ length: 10_000 }, (_, index) => (index % 3 ? 1 : -1));
+    const stats = tradeStats(sample);
+    const r = buildReport({
+      sample,
+      realStats: stats,
+      winRate: stats.winRate,
+      rr: stats.payoffRatio,
+      risk: 0.005,
+      trades: 500,
+      observedTrades: sample.length,
+      sims: 20,
+      seed: 9,
+    });
+    expect(r.dataQuality).toMatchObject({
+      observedTrades: 10_000,
+      simulationTrades: 500,
+      simulationHorizonCapped: true,
+      statisticalSampleUsed: 2_000,
+      statisticalSampleAvailable: 10_000,
+    });
+    expect(r.stats.count).toBe(10_000);
   });
 });
 

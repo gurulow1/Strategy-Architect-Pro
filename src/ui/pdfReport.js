@@ -413,8 +413,8 @@ function buildPage4(report, lang, pageNum, totalPages) {
           [t('pdf_metric'), t('pdf_value')],
           [
             [t('ei_conf', { p: '' }).replace(':', '').trim(), { value: fmtPct(sl.expectancyCI.pAboveZero, 0), bold: true, align: 'right' }],
-            ['p-value vs 50/50', { value: fmtNum(sl.pValueVsCoin, 3), bold: true, align: 'right',
-              color: sl.pValueVsCoin < 0.05 ? C.good : C.ink }],
+            ['p-value: expectancy ≤ 0', { value: fmtNum(sl.pValueExpectancy ?? sl.pValueVsCoin, 3), bold: true, align: 'right',
+              color: (sl.pValueExpectancy ?? sl.pValueVsCoin) < 0.05 ? C.good : C.ink }],
             ...extraRow,
           ],
           { colWidths: ['70%', '30%'] }

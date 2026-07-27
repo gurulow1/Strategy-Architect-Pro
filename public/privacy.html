@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f2f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#10161b" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="Privacy Policy for Strategy Architect Pro, a local-first trading strategy analytics service.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <title>Privacy Policy — Strategy Architect Pro</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f2f5f7;
+      --surface: #fff;
+      --soft: #eaf1f5;
+      --text: #17212b;
+      --muted: #61717e;
+      --line: rgba(23, 33, 43, .12);
+      --accent: #2481cc;
+      --accent-soft: rgba(36, 129, 204, .11);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #10161b;
+        --surface: #182128;
+        --soft: #202b33;
+        --text: #f2f6f8;
+        --muted: #a8b4bd;
+        --line: rgba(230, 240, 247, .13);
+        --accent: #5eb5f7;
+        --accent-soft: rgba(94, 181, 247, .13);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { min-width: 320px; scroll-behavior: smooth; scroll-padding-top: 88px; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 3px; border-radius: 6px; }
+    .skip {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 20;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: var(--surface);
+      transform: translateY(-150%);
+    }
+    .skip:focus { transform: none; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: var(--bg);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      -webkit-backdrop-filter: blur(22px) saturate(145%);
+      backdrop-filter: blur(22px) saturate(145%);
+    }
+    .topbar-inner, main, .footer-inner { width: min(100% - 40px, 1120px); margin-inline: auto; }
+    .topbar-inner {
+      display: flex;
+      min-height: 68px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .brand {
+      display: inline-flex;
+      min-width: 0;
+      align-items: center;
+      gap: 11px;
+      color: var(--text);
+      font-weight: 750;
+      letter-spacing: -.025em;
+      text-decoration: none;
+    }
+    .brand-mark {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      flex: 0 0 36px;
+      place-items: center;
+      border-radius: 12px;
+      background: var(--accent);
+      box-shadow: 0 6px 18px rgba(36, 129, 204, .22);
+      color: #fff;
+      font-size: 17px;
+    }
+    .topnav { display: flex; align-items: center; gap: 8px; }
+    .topnav a {
+      min-height: 40px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 650;
+      text-decoration: none;
+    }
+    .topnav a:hover, .topnav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+    main { padding-block: clamp(42px, 7vw, 82px) 72px; }
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      max-width: 820px;
+      margin: 0;
+      font-size: clamp(36px, 6vw, 64px);
+      line-height: 1.04;
+      letter-spacing: -.045em;
+    }
+    .lede { max-width: 820px; margin: 22px 0 0; color: var(--muted); font-size: clamp(17px, 2vw, 20px); }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 24px; color: var(--muted); font-size: 14px; }
+    .language-nav {
+      display: inline-flex;
+      gap: 4px;
+      margin-top: 34px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--surface);
+    }
+    .language-nav a {
+      min-width: 92px;
+      padding: 9px 15px;
+      border-radius: 11px;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+    }
+    .language-nav a:hover { background: var(--accent-soft); }
+    .language { margin-top: 68px; }
+    .language-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 18px;
+      border-bottom: 2px solid var(--text);
+    }
+    .language-heading h2 { margin: 0; font-size: clamp(26px, 4vw, 36px); letter-spacing: -.03em; }
+    .language-heading span { color: var(--muted); font-size: 14px; }
+    section { padding-block: 30px; border-bottom: 1px solid var(--line); }
+    section h3 { margin: 0 0 13px; font-size: 21px; letter-spacing: -.018em; }
+    section h4 { margin: 22px 0 8px; font-size: 16px; }
+    section p { max-width: 900px; margin: 0 0 13px; }
+    ul { max-width: 900px; margin: 12px 0 0; padding-left: 23px; }
+    li + li { margin-top: 9px; }
+    .data-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .data-item { padding: 18px; border-radius: 16px; background: var(--soft); }
+    .data-item strong { display: block; margin-bottom: 5px; }
+    .data-item p { margin: 0; color: var(--muted); font-size: 14px; }
+    .notice {
+      max-width: 900px;
+      margin-top: 18px;
+      padding: 17px 19px;
+      border-left: 3px solid var(--accent);
+      border-radius: 4px 15px 15px 4px;
+      background: var(--accent-soft);
+    }
+    footer { border-top: 1px solid var(--line); background: var(--surface); }
+    .footer-inner {
+      display: flex;
+      min-height: 110px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 14px 22px; }
+    @media (max-width: 680px) {
+      .topbar-inner, main, .footer-inner { width: min(100% - 28px, 1120px); }
+      .brand span:last-child { display: none; }
+      .topnav { gap: 2px; }
+      .topnav a { padding-inline: 9px; }
+      .data-grid { grid-template-columns: 1fr; }
+      .language-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .footer-inner { padding-block: 28px; align-items: flex-start; flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-reduced-transparency: reduce) {
+      .topbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/" aria-label="Strategy Architect Pro home">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span>Strategy Architect Pro</span>
+      </a>
+      <nav class="topnav" aria-label="Legal navigation">
+        <a href="/privacy.html" aria-current="page">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/">App</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <p class="eyebrow">Legal · Privacy</p>
+    <h1>Your strategy data should stay yours.</h1>
+    <p class="lede">Strategy Architect Pro is designed as a local-first analytics service. This policy explains the limited cases in which data leaves your device.</p>
+    <div class="meta">
+      <span><strong>Effective:</strong> <time datetime="2026-07-27">2026-07-27</time></span>
+      <span><strong>Operator:</strong> Strategy Architect Pro</span>
+      <span><strong>Privacy contact:</strong> <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0 on Telegram</a></span>
+    </div>
+    <nav class="language-nav" aria-label="Choose language">
+      <a href="#english" lang="en">English</a>
+      <a href="#russian" lang="ru">Русский</a>
+    </nav>
+
+    <article class="language" id="english" lang="en">
+      <div class="language-heading">
+        <h2>Privacy Policy</h2>
+        <span>English version</span>
+      </div>
+
+      <section>
+        <h3>1. Who operates the Service</h3>
+        <p>Strategy Architect Pro (“we”, “us”, or the “Service”) operates the Strategy Architect Pro web application. For privacy questions and requests, contact <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0 on Telegram</a>. Telegram is a separate service and its own privacy terms apply to that conversation.</p>
+        <p>This policy applies to the web application, trial and licence access, AI features, and optional integrations. It does not cover third-party websites that you visit through a link.</p>
+      </section>
+
+      <section>
+        <h3>2. Local-first by design</h3>
+        <p>Your manually uploaded CSV, TSV, or TXT trading journal is read and analysed in your browser. The complete file and its trade rows are not intentionally uploaded to or stored in our application database. Reports, simulations, charts, and your accepted Personal Risk Contract are generated or stored on your device.</p>
+        <p>Known journal formats are parsed locally. If the layout is unknown, the Service shows a separate consent prompt before sending a shortened sample—never more than 8,000 characters—to the AI service for format recognition. Cancelling that prompt keeps the journal local.</p>
+        <div class="notice"><strong>Please minimise data before upload.</strong> Remove names, account numbers, broker credentials, notes about other people, and any information that is not needed for strategy analysis.</div>
+      </section>
+
+      <section>
+        <h3>3. Data we process</h3>
+        <div class="data-grid">
+          <div class="data-item">
+            <strong>Strategy and AI inputs</strong>
+            <p>Derived performance and risk metrics, diagnostics, your AI-chat question, language, and—only after consent—an unknown-format journal sample.</p>
+          </div>
+          <div class="data-item">
+            <strong>Trial and licence</strong>
+            <p>Hashed activation-key reference, licence status and expiry, pseudonymous device identifier, device count, trial identifier, status, and timestamps.</p>
+          </div>
+          <div class="data-item">
+            <strong>Security and quotas</strong>
+            <p>HMAC-derived anti-abuse identifiers, pseudonymous AI usage owner, daily call count, and standard security events. Raw IP address and full user-agent are not written to our application store for trial abuse control.</p>
+          </div>
+          <div class="data-item">
+            <strong>Optional integrations</strong>
+            <p>If enabled and used: Telegram chat ID and temporary linking code; or a MetaTrader account reference and trade snapshot submitted through the integration.</p>
+          </div>
+          <div class="data-item">
+            <strong>Browser storage</strong>
+            <p>Language, theme, a random browser device ID, access token, locally accepted risk contract, and other settings required to restore your session.</p>
+          </div>
+          <div class="data-item">
+            <strong>Support contact</strong>
+            <p>Your Telegram username, messages, and any information you choose to send when requesting support, access, or deletion.</p>
+          </div>
+        </div>
+        <p>Our hosting providers may process connection data such as IP address, request time, browser headers, and server logs to deliver and secure the Service. We do not currently use advertising cookies or third-party behavioural analytics in the application.</p>
+      </section>
+
+      <section>
+        <h3>4. How and why we use data</h3>
+        <ul>
+          <li><strong>Provide the requested service and perform our agreement:</strong> verify access, run analysis, produce AI explanations, and support integrations you enable.</li>
+          <li><strong>Legitimate interests:</strong> protect the Service and licence system, prevent repeated-trial abuse, enforce reasonable quotas, troubleshoot failures, and maintain reliability.</li>
+          <li><strong>Consent:</strong> recognise an unknown journal format with AI after you actively approve the sample transfer. You may decline without losing local journal parsing.</li>
+          <li><strong>Legal obligations:</strong> retain or disclose limited information where applicable law or a valid legal request requires it.</li>
+        </ul>
+        <p>We do not sell personal data or use journal data for targeted advertising. The Service does not make decisions that produce legal or similarly significant effects about you.</p>
+      </section>
+
+      <section>
+        <h3>5. AI processing</h3>
+        <p>When you ask for an AI summary or answer, we send the minimum useful derived metrics, diagnostics, your question, the selected language, and a pseudonymous safety identifier. Raw journal rows are not included by the normal AI-chat flow. Unknown journal samples are sent only through the consent flow described above.</p>
+        <p>AI requests are currently routed through <a href="https://openrouter.ai/privacy" rel="noopener noreferrer">OpenRouter</a> to the selected model provider, currently <a href="https://openai.com/policies/privacy-policy/" rel="noopener noreferrer">OpenAI</a>. We request that the response not be stored for our application by setting <code>store: false</code>. Providers may still process or retain limited data for security, abuse prevention, billing, or legal compliance under their own terms. Do not include secrets or unnecessary personal data in an AI question.</p>
+      </section>
+
+      <section>
+        <h3>6. Cookies and local storage</h3>
+        <p>We use only essential storage needed for access and preferences:</p>
+        <ul>
+          <li><strong><code>sap_trial_device</code>:</strong> signed, HttpOnly trial-binding cookie; expires after one year. It prevents a browser refresh from creating a new trial identity.</li>
+          <li><strong><code>sap_license_device</code>:</strong> signed, HttpOnly licensed-device cookie; expires after 400 days. It recognises an already registered licensed device.</li>
+          <li><strong>Access token:</strong> stored in session or local browser storage; normally expires after 12 hours or, when “remember me” applies, seven days.</li>
+          <li><strong>Preferences and local results:</strong> remain until the application removes them or you clear site data in your browser.</li>
+        </ul>
+        <p>Blocking essential cookies or browser storage may prevent trial or licence access from working. No consent banner is shown because the application does not currently set optional advertising or analytics cookies.</p>
+      </section>
+
+      <section>
+        <h3>7. Service providers and international transfers</h3>
+        <p>The frontend is intended to be delivered through Vercel, while the API and PostgreSQL database are intended to run on Railway. AI features use OpenRouter and OpenAI. Telegram processes support messages and optional notifications. These companies process data under their own terms and may operate in the United States or other countries outside your residence.</p>
+        <p>Cross-border protections depend on the destination, the provider, and applicable law, and may include adequacy decisions or contractual safeguards described by the provider. Their privacy notices are available at <a href="https://vercel.com/legal/privacy-notice" rel="noopener noreferrer">Vercel</a>, <a href="https://railway.com/legal/privacy" rel="noopener noreferrer">Railway</a>, <a href="https://openrouter.ai/privacy" rel="noopener noreferrer">OpenRouter</a>, <a href="https://openai.com/policies/privacy-policy/" rel="noopener noreferrer">OpenAI</a>, and <a href="https://telegram.org/privacy" rel="noopener noreferrer">Telegram</a>.</p>
+      </section>
+
+      <section>
+        <h3>8. Retention and deletion</h3>
+        <p>Local journal data and results remain under your browser’s control and can be removed by clearing the site’s storage. Server records are kept only while reasonably needed for their purpose: licence and device records to administer access; trial and HMAC abuse records to prevent repeated trials; AI counters to enforce quotas and investigate abuse; and security records to protect the Service and handle disputes or legal duties.</p>
+        <p>A Telegram linking code becomes unusable after ten minutes. A Telegram chat mapping remains until you unlink it or request deletion. An optional MetaTrader snapshot may remain until it is replaced or deletion is requested. Hosting logs and backups follow the relevant provider’s retention cycle and may persist for a limited period after deletion from the active database.</p>
+        <p>Except for expiring tokens and linking codes, the Service does not currently promise automatic deletion on a fixed schedule. There is not yet an in-app account deletion control. Request access, correction, unlinking, or deletion through <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0</a>. We may ask for enough information to verify that the request relates to you. Some minimum records may be retained where necessary to prevent fraud, resolve a dispute, or comply with law; we will explain that basis where applicable.</p>
+      </section>
+
+      <section>
+        <h3>9. Your privacy rights</h3>
+        <p>Depending on where you live, you may have rights to be informed, access personal data, correct it, request deletion or restriction, receive portable data, object to certain processing, and withdraw consent. Withdrawal does not invalidate processing that occurred before withdrawal. You may also complain to the data protection authority in your country.</p>
+        <p>Submit a request through <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0</a>. Applicable law determines the scope, exceptions, and response deadline. We do not charge for ordinary requests, but applicable law may permit limits for manifestly unfounded or excessive requests.</p>
+      </section>
+
+      <section>
+        <h3>10. Security, age, and changes</h3>
+        <p>We use measures intended to reduce risk, including HTTPS in production, hashed activation keys, signed access tokens and cookies, pseudonymous identifiers, request limits, restricted origins, and database access controls. No online service is completely secure; keep activation keys private and do not upload broker passwords or API secrets.</p>
+        <p>The Service is for adults aged 18 or older and is not intentionally directed to children. Contact us if you believe a minor has submitted personal data.</p>
+        <p>We may update this policy as the Service or law changes. The effective date at the top will change, and material changes will be presented through the Service where reasonably possible. Earlier processing remains governed by the version effective at that time unless law requires otherwise.</p>
+      </section>
+    </article>
+
+    <article class="language" id="russian" lang="ru">
+      <div class="language-heading">
+        <h2>Политика конфиденциальности</h2>
+        <span>Русская версия</span>
+      </div>
+
+      <section>
+        <h3>1. Кто управляет Сервисом</h3>
+        <p>Веб-приложение Strategy Architect Pro («мы», «нас» или «Сервис») работает под наименованием Strategy Architect Pro. По вопросам конфиденциальности и для направления запросов напишите <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0 в Telegram</a>. Telegram является самостоятельным сервисом, и к переписке применяются его собственные правила конфиденциальности.</p>
+        <p>Политика распространяется на веб-приложение, пробный и лицензионный доступ, функции ИИ и подключаемые интеграции. Она не регулирует сторонние сайты, на которые вы переходите по ссылкам.</p>
+      </section>
+
+      <section>
+        <h3>2. Локальная обработка по умолчанию</h3>
+        <p>Загруженный вручную торговый журнал в формате CSV, TSV или TXT читается и анализируется в вашем браузере. Полный файл и строки сделок намеренно не загружаются и не сохраняются в базе данных приложения. Отчёты, симуляции, графики и принятый вами Персональный риск-контракт создаются либо хранятся на вашем устройстве.</p>
+        <p>Известные форматы разбираются локально. Если структура неизвестна, Сервис показывает отдельный запрос согласия до передачи ИИ сокращённого фрагмента — не более 8&nbsp;000 символов — только для распознавания формата. При отказе журнал остаётся локальным.</p>
+        <div class="notice"><strong>Минимизируйте данные до загрузки.</strong> Удалите имена, номера счетов, реквизиты брокера, сведения о других людях и всё, что не требуется для анализа стратегии.</div>
+      </section>
+
+      <section>
+        <h3>3. Какие данные мы обрабатываем</h3>
+        <div class="data-grid">
+          <div class="data-item">
+            <strong>Данные стратегии и запросы к ИИ</strong>
+            <p>Производные показатели доходности и риска, диагностика, ваш вопрос в ИИ-чате, язык и — только после согласия — фрагмент журнала неизвестного формата.</p>
+          </div>
+          <div class="data-item">
+            <strong>Пробный доступ и лицензия</strong>
+            <p>Хеш ключа активации, статус и срок лицензии, псевдонимный идентификатор устройства, число устройств, идентификатор trial, его статус и временные метки.</p>
+          </div>
+          <div class="data-item">
+            <strong>Безопасность и лимиты</strong>
+            <p>HMAC-идентификаторы защиты от злоупотреблений, псевдонимный владелец лимита ИИ, дневное число обращений и события безопасности. Исходные IP и полный user-agent не записываются в хранилище приложения для контроля trial.</p>
+          </div>
+          <div class="data-item">
+            <strong>Необязательные интеграции</strong>
+            <p>Если включены и используются: Telegram chat ID и временный код привязки либо идентификатор счёта MetaTrader и переданный интеграцией снимок сделок.</p>
+          </div>
+          <div class="data-item">
+            <strong>Хранилище браузера</strong>
+            <p>Язык, тема, случайный идентификатор браузера, токен доступа, локально принятый риск-контракт и настройки, необходимые для восстановления сессии.</p>
+          </div>
+          <div class="data-item">
+            <strong>Обращения в поддержку</strong>
+            <p>Ваш Telegram username, сообщения и сведения, которые вы сами передадите при запросе поддержки, доступа или удаления.</p>
+          </div>
+        </div>
+        <p>Хостинг-провайдеры могут обрабатывать данные соединения — IP, время запроса, заголовки браузера и серверные журналы — для доставки и защиты Сервиса. В приложении сейчас нет рекламных cookie и сторонней поведенческой аналитики.</p>
+      </section>
+
+      <section>
+        <h3>4. Цели и основания обработки</h3>
+        <ul>
+          <li><strong>Предоставление запрошенной услуги и исполнение соглашения:</strong> проверка доступа, анализ, формирование пояснений ИИ и работа включённых вами интеграций.</li>
+          <li><strong>Законные интересы:</strong> защита Сервиса и лицензий, предотвращение повторного использования trial, разумные лимиты, диагностика сбоев и поддержание надёжности.</li>
+          <li><strong>Согласие:</strong> распознавание неизвестного формата журнала с помощью ИИ после вашего активного подтверждения. Отказ не отключает локальный разбор журнала.</li>
+          <li><strong>Требования закона:</strong> ограниченное хранение или раскрытие, если этого требует применимый закон или надлежащий обязательный запрос.</li>
+        </ul>
+        <p>Мы не продаём персональные данные и не используем журнал для таргетированной рекламы. Сервис не принимает решений, которые создают для вас юридические или сопоставимые существенные последствия.</p>
+      </section>
+
+      <section>
+        <h3>5. Обработка с помощью ИИ</h3>
+        <p>Для ИИ-резюме или ответа передаются минимально необходимые производные метрики, диагностика, ваш вопрос, выбранный язык и псевдонимный идентификатор безопасности. Обычный ИИ-чат не включает исходные строки журнала. Фрагмент неизвестного журнала передаётся только через описанный выше экран согласия.</p>
+        <p>Сейчас запросы направляются через <a href="https://openrouter.ai/privacy" rel="noopener noreferrer">OpenRouter</a> выбранному поставщику модели — в настоящее время <a href="https://openai.com/policies/privacy-policy/" rel="noopener noreferrer">OpenAI</a>. В запросе мы указываем <code>store: false</code>, чтобы ответ не сохранялся для нашего приложения. При этом провайдеры могут ограниченно обрабатывать или хранить данные для безопасности, предотвращения злоупотреблений, биллинга или исполнения закона на условиях собственных документов. Не передавайте ИИ секреты и избыточные персональные данные.</p>
+      </section>
+
+      <section>
+        <h3>6. Cookie и локальное хранилище</h3>
+        <p>Используется только обязательное хранилище для доступа и настроек:</p>
+        <ul>
+          <li><strong><code>sap_trial_device</code>:</strong> подписанный HttpOnly cookie для привязки trial; срок — один год. Он не позволяет обновлению браузера создать новую trial-идентичность.</li>
+          <li><strong><code>sap_license_device</code>:</strong> подписанный HttpOnly cookie лицензированного устройства; срок — 400 дней. Он распознаёт уже зарегистрированное устройство.</li>
+          <li><strong>Токен доступа:</strong> хранится в сессионном или постоянном хранилище браузера; обычно истекает через 12 часов либо через семь дней при сохранении входа.</li>
+          <li><strong>Настройки и локальные результаты:</strong> остаются до удаления приложением либо очистки данных сайта в браузере.</li>
+        </ul>
+        <p>Блокировка обязательных cookie или хранилища может нарушить trial или лицензионный доступ. Баннер согласия не показывается, поскольку приложение сейчас не устанавливает необязательные рекламные или аналитические cookie.</p>
+      </section>
+
+      <section>
+        <h3>7. Поставщики и международная передача</h3>
+        <p>Frontend предполагается размещать на Vercel, а API и PostgreSQL — на Railway. ИИ-функции используют OpenRouter и OpenAI. Telegram обрабатывает обращения в поддержку и необязательные уведомления. Эти компании действуют по собственным правилам и могут обрабатывать данные в США и других странах за пределами вашего места жительства.</p>
+        <p>Гарантии трансграничной передачи зависят от страны назначения, поставщика и применимого права и могут включать решения об адекватности либо договорные механизмы, описанные поставщиком. Ознакомьтесь с документами <a href="https://vercel.com/legal/privacy-notice" rel="noopener noreferrer">Vercel</a>, <a href="https://railway.com/legal/privacy" rel="noopener noreferrer">Railway</a>, <a href="https://openrouter.ai/privacy" rel="noopener noreferrer">OpenRouter</a>, <a href="https://openai.com/policies/privacy-policy/" rel="noopener noreferrer">OpenAI</a> и <a href="https://telegram.org/privacy" rel="noopener noreferrer">Telegram</a>.</p>
+      </section>
+
+      <section>
+        <h3>8. Сроки хранения и удаление</h3>
+        <p>Локальный журнал и результаты находятся под контролем браузера и удаляются очисткой данных сайта. Серверные записи хранятся лишь пока это обоснованно требуется для цели: сведения о лицензии и устройствах — для управления доступом; trial и HMAC-идентификаторы — для предотвращения повторного trial; счётчики ИИ — для лимитов и расследования злоупотреблений; события безопасности — для защиты Сервиса, споров и юридических обязанностей.</p>
+        <p>Код привязки Telegram становится недействительным через десять минут. Связь с Telegram chat ID сохраняется до отвязки или запроса удаления. Необязательный снимок MetaTrader может сохраняться до замены или запроса удаления. Журналы и резервные копии хостинга следуют циклу хранения соответствующего провайдера и могут ограниченное время сохраняться после удаления из активной базы.</p>
+        <p>Кроме истекающих токенов и кодов привязки, Сервис сейчас не обещает автоматическое удаление по фиксированному графику. Самостоятельного удаления аккаунта в интерфейсе пока нет. Запросите доступ, исправление, отвязку или удаление через <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0</a>. Мы можем запросить данные, достаточные для подтверждения связи запроса с вами. Минимальная запись может быть сохранена, если это необходимо для предотвращения мошенничества, разрешения спора или исполнения закона; где применимо, мы сообщим основание.</p>
+      </section>
+
+      <section>
+        <h3>9. Ваши права</h3>
+        <p>В зависимости от места жительства вы можете иметь право знать об обработке, получить доступ к данным, исправить их, потребовать удаления или ограничения, получить переносимую копию, возразить против отдельных видов обработки и отозвать согласие. Отзыв не отменяет законность обработки до момента отзыва. Также можно обратиться с жалобой в орган по защите данных своей страны.</p>
+        <p>Направьте запрос через <a href="https://t.me/djordano0" rel="noopener noreferrer">@djordano0</a>. Объём прав, исключения и срок ответа определяются применимым законодательством. Обычные запросы бесплатны, однако закон может допускать ограничения для явно необоснованных или чрезмерных обращений.</p>
+      </section>
+
+      <section>
+        <h3>10. Безопасность, возраст и изменения</h3>
+        <p>Мы применяем меры, направленные на снижение рисков: HTTPS в production, хеширование ключей активации, подписанные токены и cookie, псевдонимные идентификаторы, лимиты запросов, ограниченные origins и контроль доступа к базе. Ни один онлайн-сервис не абсолютно безопасен: храните ключ активации в секрете и не загружайте пароли брокера или API-ключи.</p>
+        <p>Сервис предназначен для совершеннолетних пользователей от 18 лет и сознательно не ориентирован на детей. Сообщите нам, если считаете, что несовершеннолетний передал персональные данные.</p>
+        <p>Политика может меняться вместе с Сервисом или законодательством. Дата сверху будет обновлена, а существенные изменения по возможности будут показаны в Сервисе. Ранее выполненная обработка регулируется действовавшей на тот момент версией, если закон не требует иного.</p>
+      </section>
+    </article>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <span>© 2026 Strategy Architect Pro</span>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="/">Back to app</a>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="https://t.me/djordano0" rel="noopener noreferrer">Contact</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!--
+    Drafting references (not a certification or legal-compliance claim):
+    GDPR: https://eur-lex.europa.eu/eli/reg/2016/679/oj
+    EU data rights: https://commission.europa.eu/law/law-topic/data-protection/reform/rights-citizens/
+    Provider notices: https://openrouter.ai/privacy and https://openai.com/policies/privacy-policy/
+  -->
+</body>
+</html>

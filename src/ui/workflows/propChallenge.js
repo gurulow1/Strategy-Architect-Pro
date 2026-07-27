@@ -10,6 +10,7 @@ import { renderPropLadder } from '../charts.js';
 import { createPropCoachCard } from '../aiComponents.js';
 import { callAI } from '../../services/aiClient.js';
 import { diagnostics } from '../../engine/diagnostics.js';
+import { completeTrial } from '../auth.js';
 
 export function mountProp(container) {
   const presetOptions = Object.entries(PROP_PRESETS)
@@ -118,6 +119,7 @@ function run(container) {
       <section class="card panel wide"><h3 data-i18n="prop_ladder"></h3>
         <div class="chart-wrap tall"><canvas id="c-ladder"></canvas></div></section>`;
     renderPropLadder('c-ladder', ladder, rec.risk);
+    completeTrial().catch(() => {});
     // re-apply data-i18n on freshly injected nodes
     results.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.getAttribute('data-i18n')); });
     collapseInputsOnMobile(container);

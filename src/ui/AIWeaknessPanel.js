@@ -6,6 +6,7 @@
 
 import { callAI } from '../services/aiClient.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './safeDom.js';
 
 const SEV_ORDER = { critical: 0, warning: 1, info: 2 };
 
@@ -59,12 +60,12 @@ export function createAIWeaknessPanel(container) {
 
       // Evidence rendered as a bullet list using existing .diag-col ul/li styles.
       card.innerHTML = `
-        <strong>${f.type}</strong>
-        <p class="small">${f.description}</p>
+        <strong>${escapeHtml(f.type)}</strong>
+        <p class="small">${escapeHtml(f.description)}</p>
         <div class="diag-col muted">
-          <ul><li class="small">${f.evidence}</li></ul>
+          <ul><li class="small">${escapeHtml(f.evidence)}</li></ul>
         </div>
-        <p class="small"><em>&rarr;&nbsp;${f.action}</em></p>`;
+        <p class="small"><em>&rarr;&nbsp;${escapeHtml(f.action)}</em></p>`;
 
       wrap.appendChild(card);
     }

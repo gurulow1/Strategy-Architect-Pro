@@ -3,7 +3,8 @@
 // configured. Presentation only — all state lives server-side.
 
 import { t } from './i18n.js';
-import { apiPost, getIntegrations, accountKey } from '../services/serverApi.js';
+import { apiPost, getIntegrations } from '../services/serverApi.js';
+import { safeExternalUrl } from './safeDom.js';
 
 export function createTelegramPanel(container) {
   let botUsername = null;
@@ -49,14 +50,41 @@ export function createTelegramPanel(container) {
     container.querySelector('#tg-unlink').hidden = !linked;
   }
 
-  function msg(html, cls = 'muted') {
+  function msg(message, cls = 'muted') {
     const el = container.querySelector('#tg-msg');
-    if (el) { el.className = `tg-msg small ${cls}`; el.innerHTML = html; }
+    if (el) { el.className = `tg-msg small ${cls}`; el.textContent = String(message ?? ''); }
+  }
+
+  function showConnectInstructions(code) {
+    const el = container.querySelector('#tg-msg');
+    if (!el) return;
+    el.className = 'tg-msg small muted';
+    el.textContent = `${t('tg_modal_instr')} `;
+
+    const cmd = document.createElement('code');
+    cmd.textContent = `/start ${String(code ?? '')}`;
+    el.appendChild(cmd);
+
+    const username = String(botUsername ?? '').trim();
+    if (!/^[A-Za-z0-9_]{5,32}$/.test(username)) return;
+    const url = new URL(`https://t.me/${username}`);
+    url.searchParams.set('start', String(code ?? ''));
+    const deepLink = safeExternalUrl(url.href, { allowedHosts: ['t.me'] });
+    if (!deepLink) return;
+
+    el.appendChild(document.createElement('br'));
+    const link = document.createElement('a');
+    link.className = 'link';
+    link.href = deepLink;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = t('tg_open_bot');
+    el.appendChild(link);
   }
 
   async function refreshStatus() {
     try {
-      const { linked } = await apiPost('/api/telegram/status', { licenseKey: accountKey() });
+      const { linked } = await apiPost('/api/telegram/status');
       setStatus(Boolean(linked));
     } catch (_) { setStatus(false); }
   }
@@ -65,15 +93,10 @@ export function createTelegramPanel(container) {
     msg(t('tg_modal_waiting'));
     let code;
     try {
-      ({ code } = await apiPost('/api/telegram/generate-code', { licenseKey: accountKey() }));
+      ({ code } = await apiPost('/api/telegram/generate-code'));
     } catch (err) { msg(err.message, 'bad'); return; }
 
-    const deepLink = botUsername ? `https://t.me/${botUsername}?start=${code}` : null;
-    const cmd = `/start ${code}`;
-    msg(
-      `${t('tg_modal_instr')} <code>${cmd}</code>`
-      + (deepLink ? `<br><a class="link" href="${deepLink}" target="_blank" rel="noopener">${t('tg_open_bot')}</a>` : ''),
-    );
+    showConnectInstructions(code);
 
     // Poll for confirmation for ~60s.
     let elapsed = 0;
@@ -81,7 +104,7 @@ export function createTelegramPanel(container) {
     pollTimer = setInterval(async () => {
       elapsed += 3;
       try {
-        const { linked } = await apiPost('/api/telegram/status', { licenseKey: accountKey() });
+        const { linked } = await apiPost('/api/telegram/status');
         if (linked) { clearInterval(pollTimer); setStatus(true); msg(t('tg_connected'), 'good'); return; }
       } catch (_) { /* keep polling */ }
       if (elapsed >= 60) { clearInterval(pollTimer); msg(t('tg_modal_timeout'), 'warn'); }
@@ -89,13 +112,13 @@ export function createTelegramPanel(container) {
   }
 
   async function test() {
-    try { await apiPost('/api/telegram/test', { licenseKey: accountKey() }); msg(t('tg_test_sent'), 'good'); }
+    try { await apiPost('/api/telegram/test'); msg(t('tg_test_sent'), 'good'); }
     catch (err) { msg(err.message, 'bad'); }
   }
 
   async function unlink() {
     clearInterval(pollTimer);
-    try { await apiPost('/api/telegram/unlink', { licenseKey: accountKey() }); } catch (_) { /* ignore */ }
+    try { await apiPost('/api/telegram/unlink'); } catch (_) { /* ignore */ }
     setStatus(false);
     msg('');
   }

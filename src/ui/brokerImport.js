@@ -2,12 +2,13 @@
 // Collapsible; four tabs (Binance / Bybit / MetaTrader / cTrader). All broker
 // calls go through the backend (keys never touch the browser network logs).
 // On success it hands normalized trades — { date, pnl, r, direction, symbol } —
-// to the same `onTrades` pipeline that the CSV/XLSX parser feeds.
+// to the same `onTrades` pipeline that the local journal parser feeds.
 //
 // Presentation only: business logic lives on the server connectors.
 
 import { t } from './i18n.js';
 import { apiPost, apiGet, getIntegrations, API_BASE } from '../services/serverApi.js';
+import { escapeHtml, safeExternalUrl } from './safeDom.js';
 
 const TABS = ['binance', 'bybit', 'metatrader', 'ctrader'];
 const TAB_LABEL = { binance: 'Binance', bybit: 'Bybit', metatrader: 'MetaTrader', ctrader: 'cTrader' };
@@ -61,9 +62,9 @@ export function createBrokerImport(container, onTrades) {
     if (ctraderToken) { active = 'ctrader'; toggle.click(); }
   }
 
-  function setMsg(html, cls = 'muted') {
+  function setMsg(message, cls = 'muted') {
     const el = container.querySelector('#bi-msg');
-    if (el) { el.className = `broker-msg small ${cls}`; el.innerHTML = html; }
+    if (el) { el.className = `broker-msg small ${cls}`; el.textContent = String(message ?? ''); }
   }
 
   function daysOptions() {
@@ -110,7 +111,7 @@ export function createBrokerImport(container, onTrades) {
       // Show the push URL + token the user must paste into the EA.
       apiGet('/api/broker/mt/info').then((info) => {
         const cfg = container.querySelector('#bi-mt-cfg');
-        if (cfg) cfg.innerHTML = `Server URL: <code>${info.pushUrl}</code><br>Token: <code>${info.token || '—'}</code>`;
+        if (cfg) cfg.innerHTML = `Server URL: <code>${escapeHtml(info.pushUrl)}</code><br>Token: <code>${escapeHtml(info.token || '—')}</code>`;
       }).catch(() => {});
       return;
     }
@@ -169,7 +170,9 @@ export function createBrokerImport(container, onTrades) {
   async function startCTraderOAuth() {
     try {
       const { authUrl } = await apiGet('/api/broker/ctrader/auth');
-      if (authUrl) window.open(authUrl, '_blank', 'noopener');
+      const safeUrl = safeExternalUrl(authUrl, { allowedHosts: ['connect.ctrader.com'] });
+      if (safeUrl) window.open(safeUrl, '_blank', 'noopener');
+      else setMsg(t('broker_unavailable'), 'bad');
     } catch (err) { setMsg(t('broker_error', { msg: err.message }), 'bad'); }
   }
 

@@ -7,6 +7,7 @@
 
 import { mean } from '../engine/stats.js';
 import { tradeStats } from '../engine/metrics.js';
+import { parseTradeDate } from './temporal.js';
 
 // Per-trade outcome in native units: prefer currency PnL, fall back to R.
 // (An explicit-R journal may carry r but null pnl.)
@@ -68,8 +69,8 @@ export function analyzePsychology(trades) {
   for (let i = 0; i < list.length; i++) {
     const raw = list[i].date;
     if (!raw) continue;
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) continue;
+    const d = parseTradeDate(raw);
+    if (!d) continue;
     const hour = d.getHours();
     if (!byHour.has(hour)) byHour.set(hour, []);
     byHour.get(hour).push(values[i]);

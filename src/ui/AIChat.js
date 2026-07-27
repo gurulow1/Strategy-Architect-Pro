@@ -4,7 +4,7 @@
 //   between open/close sessions (stored in closure vars panelW/panelH).
 //
 // Navigation: when the AI response includes a `navigation` field
-//   { tab, highlight }, a "📍 Go to …" pill appears.  Clicking it calls
+//   { tab, highlight }, a contextual navigation pill appears. Clicking it calls
 //   window.__sap_navigateTo(tab, elementId), which is registered by app.js.
 //
 // Only structural/positional inline styles are used; decorative classes come
@@ -12,6 +12,22 @@
 
 import { callAI } from '../services/aiClient.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './safeDom.js';
+
+const NAV_TABS = new Set(['quick', 'journal', 'robustness', 'prop', 'calc']);
+const NAV_HIGHLIGHTS = new Set([
+  'qc-winrate', 'qc-rr', 'qc-risk', 'qc-cost', 'qc-capital', 'qc-trades',
+  'kpi-expectancy', 'kpi-pf', 'kpi-ruin', 'kpi-dd', 'kpi-pop', 'kpi-kelly', 'kpi-sig',
+  'pp-daily', 'pp-max', 'pp-target',
+]);
+
+function safeNavigation(nav) {
+  if (!nav || !NAV_TABS.has(nav.tab)) return null;
+  return {
+    tab: nav.tab,
+    highlight: NAV_HIGHLIGHTS.has(nav.highlight) ? nav.highlight : null,
+  };
+}
 
 // ── One-time style injection ──────────────────────────────────────────────────
 function injectStyles() {
@@ -20,10 +36,10 @@ function injectStyles() {
   s.id = 'ai-chat-styles';
   s.textContent = `
     @keyframes sap-ai-flash {
-      0%   { outline: 2px solid transparent;          background-color: transparent; }
-      20%  { outline: 2px solid rgba(99,102,241,.65); background-color: rgba(99,102,241,.12); }
-      80%  { outline: 2px solid rgba(99,102,241,.65); background-color: rgba(99,102,241,.12); }
-      100% { outline: 2px solid transparent;          background-color: transparent; }
+      0%   { outline: 2px solid transparent; background-color: transparent; }
+      20%  { outline: 2px solid var(--accent); background-color: var(--accent-subtle); }
+      80%  { outline: 2px solid var(--accent); background-color: var(--accent-subtle); }
+      100% { outline: 2px solid transparent; background-color: transparent; }
     }
     .ai-highlight { animation: sap-ai-flash 2.2s ease forwards; border-radius: 6px; }
 
@@ -31,10 +47,10 @@ function injectStyles() {
       display: inline-flex; align-items: center; gap: 5px;
       margin-top: 8px; padding: 4px 11px;
       border: 1px solid var(--line); border-radius: 20px;
-      background: rgba(99,102,241,.08); color: var(--text);
+      background: var(--accent-subtle); color: var(--text);
       font-size: .75rem; cursor: pointer; transition: background .15s;
     }
-    .ai-nav-btn:hover { background: rgba(99,102,241,.2); }
+    .ai-nav-btn:hover { color: var(--accent); }
 
     #ai-resize-handle {
       position: absolute; top: 0; left: 0;
@@ -119,6 +135,8 @@ export function createAIChat() {
   trigger.className = 'btn-primary';
   trigger.id = 'ai-chat-trigger';
   trigger.textContent = t('ai_trigger');
+  trigger.setAttribute('aria-label', t('ai_trigger'));
+  trigger.title = t('ai_trigger');
   trigger.style.cssText = [
     'position:fixed', 'bottom:20px', 'right:16px',
     'width:auto', 'padding:10px 18px', 'z-index:1000',
@@ -151,7 +169,7 @@ export function createAIChat() {
     hintEl.style.opacity = '0';
     setTimeout(() => {
       if (isOpen) return;
-      hintEl.textContent = '💬 ' + hints[hintIdx % hints.length];
+      hintEl.textContent = hints[hintIdx % hints.length];
       hintEl.style.opacity = '1';
       hintIdx++;
       setTimeout(() => { hintEl.style.opacity = '0'; }, 3500);
@@ -345,17 +363,17 @@ export function createAIChat() {
     scrollBottom();
     setLoading(true);
 
-    const { metrics, tradeHistory, diagnostics } = window.__sap_currentAnalysis || {};
+    const { metrics, diagnostics } = window.__sap_currentAnalysis || {};
 
     try {
-      const data = await callAI('answerQuestion', { question, metrics, tradeHistory, diagnostics });
+      const data = await callAI('answerQuestion', { question, metrics, diagnostics });
       const aiMsg = {
         role:       'ai',
         text:       data.answer,
         evidence:   data.evidence,
         confidence: data.confidence,
         caveat:     data.caveat,
-        navigation: data.navigation || null,
+        navigation: safeNavigation(data.navigation),
       };
       messages.push(aiMsg);
       appendMessage(aiMsg);
@@ -402,22 +420,22 @@ export function createAIChat() {
         : 'badge muted';
 
       const confidenceHtml = msg.confidence
-        ? `<span class="${badgeCls}">${confMap[msg.confidence] || msg.confidence}</span> `
+        ? `<span class="${badgeCls}">${escapeHtml(confMap[msg.confidence] || msg.confidence)}</span> `
         : '';
 
       const evidenceHtml = Array.isArray(msg.evidence) && msg.evidence.length
         ? `<div class="diag-col muted" style="margin-top:6px;"><ul>${
-            msg.evidence.map(e => `<li class="small">${e}</li>`).join('')
+            msg.evidence.map((e) => `<li class="small">${escapeHtml(e)}</li>`).join('')
           }</ul></div>`
         : '';
 
       const caveatHtml = msg.caveat
-        ? `<div class="small muted" style="margin-top:4px;"><em>${msg.caveat}</em></div>`
+        ? `<div class="small muted" style="margin-top:4px;"><em>${escapeHtml(msg.caveat)}</em></div>`
         : '';
 
       el.innerHTML = `
         <div class="small muted" style="margin-bottom:4px;">${confidenceHtml}</div>
-        <div class="small">${msg.text}</div>
+        <div class="small">${escapeHtml(msg.text)}</div>
         ${evidenceHtml}
         ${caveatHtml}
         ${buildNavHtml(msg.navigation)}`;
@@ -444,7 +462,7 @@ export function createAIChat() {
     const tabLabel       = getTabLabel(nav.tab);
     const highlightLabel = nav.highlight ? getHighlightLabel(nav.highlight) : null;
     const suffix = highlightLabel ? ` → ${highlightLabel}` : '';
-    return `<button class="ai-nav-btn">📍 ${tabLabel}${suffix}</button>`;
+    return `<button class="ai-nav-btn">${escapeHtml(tabLabel)}${escapeHtml(suffix)}</button>`;
   }
 
   function scrollBottom() {

@@ -5,6 +5,7 @@ import { slider, select, wireSliders, num, val, makeInputsCollapsible, collapseI
 import { state, setStrategy } from '../state.js';
 import { buildReport } from '../../analysis/report.js';
 import { renderReport } from '../results.js';
+import { completeTrial } from '../auth.js';
 
 const KELLY_OPTS = [
   { value: 'full', labelKey: 'kelly_full' },
@@ -87,6 +88,7 @@ export function mountQuickCheck(container) {
       state.lastReport = report;
       renderReport(report, results);
       window.__sap_refreshRisk?.();
+      if (!isDemo) completeTrial().catch(() => {});
 
       if (isDemo) {
         const banner = document.createElement('div');

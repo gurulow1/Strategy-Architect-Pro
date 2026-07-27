@@ -16,6 +16,17 @@ import { analyzeDirectionBias, analyzeInstrumentBias, analyzeDayOfWeekBias } fro
 import { analyzeSkillVsLuck } from './skillLuck.js';
 import { analyzePsychology } from './psychology.js';
 
+const MAX_STATISTICAL_SAMPLE = 2_000;
+
+function boundedStatisticalSample(sample) {
+  if (!Array.isArray(sample) || sample.length <= MAX_STATISTICAL_SAMPLE) return sample;
+  const step = sample.length / MAX_STATISTICAL_SAMPLE;
+  return Array.from(
+    { length: MAX_STATISTICAL_SAMPLE },
+    (_, index) => sample[Math.min(sample.length - 1, Math.floor((index + 0.5) * step))],
+  );
+}
+
 // Summarize a finished simulation into UI-ready metrics.
 function summarizeSim(res, ruinThreshold) {
   return {
@@ -96,12 +107,15 @@ export function buildReport(input) {
     // How the journal sample was derived: 'explicit' R column vs PnL 'normalized'
     // to R. When normalized, per-trade values read more honestly in currency.
     rBasis = null,
+    observedTrades = null,
   } = input;
 
   const rng = createRng(seed >>> 0);
   const spec = {
     capital, trades, sims, risk, costPerTrade: cost,
     winRate, rr, sample,
+    collectRealizedR: !realStats,
+    observedTrades,
   };
   const res = simulate(spec, rng);
 
@@ -140,7 +154,8 @@ export function buildReport(input) {
   // actual trades. For a parametric spec, bootstrap a SINGLE representative path
   // of `trades` trades — so confidence honestly reflects the planned sample size,
   // not the millions of trades simulated across all paths.
-  const edgeSample = sample && sample.length ? sample : res.realizedR.slice(0, trades);
+  const completeEdgeSample = sample && sample.length ? sample : res.realizedR.slice(0, trades);
+  const edgeSample = boundedStatisticalSample(completeEdgeSample);
   const edge = bootstrapMeanCI(edgeSample, createRng((seed >>> 0) + 2), { iterations: 1500 });
 
   // ── Edge Integrity — only from a REAL journal with enough trades. ───────────
@@ -157,7 +172,9 @@ export function buildReport(input) {
       instrument: analyzeInstrumentBias(tradeRecords),
       dayOfWeek: analyzeDayOfWeekBias(tradeRecords),
     };
-    skillLuck = analyzeSkillVsLuck(edgeSample, stats, (seed >>> 0) + 3);
+    skillLuck = analyzeSkillVsLuck(edgeSample, stats, (seed >>> 0) + 3, {
+      reportedSampleSize: completeEdgeSample.length,
+    });
     psychology = analyzePsychology(tradeRecords);
   }
 
@@ -183,6 +200,13 @@ export function buildReport(input) {
     currencySymbol: '$',
     // Server-side actions the client may fire (e.g. Telegram alert on degradation).
     alerts: temporal?.degrading ? ['degradation'] : [],
+    dataQuality: {
+      observedTrades: Number.isInteger(observedTrades) ? observedTrades : stats.count,
+      simulationTrades: trades,
+      simulationHorizonCapped: Number.isInteger(observedTrades) && observedTrades > trades,
+      statisticalSampleUsed: edgeSample.length,
+      statisticalSampleAvailable: completeEdgeSample.length,
+    },
   };
 }
 
@@ -199,10 +223,11 @@ export function recommendPropRisk(base, rules, { seed = 1, sims = 1500, riskLeve
         capital: rules.capital, trades: base.trades, sims, risk,
         costPerTrade: base.cost, winRate: base.winRate, rr: base.rr,
         sample: base.sample || null, tradesPerDay,
+        collectRealizedR: false, collectBandCurves: false,
       },
       rng,
     );
-    const ev = evaluatePropChallenge(res.dailyCurves, rules);
+    const ev = evaluatePropChallenge(res.intradayCurves, rules);
     return { risk, ...ev };
   });
 

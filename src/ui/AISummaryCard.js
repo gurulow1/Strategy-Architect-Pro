@@ -9,6 +9,7 @@
 
 import { callAI } from '../services/aiClient.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './safeDom.js';
 
 // Map AI verdict keys → existing CSS color classes + i18n label keys.
 const VERDICT_CLS = { strong: 'good', fragile: 'warn', weak: 'bad', no_edge: 'bad' };
@@ -47,11 +48,11 @@ export function createAISummaryCard(container) {
     const label = VERDICT_LABEL_KEY[data.verdict] ? t(VERDICT_LABEL_KEY[data.verdict]) : data.verdict;
 
     const mkList = (items) => Array.isArray(items) && items.length
-      ? `<ul>${items.map(s => `<li>${s}</li>`).join('')}</ul>`
+      ? `<ul>${items.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`
       : `<ul><li class="muted">${t('ai_none')}</li></ul>`;
 
     const sampleWarnHtml = data.sample_warning
-      ? `<div class="small warn">${data.sample_warning}</div><div class="divider"></div>`
+      ? `<div class="small warn">${escapeHtml(data.sample_warning)}</div><div class="divider"></div>`
       : '';
 
     // The card element — reuses .card .verdict .{cls} exactly like results.js.
@@ -60,8 +61,8 @@ export function createAISummaryCard(container) {
     card.innerHTML = `
       <div class="verdict-main" id="ai-sc-hdr">
         <div>
-          <div class="verdict-grade ${cls}">${label} &mdash; ${t('ai_headline')}</div>
-          <div class="verdict-sub">${data.headline}</div>
+          <div class="verdict-grade ${cls}">${escapeHtml(label)} &mdash; ${t('ai_headline')}</div>
+          <div class="verdict-sub">${escapeHtml(data.headline)}</div>
         </div>
         <span class="muted small" id="ai-sc-toggle" aria-hidden="true">&#9650;</span>
       </div>
@@ -77,11 +78,11 @@ export function createAISummaryCard(container) {
           </div>
           <div class="diag-col risk">
             <h4>${t('ai_biggest_risk')}</h4>
-            <p class="small">${data.biggest_risk}</p>
+            <p class="small">${escapeHtml(data.biggest_risk)}</p>
           </div>
           <div class="diag-col action">
             <h4>${t('ai_recommended_action')}</h4>
-            <p class="small">${data.recommended_action}</p>
+            <p class="small">${escapeHtml(data.recommended_action)}</p>
           </div>
         </div>
         ${sampleWarnHtml}
@@ -117,7 +118,7 @@ export function createAISummaryCard(container) {
         <div class="verdict-main">
           <div>
             <div class="verdict-grade bad">${t('ai_unavailable')}</div>
-            <div class="verdict-sub">${message}</div>
+            <div class="verdict-sub">${escapeHtml(message)}</div>
           </div>
         </div>
       </div>`;

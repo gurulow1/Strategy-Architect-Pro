@@ -13,6 +13,57 @@ import { simulate } from '../../engine/simulate.js';
 import { createRng } from '../../engine/rng.js';
 import { riskOfRuin } from '../../engine/riskOfRuin.js';
 import { mean, median, percentile } from '../../engine/stats.js';
+import { buildRiskContract } from '../../analysis/riskContract.js';
+
+const RISK_CONTRACT_KEY = 'sap_risk_contract_v1';
+const CONFIDENCE_LEVELS = new Set(['low', 'medium', 'high']);
+const PAUSE_REASONS = new Set(['non_positive_expectancy', 'high_ruin', 'insufficient_data']);
+
+function validStoredContract(contract) {
+  return contract?.version === 1
+    && CONFIDENCE_LEVELS.has(contract.confidence)
+    && typeof contract.hardPause === 'boolean'
+    && Array.isArray(contract.hardPauseReasons)
+    && contract.hardPauseReasons.every((reason) => PAUSE_REASONS.has(reason))
+    && ['maxRiskPerTrade', 'dailyStop', 'weeklyStop', 'drawdownReview']
+      .every((key) => Number.isFinite(contract[key]) && contract[key] >= 0)
+    && Number.isInteger(contract.pauseAfterLosses)
+    && contract.pauseAfterLosses >= 1;
+}
+
+function loadRiskContract() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(RISK_CONTRACT_KEY));
+    return validStoredContract(stored?.contract) ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveRiskContract(contract) {
+  try {
+    localStorage.setItem(RISK_CONTRACT_KEY, JSON.stringify({
+      contract,
+      acceptedAt: new Date().toISOString(),
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeRiskContract() {
+  try {
+    localStorage.removeItem(RISK_CONTRACT_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function sameContract(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 // Always sweep 0.25% → 3% in 8 equal steps. This is the PRACTICAL trading range;
 // Kelly may sit above it (a high-edge strategy can recommend 10%+), in which case
@@ -49,18 +100,20 @@ function render(container) {
 
 // ── Placeholder (no analysis loaded) ─────────────────────────────────────────
 function renderPlaceholder(container) {
+  const stored = loadRiskContract();
   container.innerHTML = `
     <div class="workflow">
       <div class="wf-head">
         <h2>${t('risk_panel_title')}</h2>
         <p class="muted">${t('risk_panel_desc')}</p>
       </div>
-      <div class="card pad" style="margin-top:40px;padding:60px 40px;text-align:center;">
-        <div style="font-size:48px;margin-bottom:16px;">📊</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:8px;">${t('risk_panel_no_data')}</div>
-        <div class="muted small">${t('risk_panel_no_data_sub')}</div>
+      ${stored ? renderRiskContractBlock(null, stored) : ''}
+      <div class="empty-state card pad">
+        <div class="empty-state-title">${t('risk_panel_no_data')}</div>
+        <div class="empty-state-sub muted">${t('risk_panel_no_data_sub')}</div>
       </div>
     </div>`;
+  wireRiskContractActions(container, null);
 }
 
 // ── BLOC A — strategy summary header ─────────────────────────────────────────
@@ -113,6 +166,8 @@ function precomputeSensitivity(report, levels) {
     sample: spec.sample || null,
     winRate: report.effWinRate,
     rr: report.effRr,
+    collectRealizedR: false,
+    collectBandCurves: false,
   };
 
   return levels.map((risk, i) => {
@@ -128,19 +183,21 @@ function precomputeSensitivity(report, levels) {
   });
 }
 
-function renderSensitivityBlock(levels, kellyRisk) {
+function renderSensitivityBlock(levels, kellyRisk, defaultRisk = kellyRisk) {
   // Index of the level closest to the Kelly-recommended risk.
   const kellyIdx = levels.reduce((best, l, i) =>
     (Math.abs(l.risk - kellyRisk) < Math.abs(levels[best].risk - kellyRisk) ? i : best), 0);
+  const selectedIdx = levels.reduce((best, l, i) =>
+    (Math.abs(l.risk - defaultRisk) < Math.abs(levels[best].risk - defaultRisk) ? i : best), 0);
 
   const sliderHtml = `
     <div class="risk-slider-wrap">
       <label class="risk-slider-label">
         <span>${t('risk_level_label')}</span>
-        <strong id="rs-risk-display">${fmtPct(levels[kellyIdx].risk, 2)}</strong>
+        <strong id="rs-risk-display">${fmtPct(levels[selectedIdx].risk, 2)}</strong>
       </label>
       <input id="rs-slider" type="range" min="0" max="${levels.length - 1}"
-             step="1" value="${kellyIdx}" class="risk-slider">
+             step="1" value="${selectedIdx}" class="risk-slider">
       <div class="risk-slider-ticks">
         ${levels.map((l) => `<span>${fmtPct(l.risk, 2)}</span>`).join('')}
       </div>
@@ -149,7 +206,7 @@ function renderSensitivityBlock(levels, kellyRisk) {
   const rows = levels.map((l, i) => {
     const isKelly = i === kellyIdx;
     const color = l.ror > 0.15 ? 'bad' : l.ror < 0.05 ? 'good' : '';
-    return `<tr class="rs-row ${isKelly ? 'rs-kelly' : ''} ${isKelly ? 'rs-selected' : ''}" data-idx="${i}">
+    return `<tr class="rs-row ${isKelly ? 'rs-kelly' : ''} ${i === selectedIdx ? 'rs-selected' : ''}" data-idx="${i}">
       <td>${fmtPct(l.risk, 2)}${isKelly ? ' ★' : ''}</td>
       <td class="${l.meanRet >= 0 ? 'good' : 'bad'}">${fmtPctSigned(l.meanRet)}</td>
       <td class="warn">${fmtPct(l.medDD)}</td>
@@ -227,6 +284,93 @@ function renderRecoveryBlock(report) {
     </div>`;
 }
 
+function renderContractMetrics(contract) {
+  const paused = contract.hardPause;
+  const pct = (value) => paused ? '—' : fmtPct(value, 2);
+  return `
+    <div class="risk-metrics">
+      <div class="risk-metric">
+        <div class="risk-metric-label">${t('risk_contract_trade')}</div>
+        <div class="risk-metric-val">${paused ? t('risk_contract_paused') : fmtPct(contract.maxRiskPerTrade, 2)}</div>
+      </div>
+      <div class="risk-metric">
+        <div class="risk-metric-label">${t('risk_contract_daily')}</div>
+        <div class="risk-metric-val">${pct(contract.dailyStop)}</div>
+      </div>
+      <div class="risk-metric">
+        <div class="risk-metric-label">${t('risk_contract_weekly')}</div>
+        <div class="risk-metric-val">${pct(contract.weeklyStop)}</div>
+      </div>
+      <div class="risk-metric">
+        <div class="risk-metric-label">${t('risk_contract_streak')}</div>
+        <div class="risk-metric-val">${paused
+          ? t('risk_contract_now')
+          : t('risk_contract_losses_value', { n: contract.pauseAfterLosses })}</div>
+      </div>
+      <div class="risk-metric">
+        <div class="risk-metric-label">${t('risk_contract_drawdown')}</div>
+        <div class="risk-metric-val">${pct(contract.drawdownReview)}</div>
+      </div>
+    </div>`;
+}
+
+function renderPauseNotice(contract) {
+  if (!contract.hardPause) return '';
+  const reasons = contract.hardPauseReasons
+    .map((reason) => t(`risk_contract_reason_${reason}`))
+    .join(' ');
+  return `<div class="notice bad">${t('risk_contract_hard_pause')} ${reasons}</div>`;
+}
+
+function renderRiskContractBlock(proposed, stored) {
+  const active = stored?.contract || null;
+  const changed = Boolean(active && proposed && !sameContract(active, proposed));
+  const shown = active || proposed;
+  if (!shown) return '';
+  const badge = active
+    ? `<span class="badge good">${t('risk_contract_active')}</span>`
+    : `<span class="badge muted">${t('risk_contract_draft')}</span>`;
+
+  return `
+    <div class="card pad">
+      <h3>${t('risk_contract_title')} ${badge}</h3>
+      <p class="muted small">${t('risk_contract_desc')}</p>
+      <div class="small" style="margin-bottom:14px;">
+        ${t('risk_contract_confidence', { level: t(`risk_contract_conf_${shown.confidence}`) })}
+      </div>
+      ${renderContractMetrics(shown)}
+      ${renderPauseNotice(shown)}
+      ${changed ? `
+        <div class="notice ${proposed.hardPause ? 'bad' : 'warn'}">${t('risk_contract_update_available')}</div>
+        <h4 style="margin-top:16px;">${t('risk_contract_updated_draft')}</h4>
+        <div class="small" style="margin-bottom:14px;">
+          ${t('risk_contract_confidence', { level: t(`risk_contract_conf_${proposed.confidence}`) })}
+        </div>
+        ${renderContractMetrics(proposed)}
+        ${renderPauseNotice(proposed)}
+      ` : ''}
+      <p class="muted small">${t('risk_contract_local_note')}</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${proposed && (!active || changed)
+          ? `<button class="btn-primary" id="risk-contract-accept">${t(active ? 'risk_contract_update' : 'risk_contract_accept')}</button>`
+          : ''}
+        ${active ? `<button class="btn-secondary" id="risk-contract-remove">${t('risk_contract_remove')}</button>` : ''}
+      </div>
+      <div class="small bad" id="risk-contract-error" hidden>${t('risk_contract_storage_error')}</div>
+    </div>`;
+}
+
+function wireRiskContractActions(container, proposed) {
+  container.querySelector('#risk-contract-accept')?.addEventListener('click', () => {
+    if (saveRiskContract(proposed)) render(container);
+    else container.querySelector('#risk-contract-error').hidden = false;
+  });
+  container.querySelector('#risk-contract-remove')?.addEventListener('click', () => {
+    if (removeRiskContract()) render(container);
+    else container.querySelector('#risk-contract-error').hidden = false;
+  });
+}
+
 function updateRecovery(report, container) {
   const ddPct = parseFloat(container.querySelector('#rc-dd').value) || 0;
   const balance = parseFloat(container.querySelector('#rc-balance').value) || 0;
@@ -268,6 +412,10 @@ function updateRecovery(report, container) {
 // ── Full panel ───────────────────────────────────────────────────────────────
 async function renderSensitivityPanel(container, report) {
   const kellyRisk = report.kelly.recommended > 0 ? report.kelly.recommended : report.spec.risk;
+  const proposedContract = buildRiskContract(report);
+  const defaultRisk = proposedContract.hardPause
+    ? 0.0025
+    : proposedContract.maxRiskPerTrade;
 
   // Paint a loading state before the (synchronous) sweep so the UI never freezes
   // on a blank frame.
@@ -294,9 +442,12 @@ async function renderSensitivityPanel(container, report) {
         <p class="muted">${t('risk_panel_desc')}</p>
       </div>
       ${renderStrategyHeader(report)}
-      ${renderSensitivityBlock(levels, kellyRisk)}
+      ${renderRiskContractBlock(proposedContract, loadRiskContract())}
+      ${renderSensitivityBlock(levels, kellyRisk, defaultRisk)}
       ${renderRecoveryBlock(report)}
     </div>`;
+
+  wireRiskContractActions(container, proposedContract);
 
   // Slider → live highlight + risk readout.
   const slider = container.querySelector('#rs-slider');

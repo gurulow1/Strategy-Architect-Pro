@@ -1,43 +1,67 @@
-// Prop-firm challenge evaluation. Correct daily-drawdown model:
-// daily loss is measured from the START-OF-DAY balance (how real firms do it),
-// not from a running intraday peak as the original tool did.
-//
-// `dailyCurves` is an array of per-sim daily equity arrays:
-//   [startBalance, endOfDay1, endOfDay2, ...]  (from simulate with tradesPerDay).
-// We only have end-of-day equity, so intraday lows are not captured — this is a
-// conservative-but-honest approximation, and far better than running-peak DD.
+// Prop-challenge evaluation. Intraday input is preferred:
+//   simulations -> days -> [start-of-day equity, equity after trade 1, ...].
+// Legacy [startBalance, endOfDay1, ...] curves remain supported.
+
+function asDayPaths(curve) {
+  if (!Array.isArray(curve) || curve.length === 0) return [];
+  if (Array.isArray(curve[0])) return curve;
+  const days = [];
+  for (let i = 1; i < curve.length; i++) days.push([curve[i - 1], curve[i]]);
+  return days;
+}
+
+function ruleAmount(explicitAmount, fraction, base) {
+  if (Number.isFinite(explicitAmount)) return Math.max(0, explicitAmount);
+  return Math.max(0, base * fraction);
+}
 
 /**
- * @param {number[][]} dailyCurves
+ * @param {number[][]|number[][][]} curves legacy daily closes or intraday day paths
  * @param {object} rules
  * @param {number} rules.capital          starting balance
- * @param {number} rules.dailyLossLimit   max daily loss as fraction (e.g. 0.05)
- * @param {number} rules.maxLossLimit      max overall loss as fraction (e.g. 0.10)
+ * @param {number} rules.dailyLossLimit   max daily loss fraction of initial capital
+ * @param {number} [rules.dailyLossAmount] explicit fixed daily-loss amount
+ * @param {'initial'|'startOfDay'} [rules.dailyLossBasis='initial']
+ * @param {number} rules.maxLossLimit      max overall loss fraction of initial capital
+ * @param {number} [rules.maxLossAmount]  explicit fixed maximum-loss amount
  * @param {number} rules.profitTarget      profit target as fraction (e.g. 0.10)
- * @param {boolean} [rules.trailing]       max DD trails the peak (default false = static from start)
+ * @param {'static'|'trailing'} [rules.maxLossMode]
+ * @param {boolean} [rules.trailing] legacy alias for maxLossMode
  */
-export function evaluatePropChallenge(dailyCurves, rules) {
-  const { capital, dailyLossLimit, maxLossLimit, profitTarget, trailing = false } = rules;
+export function evaluatePropChallenge(curves, rules) {
+  const {
+    capital, dailyLossLimit, dailyLossAmount, dailyLossBasis = 'initial',
+    maxLossLimit, maxLossAmount, profitTarget, trailing = false,
+  } = rules;
+  const maxLossMode = rules.maxLossMode || (trailing ? 'trailing' : 'static');
+  const fixedMaxLoss = ruleAmount(maxLossAmount, maxLossLimit, capital);
+  const targetEquity = capital + capital * profitTarget;
   let passed = 0, dailyViol = 0, maxViol = 0, timeout = 0;
 
-  for (const daily of dailyCurves) {
+  for (const curve of curves) {
     let peak = capital;
     let outcome = 'timeout';
-    for (let i = 1; i < daily.length; i++) {
-      const startOfDay = daily[i - 1];
-      const endOfDay = daily[i];
+    for (const rawDay of asDayPaths(curve)) {
+      const day = rawDay.filter((v) => Number.isFinite(v));
+      if (day.length === 0) continue;
+      const startOfDay = day[0];
+      const amountBase = dailyLossBasis === 'startOfDay' ? startOfDay : capital;
+      const fixedDailyLoss = ruleAmount(dailyLossAmount, dailyLossLimit, amountBase);
+      const dailyFloor = startOfDay - fixedDailyLoss;
 
-      const dailyLoss = startOfDay > 0 ? (startOfDay - endOfDay) / startOfDay : 0;
-      if (dailyLoss >= dailyLossLimit) { outcome = 'daily'; break; }
+      for (let i = 1; i < day.length; i++) {
+        const equity = day[i];
+        if (equity <= dailyFloor) { outcome = 'daily'; break; }
 
-      const refBase = trailing ? peak : capital;
-      const overallLoss = refBase > 0 ? (refBase - endOfDay) / refBase : 0;
-      if (overallLoss >= maxLossLimit) { outcome = 'max'; break; }
+        if (equity > peak) peak = equity;
+        const maxFloor = maxLossMode === 'trailing'
+          ? peak - fixedMaxLoss
+          : capital - fixedMaxLoss;
+        if (equity <= maxFloor) { outcome = 'max'; break; }
 
-      if (endOfDay > peak) peak = endOfDay;
-
-      const profit = (endOfDay - capital) / capital;
-      if (profit >= profitTarget) { outcome = 'pass'; break; }
+        if (equity >= targetEquity) { outcome = 'pass'; break; }
+      }
+      if (outcome !== 'timeout') break;
     }
     if (outcome === 'pass') passed++;
     else if (outcome === 'daily') dailyViol++;
@@ -45,7 +69,7 @@ export function evaluatePropChallenge(dailyCurves, rules) {
     else timeout++;
   }
 
-  const n = dailyCurves.length || 1;
+  const n = curves.length || 1;
   const passRate = passed / n;
   return {
     passRate,
@@ -57,10 +81,12 @@ export function evaluatePropChallenge(dailyCurves, rules) {
   };
 }
 
-// Built-in prop firm presets (challenge rules as fractions of account).
+// Illustrative templates only. Provider rules change and must be verified by
+// the user; legacy keys are retained so saved selections keep working.
+const PRESET_CAVEAT = 'Illustrative custom template; verify the provider’s current rules before use.';
 export const PROP_PRESETS = {
-  ftmo:       { label: 'FTMO',       dailyLossLimit: 0.05, maxLossLimit: 0.10, profitTarget: 0.10, trailing: false },
-  the5ers:    { label: 'The5%ers',   dailyLossLimit: 0.05, maxLossLimit: 0.06, profitTarget: 0.08, trailing: false },
-  fundednext: { label: 'FundedNext', dailyLossLimit: 0.05, maxLossLimit: 0.10, profitTarget: 0.10, trailing: false },
-  e8:         { label: 'E8 Funding', dailyLossLimit: 0.05, maxLossLimit: 0.08, profitTarget: 0.08, trailing: true  },
+  ftmo:       { label: 'Custom 5/10 static',       dailyLossLimit: 0.05, maxLossLimit: 0.10, profitTarget: 0.10, trailing: false, source: 'custom', caveat: PRESET_CAVEAT },
+  the5ers:    { label: 'Custom 5/6 static',        dailyLossLimit: 0.05, maxLossLimit: 0.06, profitTarget: 0.08, trailing: false, source: 'custom', caveat: PRESET_CAVEAT },
+  fundednext: { label: 'Custom 5/10 static (alt)', dailyLossLimit: 0.05, maxLossLimit: 0.10, profitTarget: 0.10, trailing: false, source: 'custom', caveat: PRESET_CAVEAT },
+  e8:         { label: 'Custom 5/8 trailing',      dailyLossLimit: 0.05, maxLossLimit: 0.08, profitTarget: 0.08, trailing: true, source: 'custom', caveat: PRESET_CAVEAT },
 };

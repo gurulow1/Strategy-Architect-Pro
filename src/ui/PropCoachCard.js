@@ -9,6 +9,7 @@
 //   renderCoach(summaryData);   // summaryData from generateSummary AI handler
 
 import { callAI } from '../services/aiClient.js';
+import { escapeHtml } from './safeDom.js';
 
 // Same mapping as AISummaryCard — kept co-located so changes stay in sync.
 const VERDICT_CLS   = { strong: 'good', fragile: 'warn', weak: 'bad', no_edge: 'bad' };
@@ -34,16 +35,16 @@ export function createPropCoachCard(container) {
     const riskHtml = summary.recommended_risk
       ? `<div class="kpi card">
            <div class="kpi-label">Recommended Risk</div>
-           <div class="kpi-num ${cls}">${summary.recommended_risk}</div>
+           <div class="kpi-num ${cls}">${escapeHtml(summary.recommended_risk)}</div>
          </div>`
       : '';
 
     const sampleWarnHtml = summary.sample_warning
-      ? `<div class="small warn">${summary.sample_warning}</div><div class="divider"></div>`
+      ? `<div class="small warn">${escapeHtml(summary.sample_warning)}</div><div class="divider"></div>`
       : '';
 
     const biggestRiskHtml = summary.biggest_risk
-      ? `<div class="divider"></div><div class="small bad">&rarr;&nbsp;${summary.biggest_risk}</div>`
+      ? `<div class="divider"></div><div class="small bad">&rarr;&nbsp;${escapeHtml(summary.biggest_risk)}</div>`
       : '';
 
     const card = document.createElement('div');
@@ -56,14 +57,14 @@ export function createPropCoachCard(container) {
     card.innerHTML = `
       <div class="verdict-main">
         <div>
-          <div class="verdict-grade ${cls}">${label}</div>
+          <div class="verdict-grade ${cls}">${escapeHtml(label)}</div>
           <div class="verdict-sub">Prop Challenge Coach</div>
         </div>
       </div>
       ${riskHtml}
       ${sampleWarnHtml}
       <div class="divider"></div>
-      <div class="small">${summary.recommended_action || summary.headline || ''}</div>
+      <div class="small">${escapeHtml(summary.recommended_action || summary.headline || '')}</div>
       ${biggestRiskHtml}`;
 
     container.appendChild(card);

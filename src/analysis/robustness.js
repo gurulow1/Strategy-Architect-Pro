@@ -52,6 +52,8 @@ export function runRobustness(base, rng, { scenarioSims = 400 } = {}) {
       costPerTrade: Math.max(0, sc.costPerTrade),
       winRate: Math.max(0.01, Math.min(0.99, sc.winRate)),
       rr: Math.max(0.1, sc.rr),
+      collectRealizedR: false,
+      collectBandCurves: false,
     };
     const res = simulate(spec, rng);
     const meanReturn = res.returns.reduce((a, b) => a + b, 0) / res.returns.length;

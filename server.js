@@ -1,460 +1,486 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
-import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
-import { readFileSync } from 'fs';
+import { AccessStore } from './src-server/accessStore.js';
+import { createAuth } from './src-server/auth.js';
+import { config } from './src-server/config.js';
 import { handleFeature } from './src-server/router.js';
-
-// Integrations: Telegram notifications + read-only broker history import.
 import {
-  isTelegramConfigured, sendMessage, getBotUsername, setWebhook,
+  getOpenAIProviderStatus,
+  probeOpenAIProvider,
+} from './src-server/openaiClient.js';
+import {
+  getBotUsername,
+  isTelegramConfigured,
+  sendMessage,
+  setWebhook,
 } from './src-server/telegramBot.js';
-import {
-  createLinkCode, linkByCode, unlinkKey, getChatId, getChatIdMap,
-} from './src-server/telegramStore.js';
 import { fetchBinanceTrades } from './src-server/brokers/binance.js';
 import { fetchBybitTrades } from './src-server/brokers/bybit.js';
-import { storeMTData, getMTData } from './src-server/brokers/metatrader.js';
-import {
-  isCTraderConfigured, getAuthUrl, exchangeCode, fetchCTraderTrades,
-} from './src-server/brokers/ctrader.js';
+import { createMtToken, readMtToken } from './src-server/mtToken.js';
 
-const app  = express();
-const PORT = process.env.PORT || 3001;
+export const app = express();
+export const accessStore = new AccessStore({
+  databaseTlsRejectUnauthorized: config.databaseTlsRejectUnauthorized,
+  connectionTimeoutMillis: config.databaseConnectionTimeoutMs,
+  queryTimeoutMillis: config.databaseQueryTimeoutMs,
+  idleTimeoutMillis: config.databaseIdleTimeoutMs,
+});
+export const storeReady = accessStore.init();
+export const openAIStartupProbe = config.production && config.openaiConfigured
+  ? probeOpenAIProvider()
+  : Promise.resolve(getOpenAIProviderStatus());
 
-// Trust Railway's (and most PaaS) reverse proxy so that express-rate-limit
-// can read the real client IP from X-Forwarded-For instead of seeing the
-// proxy's internal address. Must come before any middleware that uses IPs.
-app.set('trust proxy', 1);
+const auth = createAuth({
+  store: accessStore,
+  secret: config.jwtSecret,
+  appMode: config.appMode,
+});
 
-// ── Secret scrubbing ──────────────────────────────────────────────────────────
-// Never let the API key (or any Bearer token) reach logs or responses.
+const asyncRoute = (handler) => (req, res, next) => {
+  Promise.resolve(handler(req, res, next)).catch(next);
+};
+
+const isPlainObject = (value) => value !== null
+  && typeof value === 'object'
+  && !Array.isArray(value);
+const AI_FEATURES = new Set([
+  'parseJournal',
+  'generateSummary',
+  'answerQuestion',
+  'explainWeaknesses',
+]);
+
 function scrubSecrets(input) {
-  let out = String(input ?? '');
-  const key = process.env.GROQ_API_KEY;
-  if (key) out = out.split(key).join('[REDACTED]');
-  // Scrub 32-char hex strings (license key shape) — must not appear in logs.
-  out = out.replace(/\b[0-9a-f]{32}\b/gi, '[REDACTED-KEY]');
-  return out
-    .replace(/gsk_[A-Za-z0-9]+/g, '[REDACTED]')
+  let text = String(input ?? '');
+  for (const secret of [
+    process.env.OPENAI_API_KEY,
+    process.env.JWT_SECRET,
+    process.env.TELEGRAM_BOT_TOKEN,
+    process.env.MT_PUSH_TOKEN,
+    process.env.DATABASE_URL,
+  ]) {
+    if (secret) text = text.split(secret).join('[REDACTED]');
+  }
+  return text
+    .replace(/\b[0-9a-f]{32}\b/gi, '[REDACTED-KEY]')
+    .replace(/\b(?:sk-|sk_|gsk_)[A-Za-z0-9_-]+\b/g, '[REDACTED]')
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]');
 }
 
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+function safeEqual(left, right) {
+  const a = Buffer.from(String(left || ''), 'utf8');
+  const b = Buffer.from(String(right || ''), 'utf8');
+  return a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
+}
 
-// ── CORS ───────────────────────────────────────────────────────────────────────
-// Allow-list (checked in order):
-//   1. No Origin header  → server-to-server / Vercel proxy rewrite / curl — always OK.
-//   2. localhost:5173    → local Vite dev server.
-//   3. *.vercel.app      → every Vercel deployment (production + all preview branches).
-//   4. PRODUCTION_ORIGIN → explicit custom domain, if configured.
-//   5. Fallback          → if PRODUCTION_ORIGIN is not set, allow all but log a warning
-//                          so the first deploy works before the domain is known.
+function validDeviceId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9._:-]{8,128}$/.test(value);
+}
+
+function betaOnly(_req, res, next) {
+  if (!config.betaBrokers) return res.status(404).json({ error: 'Integration is not available' });
+  return next();
+}
+
+function accountId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9._:-]{1,64}$/.test(value)
+    ? value
+    : null;
+}
+
+function normalizeMtTrades(value) {
+  if (!Array.isArray(value) || value.length > 10_000) return null;
+  const trades = [];
+  for (const item of value) {
+    if (!isPlainObject(item)) return null;
+    const pnl = Number(item.pnl);
+    if (!Number.isFinite(pnl)) continue;
+    trades.push({
+      date: typeof item.date === 'string' ? item.date.slice(0, 64) : null,
+      pnl,
+      r: null,
+      direction: item.direction === 'long' || item.direction === 'short' ? item.direction : null,
+      symbol: typeof item.symbol === 'string' ? item.symbol.slice(0, 40) : null,
+    });
+  }
+  return trades;
+}
+
+function telegramCode() {
+  const alphabet = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+  let code = '';
+  for (const byte of crypto.randomBytes(8)) code += alphabet[byte % alphabet.length];
+  return code;
+}
+
+async function handleTelegramMessage(message) {
+  const chatId = message?.chat?.id;
+  const text = typeof message?.text === 'string' ? message.text.trim().slice(0, 4_096) : '';
+  if (!Number.isSafeInteger(chatId)) return;
+
+  if (text.startsWith('/start ')) {
+    const code = text.slice(7).trim().toUpperCase();
+    const validCode = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/.test(code);
+    const owner = validCode ? await accessStore.consumeTelegramCode(code, chatId) : null;
+    await sendMessage(chatId, owner
+      ? '✅ <b>Account connected.</b>\n\nRisk notifications are now enabled.'
+      : '❌ This code is invalid or expired. Generate a new code in the app.');
+  } else if (text === '/stop') {
+    await accessStore.unlinkTelegramChat(chatId);
+    await sendMessage(chatId, '🔕 Notifications disabled.');
+  } else if (text === '/start' || text === '/help') {
+    await sendMessage(chatId, 'Open Strategy Architect Pro, choose Connect Telegram, then send /start CODE.');
+  }
+}
+
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
+app.use((req, res, next) => {
+  const requestId = req.get('x-request-id')?.slice(0, 80) || crypto.randomUUID();
+  req.requestId = requestId;
+  res.set({
+    'X-Request-Id': requestId,
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+    'Cross-Origin-Resource-Policy': 'cross-origin',
+    'Cache-Control': 'no-store',
+  });
+  if (config.production) {
+    res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);
-    // Any localhost / 127.0.0.1 port — Vite may pick 5173, 5180, etc. in dev.
-    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return callback(null, true);
-    if (origin.endsWith('.vercel.app')) return callback(null, true);
-    if (process.env.PRODUCTION_ORIGIN && origin === process.env.PRODUCTION_ORIGIN) {
+    const normalized = origin.replace(/\/$/, '');
+    if (!config.production && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized)) {
       return callback(null, true);
     }
-    if (!process.env.PRODUCTION_ORIGIN) {
-      console.warn(`[CORS] No PRODUCTION_ORIGIN set — allowing origin: ${origin}`);
-      return callback(null, true);
-    }
-    return callback(new Error('Not allowed by CORS'));
+    return callback(
+      config.allowedOrigins.includes(normalized) ? null : new Error('Not allowed by CORS'),
+      config.allowedOrigins.includes(normalized),
+    );
   },
+  allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true,
+  maxAge: 600,
 };
 
 app.use(cors(corsOptions));
-// Explicitly answer CORS preflight (OPTIONS) for every route.
 app.options('*', cors(corsOptions));
 
-// Body parser with a hard 10KB ceiling — the client always truncates the
-// journal/chat payload well under this, so anything larger is abusive.
-// Exception: the MetaTrader EA push can legitimately carry 90 days of deals,
-// so that one route gets its own larger parser (mounted on the route below).
-const globalJson = express.json({ limit: '10kb' });
+const globalJson = express.json({ limit: '24kb', strict: true });
 app.use((req, res, next) => {
   if (req.path === '/api/broker/mt/push') return next();
   return globalJson(req, res, next);
 });
 
-// ── Health check (Railway uses this to confirm the process is up) ───────────
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
-
-// ── Rate limiting ──────────────────────────────────────────────────────────────
-
-// 1) Per-IP limit (handles shared origins / proxies).
-const ipLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Слишком много запросов. Попробуйте позже.' },
+app.get('/ready', async (_req, res) => {
+  try {
+    await storeReady;
+    await openAIStartupProbe;
+    const aiState = getOpenAIProviderStatus().state;
+    const invalidAiConfiguration = [
+      'missing',
+      'invalid_configuration',
+      'invalid_credentials',
+      'invalid_model',
+    ].includes(aiState);
+    if (!config.openaiConfigured || invalidAiConfiguration || !(await accessStore.ping())) {
+      return res.status(503).json({ status: 'not_ready' });
+    }
+    return res.json({ status: 'ready', storage: accessStore.pool ? 'postgres' : 'file' });
+  } catch {
+    return res.status(503).json({ status: 'not_ready' });
+  }
 });
 
-// 2) Per-session limit — an in-memory counter keyed by the client's session id
-//    (X-Session-Id header, falling back to IP). Catches a single client hammering
-//    the endpoint even across IPs. Window resets every minute.
-const SESSION_WINDOW_MS = 60 * 1000;
-const SESSION_MAX = 30;
-const sessionHits = new Map();
+app.use(asyncRoute(async (_req, _res, next) => {
+  await storeReady;
+  next();
+}));
 
-function sessionLimiter(req, res, next) {
-  const id = (req.get('X-Session-Id') || '').slice(0, 100) || req.ip;
-  const now = Date.now();
-  let rec = sessionHits.get(id);
-  if (!rec || now - rec.windowStart > SESSION_WINDOW_MS) {
-    rec = { count: 0, windowStart: now };
-  }
-  rec.count += 1;
-  sessionHits.set(id, rec);
-  if (rec.count > SESSION_MAX) {
-    return res.status(429).json({ error: 'Слишком много запросов. Попробуйте позже.' });
-  }
-  return next();
-}
-
-// Periodically prune expired session records so the Map can't grow unbounded.
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, rec] of sessionHits) {
-    if (now - rec.windowStart > SESSION_WINDOW_MS) sessionHits.delete(id);
-  }
-}, 5 * 60 * 1000).unref();
-
-// ── License-key rate limiter (stricter than general — 5 attempts / IP / min) ─
 const licenseLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  standardHeaders: true,
+  windowMs: 60_000,
+  limit: 5,
+  standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many attempts. Try again in a minute.' },
 });
 
-// ── Auth-mode probe (safe to call without credentials) ────────────────────────
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 40,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Try again shortly.' },
+});
+
+const requireAccess = auth.requireAccess();
+const requireLicense = auth.requireAccess({ licenseOnly: true });
+
 app.get('/api/auth-mode', (_req, res) => {
-  res.json({ mode: process.env.LICENSE_KEYS ? 'license' : 'open' });
-});
-
-// ── License-key verification ──────────────────────────────────────────────────
-app.post('/api/verify-license', licenseLimiter, async (req, res) => {
-  // No keys configured → open / demo mode. Issue a short-lived demo token.
-  if (!process.env.LICENSE_KEYS) {
-    const secret = process.env.JWT_SECRET || 'demo-open-mode';
-    const token = jwt.sign({ type: 'open' }, secret, { expiresIn: '24h' });
-    return res.json({ token });
-  }
-
-  if (!process.env.JWT_SECRET) {
-    return res.status(500).json({ error: 'Server misconfigured' });
-  }
-
-  const rawKey = req.body?.key;
-  // Validate format before any further processing — reject early without timing info.
-  if (typeof rawKey !== 'string' || !/^[0-9a-f]{32}$/i.test(rawKey.trim())) {
-    await delay(50 + Math.random() * 100);
-    return res.status(401).json({ error: 'Invalid license key' });
-  }
-  const key = rawKey.trim().toLowerCase();
-
-  let validKeys;
-  try {
-    const parsed = JSON.parse(process.env.LICENSE_KEYS);
-    // Accept both ["key1","key2"] array and {"key1":"label"} object formats.
-    validKeys = Array.isArray(parsed) ? parsed : Object.keys(parsed);
-  } catch {
-    return res.status(500).json({ error: 'Server misconfigured' });
-  }
-
-  // Timing-safe comparison — prevents timing oracle attacks.
-  const keyBuf = Buffer.from(key, 'utf8');
-  let matched = false;
-  for (const candidate of validKeys) {
-    if (typeof candidate !== 'string') continue;
-    const norm = candidate.trim().toLowerCase();
-    if (norm.length !== key.length) continue;
-    const candidateBuf = Buffer.from(norm, 'utf8');
-    if (crypto.timingSafeEqual(keyBuf, candidateBuf)) { matched = true; break; }
-  }
-
-  // Fixed-duration random delay makes success/failure timing indistinguishable.
-  await delay(50 + Math.random() * 100);
-
-  if (!matched) {
-    return res.status(401).json({ error: 'Invalid license key' });
-  }
-
-  const rememberMe = req.body?.rememberMe !== false;
-  const token = jwt.sign({ type: 'license' }, process.env.JWT_SECRET, {
-    expiresIn: rememberMe ? '7d' : '24h',
+  res.json({
+    mode: config.appMode,
+    trial: { enabled: config.appMode === 'license', runs: 1, durationMinutes: 120 },
   });
-  return res.json({ token });
 });
+app.get('/api/session', asyncRoute(auth.session));
+app.post('/api/trial/start', licenseLimiter, asyncRoute(auth.startTrial));
+app.post('/api/trial/complete', requireAccess, asyncRoute(auth.completeTrial));
+app.post('/api/verify-license', licenseLimiter, asyncRoute(auth.verifyLicense));
 
-// ── JWT auth middleware — only enforced when LICENSE_KEYS is configured ───────
-function requireAuth(req, res, next) {
-  if (!process.env.LICENSE_KEYS || !process.env.JWT_SECRET) return next();
-  const auth = req.headers.authorization || '';
-  if (!auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    req.tokenPayload = jwt.verify(auth.slice(7), process.env.JWT_SECRET);
-    return next();
-  } catch (err) {
-    const expired = err?.name === 'TokenExpiredError';
-    return res.status(401).json({
-      error: expired ? 'Token expired' : 'Unauthorized',
-      ...(expired && { code: 'TOKEN_EXPIRED' }),
-    });
+app.post('/api/ai', requireAccess, apiLimiter, asyncRoute(async (req, res) => {
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(503).json({ error: 'AI service is not configured' });
   }
-}
-
-// ── AI endpoint ──────────────────────────────────────────────────────────────
-app.post('/api/ai', ipLimiter, sessionLimiter, requireAuth, async (req, res) => {
-  // The API key never leaves the server. If it is missing, the AI is unconfigured.
-  if (!process.env.GROQ_API_KEY) {
-    return res.status(500).json({ error: 'AI сервис не настроен' });
-  }
-
-  // Defence-in-depth size check (body-parser already caps at 10KB).
-  try {
-    if (JSON.stringify(req.body || {}).length > 10240) {
-      return res.status(413).json({ error: 'Payload too large' });
-    }
-  } catch (_) {
+  if (!isPlainObject(req.body)
+    || typeof req.body.feature !== 'string'
+    || !isPlainObject(req.body.payload)) {
     return res.status(400).json({ error: 'Invalid request body' });
   }
-
-  const { feature, payload } = req.body || {};
-
-  try {
-    const result = await handleFeature(feature, payload);
-    return res.status(result.status).json(result.body);
-  } catch (err) {
-    console.error('[/api/ai] error:', scrubSecrets(err?.message || err));
-    return res.status(503).json({ error: 'AI сервис временно недоступен' });
+  if (!AI_FEATURES.has(req.body.feature)) {
+    return res.status(400).json({ error: 'Unknown feature' });
   }
-});
+  const dailyLimit = req.tokenPayload.type === 'trial'
+    ? config.aiDailyLimitTrial
+    : config.aiDailyLimitLicense;
+  if (!(await accessStore.consumeAiQuota(req.tokenPayload.sub, dailyLimit))) {
+    return res.status(429).json({
+      error: 'Daily AI limit reached',
+      code: 'AI_DAILY_LIMIT',
+    });
+  }
+  const result = await handleFeature(req.body.feature, req.body.payload, {
+    subject: req.tokenPayload.sub,
+  });
+  return res.status(result.status).json(result.body);
+}));
 
-// ── Integrations probe (public) ───────────────────────────────────────────────
-// Lets the frontend show/hide Telegram & broker panels without exposing secrets.
-app.get('/api/integrations', async (_req, res) => {
+app.get('/api/integrations', asyncRoute(async (_req, res) => {
   let botUsername = null;
   if (isTelegramConfigured()) {
-    try { botUsername = await getBotUsername(); } catch (_) { /* ignore */ }
+    try { botUsername = await getBotUsername(); } catch { /* optional integration */ }
   }
   res.json({
     telegram: { enabled: isTelegramConfigured(), botUsername },
     brokers: {
-      binance: true,
-      bybit: true,
-      metatrader: Boolean(process.env.MT_PUSH_TOKEN),
-      ctrader: isCTraderConfigured(),
+      binance: config.betaBrokers,
+      bybit: config.betaBrokers,
+      metatrader: config.betaBrokers && Boolean(process.env.MT_PUSH_TOKEN),
+      ctrader: false,
     },
   });
-});
+}));
 
-// ════════════════════════════════════════════════════════════════════════════
-//  Telegram notifications
-// ════════════════════════════════════════════════════════════════════════════
+app.post('/api/telegram/generate-code', requireLicense, apiLimiter, asyncRoute(async (req, res) => {
+  const code = telegramCode();
+  await accessStore.createTelegramCode(
+    req.tokenPayload.sub,
+    code,
+    new Date(Date.now() + 10 * 60_000),
+  );
+  res.json({ code });
+}));
 
-// Generate a one-time link code (the client sends its own stable accountKey).
-app.post('/api/telegram/generate-code', requireAuth, (req, res) => {
-  const { licenseKey } = req.body || {};
-  if (!licenseKey) return res.status(400).json({ error: 'Missing account key' });
-  res.json({ code: createLinkCode(String(licenseKey)) });
-});
+app.post('/api/telegram/status', requireLicense, asyncRoute(async (req, res) => {
+  res.json({ linked: (await accessStore.getTelegramChat(req.tokenPayload.sub)) !== null });
+}));
 
-app.post('/api/telegram/status', requireAuth, (req, res) => {
-  const { licenseKey } = req.body || {};
-  res.json({ linked: licenseKey ? getChatId(String(licenseKey)) !== null : false });
-});
-
-app.post('/api/telegram/unlink', requireAuth, (req, res) => {
-  const { licenseKey } = req.body || {};
-  if (licenseKey) unlinkKey(String(licenseKey));
+app.post('/api/telegram/unlink', requireLicense, asyncRoute(async (req, res) => {
+  await accessStore.unlinkTelegramOwner(req.tokenPayload.sub);
   res.json({ ok: true });
-});
+}));
 
-app.post('/api/telegram/test', requireAuth, async (req, res) => {
-  const { licenseKey } = req.body || {};
-  const chatId = licenseKey ? getChatId(String(licenseKey)) : null;
-  if (!chatId) return res.status(404).json({ error: 'Not linked' });
-  await sendMessage(chatId, '✅ <b>Strategy Architect Pro</b>\n\nTelegram подключён! Теперь вы будете получать уведомления.');
-  res.json({ ok: true });
-});
+app.post('/api/telegram/test', requireLicense, apiLimiter, asyncRoute(async (req, res) => {
+  const chatId = await accessStore.getTelegramChat(req.tokenPayload.sub);
+  if (chatId === null) return res.status(404).json({ error: 'Not linked' });
+  await sendMessage(chatId, '✅ <b>Strategy Architect Pro</b>\n\nTelegram notifications are connected.');
+  return res.json({ ok: true });
+}));
 
-// Fire a formatted alert (client calls this when report.alerts contains an item).
-app.post('/api/telegram/notify', requireAuth, async (req, res) => {
-  const { licenseKey, alertType, metrics } = req.body || {};
-  const chatId = licenseKey ? getChatId(String(licenseKey)) : null;
-  if (!chatId) return res.json({ ok: false, reason: 'not_linked' });
-
-  const num = (v, d = 2) => (Number.isFinite(Number(v)) ? Number(v).toFixed(d) : '—');
+app.post('/api/telegram/notify', requireLicense, apiLimiter, asyncRoute(async (req, res) => {
+  const chatId = await accessStore.getTelegramChat(req.tokenPayload.sub);
+  if (chatId === null) return res.json({ ok: false, reason: 'not_linked' });
+  const { alertType, metrics } = req.body || {};
+  if (!isPlainObject(metrics)) return res.status(400).json({ error: 'Invalid metrics' });
+  const num = (value, digits = 2) => Number.isFinite(Number(value))
+    ? Number(value).toFixed(digits)
+    : '—';
 
   if (alertType === 'degradation') {
     await sendMessage(chatId,
-      '⚠️ <b>Деградация стратегии</b>\n\n'
-      + 'Последние сделки заметно слабее ранних:\n'
-      + `• Раннее ожидание: <b>${num(metrics?.earlyExpectancy)}</b>\n`
-      + `• Последнее ожидание: <b>${num(metrics?.recentExpectancy)}</b>\n\n`
-      + 'Рекомендуется пауза и пересмотр параметров стратегии.');
+      '⚠️ <b>Strategy degradation</b>\n\n'
+      + `Earlier expectancy: <b>${num(metrics.earlyExpectancy)}</b>\n`
+      + `Recent expectancy: <b>${num(metrics.recentExpectancy)}</b>\n\n`
+      + 'Pause and review the strategy before the next session.');
   } else if (alertType === 'analysis_complete') {
     await sendMessage(chatId,
-      '📊 <b>Анализ завершён</b>\n\n'
-      + `Оценка: <b>${metrics?.score ?? '—'}/100</b>\n`
-      + `Ожидание: <b>${num(metrics?.expectancy)}</b>\n`
-      + `Profit Factor: <b>${num(metrics?.profitFactor)}</b>\n`
-      + `Риск разорения: <b>${num((metrics?.riskOfRuin ?? 0) * 100, 1)}%</b>`);
+      '📊 <b>Analysis complete</b>\n\n'
+      + `Score: <b>${num(metrics.score, 0)}/100</b>\n`
+      + `Expectancy: <b>${num(metrics.expectancy)}</b>\n`
+      + `Profit factor: <b>${num(metrics.profitFactor)}</b>`);
   } else {
-    return res.status(400).json({ ok: false, reason: 'unknown_alert' });
+    return res.status(400).json({ error: 'Unknown alert type' });
   }
-  res.json({ ok: true });
-});
+  return res.json({ ok: true });
+}));
 
-// Telegram webhook — public (Telegram has no auth header). Reply fast, then act.
-app.post('/api/telegram/webhook', async (req, res) => {
-  res.sendStatus(200);
-  const msg = req.body?.message;
-  if (!msg) return;
-  const text = (msg.text || '').trim();
-  const chatId = msg.chat?.id;
-  if (chatId == null) return;
-
-  if (text.startsWith('/start ')) {
-    const code = text.slice(7).trim();
-    const key = linkByCode(code, chatId);
-    await sendMessage(chatId, key
-      ? '✅ <b>Аккаунт привязан!</b>\n\nВы будете получать:\n• Алёрты о деградации стратегии\n• Сводки по анализу\n\nКоманды:\n/report — отчёт по запросу\n/stop — отключить уведомления'
-      : '❌ Код недействителен или истёк. Получите новый в приложении.');
-    return;
-  }
-  if (text === '/report') {
-    await sendMessage(chatId, '📊 Отчёт по запросу появится в следующей версии. Запустите анализ в приложении — уведомление придёт автоматически.');
-    return;
-  }
-  if (text === '/stop') {
-    for (const [key, cid] of getChatIdMap()) {
-      if (cid === chatId) { unlinkKey(key); break; }
-    }
-    await sendMessage(chatId, '🔕 Уведомления отключены.');
-    return;
-  }
-  if (text === '/start' || text === '/help') {
-    await sendMessage(chatId, 'Откройте Strategy Architect Pro и нажмите «Подключить Telegram», затем отправьте сюда команду <code>/start КОД</code>.');
-  }
-});
-
-// ════════════════════════════════════════════════════════════════════════════
-//  Broker history import (read-only; keys passed per request, never stored)
-// ════════════════════════════════════════════════════════════════════════════
-
-app.post('/api/broker/binance/trades', ipLimiter, requireAuth, async (req, res) => {
-  const { apiKey, apiSecret, accountType, daysBack } = req.body || {};
-  const result = await fetchBinanceTrades({ apiKey, apiSecret, accountType, daysBack });
-  res.json(result);
-});
-
-app.post('/api/broker/bybit/trades', ipLimiter, requireAuth, async (req, res) => {
-  const { apiKey, apiSecret, daysBack } = req.body || {};
-  const result = await fetchBybitTrades({ apiKey, apiSecret, daysBack });
-  res.json(result);
-});
-
-// EA → server push. Uses its own 2MB parser and a shared secret (not JWT auth).
-app.post('/api/broker/mt/push', express.json({ limit: '2mb' }), (req, res) => {
-  const token = req.headers['x-mt-token'];
-  if (!process.env.MT_PUSH_TOKEN || token !== process.env.MT_PUSH_TOKEN) {
+app.post('/api/telegram/webhook', asyncRoute(async (req, res) => {
+  if (!config.telegramWebhookSecret
+    || !safeEqual(req.get('x-telegram-bot-api-secret-token'), config.telegramWebhookSecret)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  const { accountId, trades } = req.body || {};
-  if (!accountId || !Array.isArray(trades)) {
-    return res.status(400).json({ error: 'Invalid payload' });
-  }
-  const received = storeMTData(accountId, trades);
-  res.json({ ok: true, received });
-});
+  res.sendStatus(200);
+  void handleTelegramMessage(req.body?.message).catch((error) => {
+    console.error('[telegram webhook]', scrubSecrets(error?.message || error));
+  });
+}));
 
-// Download the MetaTrader Expert Advisor template (public — it's just a script).
-app.get('/api/broker/mt/ea', (_req, res) => {
-  try {
-    const ea = readFileSync(new URL('./src-server/brokers/mt_ea_template.mq5', import.meta.url), 'utf8');
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="SAP_HistoryExporter.mq5"');
-    res.send(ea);
-  } catch (_) {
-    res.status(404).json({ error: 'EA template not found' });
+app.post('/api/broker/binance/trades', betaOnly, requireLicense, apiLimiter, asyncRoute(async (req, res) => {
+  const { apiKey, apiSecret, accountType = 'futures', daysBack = 90 } = req.body || {};
+  if (typeof apiKey !== 'string' || apiKey.length > 256
+    || typeof apiSecret !== 'string' || apiSecret.length > 256
+    || !['futures'].includes(accountType)
+    || !Number.isInteger(Number(daysBack)) || Number(daysBack) < 1 || Number(daysBack) > 90) {
+    return res.status(400).json({ error: 'Invalid broker credentials or range' });
   }
-});
+  return res.json(await fetchBinanceTrades({
+    apiKey,
+    apiSecret,
+    accountType,
+    daysBack: Number(daysBack),
+  }));
+}));
 
-// Frontend tells the user where the EA should push + the token to paste in.
-app.get('/api/broker/mt/info', requireAuth, (req, res) => {
-  res.json({
+app.post('/api/broker/bybit/trades', betaOnly, requireLicense, apiLimiter, asyncRoute(async (req, res) => {
+  const { apiKey, apiSecret, daysBack = 90 } = req.body || {};
+  if (typeof apiKey !== 'string' || apiKey.length > 256
+    || typeof apiSecret !== 'string' || apiSecret.length > 256
+    || !Number.isInteger(Number(daysBack)) || Number(daysBack) < 1 || Number(daysBack) > 90) {
+    return res.status(400).json({ error: 'Invalid broker credentials or range' });
+  }
+  return res.json(await fetchBybitTrades({ apiKey, apiSecret, daysBack: Number(daysBack) }));
+}));
+
+app.post(
+  '/api/broker/mt/push',
+  betaOnly,
+  express.json({ limit: '2mb', strict: true }),
+  asyncRoute(async (req, res) => {
+    const mtAuth = readMtToken(req.get('x-mt-token'), { secret: process.env.MT_PUSH_TOKEN });
+    if (!mtAuth || !(await accessStore.isLicenseActive(mtAuth.keyHash))) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const id = accountId(req.body?.accountId);
+    const trades = normalizeMtTrades(req.body?.trades);
+    if (!id || !trades) return res.status(400).json({ error: 'Invalid payload' });
+    await accessStore.storeMtSnapshot(mtAuth.ownerId, id, trades);
+    return res.json({ ok: true, received: trades.length });
+  }),
+);
+
+app.get('/api/broker/mt/ea', betaOnly, requireLicense, asyncRoute(async (_req, res) => {
+  const ea = await readFile(new URL('./src-server/brokers/mt_ea_template.mq5', import.meta.url), 'utf8');
+  res.set({
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Content-Disposition': 'attachment; filename="SAP_HistoryExporter.mq5"',
+  });
+  res.send(ea);
+}));
+
+app.get('/api/broker/mt/info', betaOnly, requireLicense, (req, res) => {
+  if (!process.env.MT_PUSH_TOKEN) return res.status(503).json({ error: 'MetaTrader is not configured' });
+  const token = createMtToken({
+    ownerId: req.tokenPayload.sub,
+    keyHash: req.tokenPayload.kh,
+    secret: process.env.MT_PUSH_TOKEN,
+  });
+  return res.json({
     pushUrl: `${req.protocol}://${req.get('host')}/api/broker/mt/push`,
-    token: process.env.MT_PUSH_TOKEN || '',
-    configured: Boolean(process.env.MT_PUSH_TOKEN),
+    token,
+    configured: true,
   });
 });
 
-app.post('/api/broker/mt/fetch', requireAuth, (req, res) => {
-  const { accountId } = req.body || {};
-  const data = accountId ? getMTData(accountId) : null;
-  if (!data) return res.status(404).json({ error: 'No data for this account. Install and run the EA.' });
-  res.json({ error: null, trades: data.trades, source: data.source, count: data.trades.length, updatedAt: data.updatedAt });
+app.post('/api/broker/mt/fetch', betaOnly, requireLicense, asyncRoute(async (req, res) => {
+  const id = accountId(req.body?.accountId);
+  if (!id) return res.status(400).json({ error: 'Invalid account id' });
+  const snapshot = await accessStore.getMtSnapshot(req.tokenPayload.sub, id);
+  if (!snapshot) return res.status(404).json({ error: 'No data for this account' });
+  return res.json({
+    error: null,
+    trades: snapshot.trades,
+    source: 'MetaTrader beta',
+    count: snapshot.trades.length,
+    updatedAt: snapshot.updatedAt,
+    completeness: 'partial',
+  });
+}));
+
+app.all(/^\/api\/broker\/ctrader(?:\/|$)/, requireLicense, (_req, res) => {
+  res.status(503).json({ error: 'cTrader is disabled until the official protocol integration is complete' });
 });
 
-// cTrader OAuth: build the consent URL (redirect URI is this server's callback).
-app.get('/api/broker/ctrader/auth', requireAuth, (req, res) => {
-  if (!isCTraderConfigured()) return res.status(503).json({ error: 'cTrader not configured' });
-  const redirectUri = `${req.protocol}://${req.get('host')}/api/broker/ctrader/callback`;
-  const state = crypto.randomBytes(8).toString('hex');
-  res.json({ authUrl: getAuthUrl(redirectUri, state) });
-});
+app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
-// cTrader OAuth callback → exchange code, hand the token to the frontend via
-// URL hash (never logged server-side) on the configured frontend origin.
-app.get('/api/broker/ctrader/callback', async (req, res) => {
-  const front = process.env.PRODUCTION_ORIGIN || '';
-  const { code, error } = req.query;
-  if (error || !code) return res.redirect(`${front}/#ctrader=error`);
-  const redirectUri = `${req.protocol}://${req.get('host')}/api/broker/ctrader/callback`;
-  const tokens = await exchangeCode(code, redirectUri);
-  if (!tokens?.access_token) return res.redirect(`${front}/#ctrader=error`);
-  res.redirect(`${front}/#ctrader_token=${encodeURIComponent(tokens.access_token)}`);
-});
-
-app.post('/api/broker/ctrader/trades', ipLimiter, requireAuth, async (req, res) => {
-  const { accessToken, accountId, daysBack = 90 } = req.body || {};
-  if (!accessToken || !accountId) return res.status(400).json({ error: 'Missing params' });
-  const result = await fetchCTraderTrades(accessToken, accountId, daysBack);
-  res.json(result);
-});
-
-// ── Error handler ────────────────────────────────────────────────────────────
-// Converts body-parser / CORS errors into clean JSON (and scrubs secrets).
-app.use((err, _req, res, _next) => {
-  if (err?.type === 'entity.too.large') {
+app.use((error, _req, res, _next) => {
+  if (error?.type === 'entity.too.large') {
     return res.status(413).json({ error: 'Payload too large' });
   }
-  if (/Not allowed by CORS/.test(err?.message || '')) {
+  if (error instanceof SyntaxError && 'body' in error) {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+  if (/Not allowed by CORS/.test(error?.message || '')) {
     return res.status(403).json({ error: 'Origin not allowed' });
   }
-  console.error('[server] error:', scrubSecrets(err?.message || err));
+  console.error('[server]', scrubSecrets(error?.message || error));
   return res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`AI backend listening on http://localhost:${PORT}`);
+export async function startServer(port = config.port) {
+  await storeReady;
+  const server = app.listen(port, () => {
+    console.log(`Strategy Architect API listening on port ${server.address().port}`);
+  });
 
-  // Register the Telegram webhook once at startup, if configured.
   if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_WEBHOOK_URL) {
-    setWebhook(`${process.env.TELEGRAM_WEBHOOK_URL}/api/telegram/webhook`)
-      .then((r) => console.log(`[Telegram] Webhook ${r?.ok ? 'registered' : 'registration failed'}`))
-      .catch(() => {});
+    setWebhook(
+      `${process.env.TELEGRAM_WEBHOOK_URL.replace(/\/$/, '')}/api/telegram/webhook`,
+      config.telegramWebhookSecret,
+    ).catch((error) => console.error('[telegram webhook]', scrubSecrets(error?.message || error)));
   }
-});
+
+  const shutdown = async () => {
+    server.close(async () => {
+      await accessStore.close();
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
+  return server;
+}
+
+const entrypoint = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+if (entrypoint) {
+  startServer().catch((error) => {
+    console.error('[startup]', scrubSecrets(error?.message || error));
+    process.exit(1);
+  });
+}

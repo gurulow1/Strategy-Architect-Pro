@@ -8,7 +8,10 @@ import { renderReport } from '../results.js';
 import { createAIJournalParser } from '../aiComponents.js';
 import { createBrokerImport } from '../brokerImport.js';
 import { createTelegramPanel } from '../telegramPanel.js';
-import { apiPost, accountKey } from '../../services/serverApi.js';
+import { apiPost } from '../../services/serverApi.js';
+import { completeTrial } from '../auth.js';
+
+const MAX_SIMULATION_HORIZON = 500;
 
 export function mountJournal(container) {
   container.innerHTML = `
@@ -44,7 +47,7 @@ export function mountJournal(container) {
   let analysis = null;
   let tradeRecords = null;   // raw trades (with direction/symbol) for Edge Integrity
 
-  // Single ingestion path for trades from ANY source (CSV/XLSX parser or a
+  // Single ingestion path for trades from any supported source (CSV/TSV or a
   // broker import). `rows` are normalized to { date, pnl, r, direction, symbol }.
   function ingest(rows) {
     // Number.isFinite (not `typeof === 'number'`) — the latter is TRUE for NaN
@@ -96,7 +99,8 @@ export function mountJournal(container) {
       risk: num('jr-risk') / 100,
       cost: num('jr-cost') / 100,
       capital: num('jr-capital'),
-      trades: analysis.count,
+      trades: Math.min(analysis.count, MAX_SIMULATION_HORIZON),
+      observedTrades: analysis.count,
       sims: num('jr-sims'),
       sample: analysis.rSample,
       tradeRecords,
@@ -112,6 +116,7 @@ export function mountJournal(container) {
       state.lastReport = report;
       renderReport(report, results);
       window.__sap_refreshRisk?.();
+      completeTrial().catch(() => {});
       maybeNotifyDegradation(report);
       collapseInputsOnMobile(container);
       if (window.innerWidth <= 768) {
@@ -132,7 +137,6 @@ export function mountJournal(container) {
   function maybeNotifyDegradation(report) {
     if (!report?.alerts?.includes('degradation') || !report.temporal) return;
     apiPost('/api/telegram/notify', {
-      licenseKey: accountKey(),
       alertType: 'degradation',
       metrics: {
         earlyExpectancy: report.temporal.earlyStats?.expectancy,

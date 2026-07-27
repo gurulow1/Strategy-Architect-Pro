@@ -1,15 +1,15 @@
 // AI-powered journal parser.
-// Accepts CSV / XLSX / TXT drops, sends raw text to the AI, shows a column
-// preview for confirmation, and hands the normalized trade array to the caller.
+// Accepts CSV / TSV / TXT drops, parses known formats locally, and only sends
+// a short sample to OpenAI after explicit consent for an unknown layout.
 //
 // Uses ONLY existing CSS classes from styles.css — no new rules, no inline
 // decorative styles. display toggling via element.style is kept to a minimum
 // (same pattern used throughout app.js).
 
-import * as XLSX from 'xlsx';
 import { callAI } from '../services/aiClient.js';
 import { parseCsv, parseMetaTrader, looksLikeMetaTrader, rowsFromCsv } from '../analysis/journal.js';
 import { t } from './i18n.js';
+import { escapeHtml } from './safeDom.js';
 
 // Fields the AI normalizes to; their display order.
 const TRADE_FIELDS = ['date', 'pnl', 'r_multiple', 'direction', 'duration_minutes'];
@@ -20,6 +20,7 @@ const TRADE_FIELDS = ['date', 'pnl', 'r_multiple', 'direction', 'duration_minute
 const FIRST_N  = 50;
 const LAST_N   = 20;
 const CHAR_CAP = 8000;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 function truncateForAI(rawText) {
   const allLines  = rawText.split(/\r?\n/);
@@ -63,7 +64,7 @@ export function createAIJournalParser(container, onTradesConfirmed) {
         <div class="dropzone-icon" aria-hidden="true">📂</div>
         <strong>${t('jr_upload_btn')}</strong>
         <div class="muted small">${t('jr_upload_hint')}</div>
-        <input type="file" id="ai-jp-file" accept=".csv,.xlsx,.xls,.txt" hidden>
+        <input type="file" id="ai-jp-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" hidden>
       </div>`;
 
     const drop = container.querySelector('#ai-jp-drop');
@@ -86,7 +87,7 @@ export function createAIJournalParser(container, onTradesConfirmed) {
   }
 
   function showLoading() {
-    container.innerHTML = `<div class="muted small">Processing&hellip;</div>`;
+    container.innerHTML = `<div class="muted small">${escapeHtml(t('jr_processing'))}</div>`;
   }
 
   function showPreview(result, truncated = false) {
@@ -98,42 +99,45 @@ export function createAIJournalParser(container, onTradesConfirmed) {
 
     // Pivot table: column names as rows, sample trade values across columns.
     const sampleCount = Math.min(sample.length, 3);
-    const headerCells = Array.from({ length: sampleCount }, (_, i) => `<th>Row ${i + 1}</th>`).join('');
+    const headerCells = Array.from(
+      { length: sampleCount },
+      (_, i) => `<th>${escapeHtml(t('jr_row', { n: i + 1 }))}</th>`,
+    ).join('');
     const bodyRows = activeFields.map(field => {
       const cells = sample.map(t => {
         const v = t[field];
-        return `<td>${v != null ? String(v) : '<span class="muted">—</span>'}</td>`;
+        return `<td>${v != null ? escapeHtml(v) : '<span class="muted">—</span>'}</td>`;
       }).join('');
-      return `<tr><td><strong>${field}</strong></td>${cells}</tr>`;
+      return `<tr><td><strong>${escapeHtml(field)}</strong></td>${cells}</tr>`;
     }).join('');
 
     const fmt = detected_columns?.format || 'Generic';
     const extraCount = trades.length - sampleCount;
     const moreHtml = extraCount > 0
-      ? `<div class="muted small">&hellip; and ${extraCount} more trade${extraCount === 1 ? '' : 's'}</div>`
+      ? `<div class="muted small">${escapeHtml(t('jr_more_trades', { n: extraCount }))}</div>`
       : '';
     const warningHtml = (warnings || [])
-      .map(w => `<div class="small bad">${w}</div>`)
+      .map((w) => `<div class="small bad">${escapeHtml(w)}</div>`)
       .join('');
     const truncNoteHtml = truncated
-      ? `<div class="small muted">Large file: AI preview shows first ${FIRST_N} and last ${LAST_N} rows. All data will be used after confirmation.</div><div class="divider"></div>`
+      ? `<div class="small muted">${escapeHtml(t('jr_ai_truncated', { first: FIRST_N, last: LAST_N }))}</div><div class="divider"></div>`
       : '';
 
     container.innerHTML = `
       <div class="card pad">
         ${truncNoteHtml}
-        <h3>Detected: <span class="badge good">${fmt}</span></h3>
+        <h3>${escapeHtml(t('jr_detected'))}: <span class="badge good">${escapeHtml(fmt)}</span></h3>
         <div style="overflow-x:auto;margin:0 -4px;">
           <table class="data-table" style="min-width:100%;white-space:nowrap;">
-            <thead><tr><th style="padding-right:16px;">Column</th>${headerCells}</tr></thead>
+            <thead><tr><th style="padding-right:16px;">${escapeHtml(t('jr_column'))}</th>${headerCells}</tr></thead>
             <tbody>${bodyRows}</tbody>
           </table>
         </div>
         ${moreHtml}
         ${warningHtml ? `<div class="divider"></div>${warningHtml}` : ''}
         <div class="divider"></div>
-        <button class="btn-primary" id="ai-jp-confirm">Confirm (${trades.length} trade${trades.length === 1 ? '' : 's'})</button>
-        <div class="muted small"><a href="#" class="link" id="ai-jp-cancel">Cancel</a></div>
+        <button class="btn-primary" id="ai-jp-confirm">${escapeHtml(t('jr_confirm', { n: trades.length }))}</button>
+        <div class="muted small"><a href="#" class="link" id="ai-jp-cancel">${escapeHtml(t('cancel'))}</a></div>
       </div>`;
 
     container.querySelector('#ai-jp-confirm').addEventListener('click', () => {
@@ -148,18 +152,18 @@ export function createAIJournalParser(container, onTradesConfirmed) {
   function showFallback(errorMsg) {
     container.innerHTML = `
       <div class="card pad">
-        <div class="small bad">${errorMsg}</div>
+        <div class="small bad">${escapeHtml(errorMsg)}</div>
         <div class="divider"></div>
-        <div class="muted small">AI service unavailable. Paste trades manually:</div>
+        <div class="muted small">${escapeHtml(t('jr_manual_hint'))}</div>
         <textarea id="ai-jp-manual" class="select" rows="6"
           placeholder="date,pnl&#10;2024-01-01,150&#10;2024-01-02,-80"></textarea>
-        <button class="btn-primary" id="ai-jp-submit">Submit manual data</button>
-        <div class="muted small"><a href="#" class="link" id="ai-jp-cancel">Cancel</a></div>
+        <button class="btn-primary" id="ai-jp-submit">${escapeHtml(t('jr_submit_manual'))}</button>
+        <div class="muted small"><a href="#" class="link" id="ai-jp-cancel">${escapeHtml(t('cancel'))}</a></div>
       </div>`;
 
-    container.querySelector('#ai-jp-submit').addEventListener('click', async () => {
+    container.querySelector('#ai-jp-submit').addEventListener('click', () => {
       const text = container.querySelector('#ai-jp-manual').value.trim();
-      if (text) { showLoading(); await runAI(text); }
+      if (text) processGenericText(text);
     });
     container.querySelector('#ai-jp-cancel').addEventListener('click', (e) => {
       e.preventDefault();
@@ -167,15 +171,37 @@ export function createAIJournalParser(container, onTradesConfirmed) {
     });
   }
 
+  function showAIConsent(rawText) {
+    container.innerHTML = `
+      <div class="card pad" role="region" aria-labelledby="ai-jp-consent-title">
+        <h3 id="ai-jp-consent-title">${escapeHtml(t('jr_ai_consent_title'))}</h3>
+        <p class="muted small">${escapeHtml(t('jr_ai_consent_body', { n: CHAR_CAP }))}</p>
+        <div class="row">
+          <button class="btn-primary" id="ai-jp-consent">${escapeHtml(t('jr_ai_consent_continue'))}</button>
+          <button class="btn-ghost" id="ai-jp-cancel">${escapeHtml(t('cancel'))}</button>
+        </div>
+      </div>`;
+
+    container.querySelector('#ai-jp-consent').addEventListener('click', async () => {
+      showLoading();
+      await runAI(rawText);
+    });
+    container.querySelector('#ai-jp-cancel').addEventListener('click', showIdle);
+  }
+
   // ── Async logic ──────────────────────────────────────────────────────────
 
   async function handleFile(f) {
+    if (f.size > MAX_FILE_BYTES) {
+      showFallback(t('jr_file_too_large'));
+      return;
+    }
     showLoading();
     let file;
     try {
       file = await readFile(f);
     } catch (err) {
-      showFallback(`Could not read file: ${err.message}`);
+      showFallback(`${t('jr_file_read_failed')}: ${err.message}`);
       return;
     }
 
@@ -189,8 +215,9 @@ export function createAIJournalParser(container, onTradesConfirmed) {
       // Recognized but unparseable → fall through to the AI/CSV path below.
     }
 
-    // 2) Generic path (CSV/other layouts): AI for format hints + full local re-parse.
-    await runAI(file.rawText);
+    // 2) Generic path: deterministic local parsing first. Unknown layouts are
+    // sent to AI only if the user explicitly accepts the privacy prompt.
+    processGenericText(file.rawText);
   }
 
   // Render a MetaTrader parse result through the existing preview UI.
@@ -210,6 +237,26 @@ export function createAIJournalParser(container, onTradesConfirmed) {
     showPreview(lastResult, false);
   }
 
+  function processGenericText(rawText) {
+    const parsed = parseCsv(rawText);
+    if (!parsed.error && parsed.trades.length >= 5) {
+      lastResult = {
+        trades: parsed.trades.map((trade) => ({
+          date: trade.date,
+          pnl: trade.pnl,
+          r_multiple: trade.r ?? null,
+          direction: null,
+          duration_minutes: null,
+        })),
+        detected_columns: { format: t('jr_local_format') },
+        warnings: (parsed.warnings || []).map(renderWarning),
+      };
+      showPreview(lastResult, false);
+      return;
+    }
+    showAIConsent(rawText);
+  }
+
   // Warnings are {id, vars} (bilingual via i18n) or plain strings (AI path).
   function renderWarning(w) {
     return typeof w === 'string' ? w : t(`jr_warn_${w.id}`, w.vars);
@@ -218,79 +265,29 @@ export function createAIJournalParser(container, onTradesConfirmed) {
   function readFile(f) {
     return new Promise((resolve, reject) => {
       const name = f.name.toLowerCase();
-      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-            const sheet = wb.Sheets[wb.SheetNames[0]];
-            // rows: 2D array for the MetaTrader parser; rawText: CSV for the AI path.
-            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
-            resolve({ rawText: XLSX.utils.sheet_to_csv(sheet), rows });
-          } catch (err) { reject(err); }
-        };
-        reader.onerror = () => reject(new Error('FileReader failed'));
-        reader.readAsArrayBuffer(f);
-      } else {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve({ rawText: e.target.result, rows: null });
-        reader.onerror = () => reject(new Error('FileReader failed'));
-        reader.readAsText(f);
+      if (!['.csv', '.tsv', '.txt'].some((ext) => name.endsWith(ext))) {
+        reject(new Error(t('jr_file_unsupported')));
+        return;
       }
+      const reader = new FileReader();
+      reader.onload = (e) => resolve({ rawText: e.target.result, rows: null });
+      reader.onerror = () => reject(new Error(t('jr_file_read_failed')));
+      reader.readAsText(f);
     });
   }
 
   async function runAI(rawText) {
     try {
-      const allLines = rawText.split(/\r?\n/).filter((l) => l.trim().length > 0);
       const { text: aiText, truncated } = truncateForAI(rawText);
-      console.log(`[journal] File: ${allLines.length} non-empty lines. Sending truncated preview to AI: ${truncated}.`);
-
       const result = await callAI('parseJournal', { rawText: aiText });
-      console.log(`[journal] AI returned ${result.trades?.length ?? 0} trades from ${truncated ? 'truncated' : 'full'} preview.`);
-
-      // The AI only saw the truncated preview. Always re-parse the FULL rawText
-      // locally — the AI is used for format detection only. Local parsing is
-      // deterministic and handles any number of rows.
-      const localParsed = parseCsv(rawText);
-      console.log(
-        `[journal] Local parser: ${allLines.length} lines in,` +
-        ` ${localParsed.trades.length} trades out,` +
-        ` ${localParsed.skipped} rows skipped,` +
-        ` error=${localParsed.error || 'none'}.`,
-      );
-
-      if (!localParsed.error && localParsed.trades.length >= 5) {
-        // Convert parseCsv shape ({ date, pnl, r }) → AI trade shape ({ date, pnl, r_multiple, ... })
-        result.trades = localParsed.trades.map((t) => ({
-          date: t.date,
-          pnl: t.pnl,
-          r_multiple: t.r ?? null,
-          direction: null,
-          duration_minutes: null,
-        }));
-        if (localParsed.skipped > 0) {
-          result.warnings = result.warnings || [];
-          result.warnings.push(
-            `${localParsed.skipped} row${localParsed.skipped === 1 ? '' : 's'} skipped (missing or non-numeric values).`,
-          );
-        }
-        console.log(`[journal] Using local parse result: ${result.trades.length} trades.`);
-      } else {
-        // Local parser couldn't identify the format (exotic broker/layout) —
-        // fall back to the AI-parsed subset with a visible warning.
-        console.warn(`[journal] Local parser failed (${localParsed.error}), keeping AI results (${result.trades?.length ?? 0} trades). Note: only the preview rows were analyzed.`);
-        if (truncated) {
-          result.warnings = result.warnings || [];
-          result.warnings.push(
-            `Warning: format not recognized by local parser — only the first ${FIRST_N} and last ${LAST_N} rows of the file were analyzed. Total trades may be understated.`,
-          );
-        }
+      if (truncated) {
+        result.warnings = result.warnings || [];
+        result.warnings.push(t('jr_ai_subset_warning', { first: FIRST_N, last: LAST_N }));
       }
 
       lastResult = result;
       if (!result.trades || result.trades.length === 0) {
-        showFallback('No trades could be extracted from this file.');
+        showFallback(t('jr_no_trades'));
         return;
       }
       showPreview(result, truncated);

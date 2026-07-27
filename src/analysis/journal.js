@@ -152,8 +152,8 @@ function splitRow(line, delim = ',') {
 // ─────────────────────────────────────────────────────────────────────────────
 // MetaTrader 4/5 history reports
 //
-// MT4/MT5 "trade history" exports (XLSX, or HTML saved as XLSX) stack up to three
-// tables in a single sheet, each introduced by a one-cell section label:
+// MT4/MT5 trade-history text exports can stack up to three tables, each
+// introduced by a one-cell section label:
 //   Позиции / Positions — one row per CLOSED position, PnL already aggregated
 //   Ордера  / Orders    — individual orders (duplicate the same fills)
 //   Сделки  / Deals     — in/out deal legs (also duplicate the same fills)

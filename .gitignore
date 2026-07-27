@@ -1,6 +1,7 @@
 node_modules
 dist
 coverage
+.data/
 *.local
 .DS_Store
 .env
@@ -10,3 +11,5 @@ coverage
 
 # Telegram link store (contains chat ids)
 tg-store.json
+
+.vercel

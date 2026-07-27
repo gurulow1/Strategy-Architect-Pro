@@ -21,6 +21,26 @@ describe('evaluatePropChallenge', () => {
     expect(r.passRate).toBe(0);
   });
 
+  it('flags an intraday daily breach even when equity recovers by day end', () => {
+    const intraday = [[100000, 94000, 100000]];
+    const r = evaluatePropChallenge([intraday], rules);
+    expect(r.dailyViolationRate).toBe(1);
+  });
+
+  it('uses a fixed daily-loss amount based on initial capital by default', () => {
+    const intraday = [
+      [100000, 110000],
+      [110000, 104900],
+    ];
+    const r = evaluatePropChallenge([intraday], { ...rules, profitTarget: 0.50 });
+    expect(r.dailyViolationRate).toBe(1); // 5,100 > fixed 5,000
+
+    const startOfDayRule = evaluatePropChallenge([intraday], {
+      ...rules, profitTarget: 0.50, dailyLossBasis: 'startOfDay',
+    });
+    expect(startOfDayRule.dailyViolationRate).toBe(0); // limit is explicitly 5% of 110k
+  });
+
   it('flags a max-loss violation from starting balance (static)', () => {
     // gradual bleed, each day < 5%, but cumulative > 10%
     const daily = [100000, 96000, 92000, 89000]; // 89k = -11% from start
@@ -34,6 +54,30 @@ describe('evaluatePropChallenge', () => {
     expect(r.timeoutRate).toBe(1);
   });
 
+  it('supports static and fixed-amount trailing maximum loss', () => {
+    const intraday = [[100000, 115000, 104000]];
+    const staticResult = evaluatePropChallenge([intraday], {
+      ...rules, dailyLossLimit: 0.50, profitTarget: 0.50, maxLossMode: 'static',
+    });
+    const trailingResult = evaluatePropChallenge([intraday], {
+      ...rules, dailyLossLimit: 0.50, profitTarget: 0.50, maxLossMode: 'trailing',
+    });
+    expect(staticResult.timeoutRate).toBe(1);
+    expect(trailingResult.maxViolationRate).toBe(1); // 104k is 11k below the 115k peak
+  });
+
+  it('honors explicit daily and maximum loss amounts', () => {
+    const daily = evaluatePropChallenge([[[100000, 97900]]], {
+      ...rules, dailyLossAmount: 2000, maxLossAmount: 20000,
+    });
+    expect(daily.dailyViolationRate).toBe(1);
+
+    const maximum = evaluatePropChallenge([[[100000, 94900]]], {
+      ...rules, dailyLossAmount: 20000, maxLossAmount: 5000,
+    });
+    expect(maximum.maxViolationRate).toBe(1);
+  });
+
   it('expectedAttempts is the inverse of pass rate', () => {
     const pass = [100000, 105000, 110000];
     const fail = [100000, 100000, 94000];
@@ -42,8 +86,13 @@ describe('evaluatePropChallenge', () => {
     expect(r.expectedAttempts).toBe(2);
   });
 
-  it('ships sane presets', () => {
+  it('ships explicitly caveated custom templates under legacy keys', () => {
     expect(PROP_PRESETS.ftmo.maxLossLimit).toBe(0.10);
     expect(PROP_PRESETS.e8.trailing).toBe(true);
+    for (const preset of Object.values(PROP_PRESETS)) {
+      expect(preset.source).toBe('custom');
+      expect(preset.label).toMatch(/^Custom /);
+      expect(preset.caveat).toMatch(/verify/i);
+    }
   });
 });

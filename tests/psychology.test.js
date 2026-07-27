@@ -44,4 +44,16 @@ describe('analyzePsychology', () => {
     expect(h9).toBeDefined();
     expect(h9.avgPnl).toBeGreaterThan(0);
   });
+
+  it('uses the shared parser for MetaTrader dotted timestamps', () => {
+    const withDates = [
+      { date: '2026.02.14 09:30:00', pnl: 200 },
+      { date: '2026.02.15 09:45:00', pnl: 150 },
+    ];
+    const r = analyzePsychology(withDates);
+    expect(r.hasDatetime).toBe(true);
+    expect(r.heatmap).toEqual([
+      { hour: 9, avgPnl: 175, count: 2, wr: 1 },
+    ]);
+  });
 });

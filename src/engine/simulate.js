@@ -23,12 +23,15 @@ const MAX_BAND_CURVES = 800; // cap stored curves for percentile bands (perf)
  * @param {number} [spec.rr]         parametric reward:risk
  * @param {number[]} [spec.sample]   empirical R-multiples to bootstrap from
  * @param {number} [spec.tradesPerDay] for prop daily-curve chunking
+ * @param {boolean} [spec.collectRealizedR=true] retain every simulated trade
+ * @param {boolean} [spec.collectBandCurves=true] retain paths for chart bands
  * @param {() => number} rng
  */
 export function simulate(spec, rng) {
   const {
     capital, trades, sims, risk, costPerTrade = 0,
     winRate, rr, sample = null, tradesPerDay = null,
+    collectRealizedR = true, collectBandCurves = true,
   } = spec;
 
   const useEmpirical = Array.isArray(sample) && sample.length > 0;
@@ -44,6 +47,7 @@ export function simulate(spec, rng) {
   const lossStreakDist = new Array(16).fill(0);
   const bandCurves = [];
   const dailyCurves = [];
+  const intradayCurves = [];
   const keepEvery = Math.max(1, Math.ceil(sims / MAX_BAND_CURVES));
 
   for (let s = 0; s < sims; s++) {
@@ -52,12 +56,14 @@ export function simulate(spec, rng) {
     let trough = equity; // lowest equity reached this sim
     let maxDD = 0;
     let winStreak = 0, lossStreak = 0, longestLoss = 0;
-    const keepCurve = s % keepEvery === 0;
+    const keepCurve = collectBandCurves && s % keepEvery === 0;
     const curve = keepCurve ? [equity] : null;
 
-    let daily = null, dayTrades = 0, perDay = 0;
+    let daily = null, intraday = null, dayPath = null, dayTrades = 0, perDay = 0;
     if (tradesPerDay) {
       daily = [equity];
+      intraday = [];
+      dayPath = [equity];
       perDay = Math.max(1, tradesPerDay);
     }
 
@@ -75,7 +81,7 @@ export function simulate(spec, rng) {
       const pnl = riskAmt * r - cost;
       equity += pnl;
       // Realized R relative to amount risked (pre-trade) — correct denominator.
-      if (riskAmt > 0) realizedR.push(pnl / riskAmt);
+      if (collectRealizedR && riskAmt > 0) realizedR.push(pnl / riskAmt);
 
       if (r > 0) {
         winStreak++; lossStreak = 0;
@@ -93,11 +99,20 @@ export function simulate(spec, rng) {
 
       if (curve) curve.push(equity);
       if (daily) {
-        if (++dayTrades >= perDay) { daily.push(equity); dayTrades = 0; }
+        dayPath.push(equity);
+        if (++dayTrades >= perDay) {
+          daily.push(equity);
+          intraday.push(dayPath);
+          dayPath = [equity];
+          dayTrades = 0;
+        }
       }
       if (equity <= 0) { equity = 0; break; }
     }
-    if (daily && dayTrades > 0) daily.push(equity);
+    if (daily && dayTrades > 0) {
+      daily.push(equity);
+      intraday.push(dayPath);
+    }
 
     returns[s] = (equity - capital) / capital;
     maxDDs[s] = maxDD;
@@ -106,6 +121,7 @@ export function simulate(spec, rng) {
     longestLossStreaks[s] = longestLoss;
     if (curve) bandCurves.push(curve);
     if (daily) dailyCurves.push(daily);
+    if (intraday) intradayCurves.push(intraday);
   }
 
   return {
@@ -121,6 +137,7 @@ export function simulate(spec, rng) {
     streaks: { winDist: winStreakDist, lossDist: lossStreakDist },
     bandCurves,
     dailyCurves,
+    intradayCurves,
   };
 }
 

@@ -46,6 +46,37 @@ describe('simulate (empirical bootstrap)', () => {
     // sample mean R = (2+2-1-1-1)/5 = 0.2 -> positive
     expect(mean(r.returns)).toBeGreaterThan(0);
   });
+
+  it('can skip the large realized-trade buffer when only path metrics are needed', () => {
+    const r = simulate(
+      {
+        ...base,
+        sample: [2, -1],
+        collectRealizedR: false,
+        collectBandCurves: false,
+      },
+      createRng(3),
+    );
+    expect(r.realizedR).toEqual([]);
+    expect(r.bandCurves).toEqual([]);
+    expect(r.returns).toHaveLength(base.sims);
+  });
+});
+
+describe('simulate (prop intraday paths)', () => {
+  it('retains every intraday equity point while keeping legacy daily closes', () => {
+    const draws = [0.9, 0.1]; // loss, then win
+    let i = 0;
+    const r = simulate(
+      {
+        capital: 100, trades: 2, sims: 1, risk: 0.1,
+        costPerTrade: 0, winRate: 0.5, rr: 1, tradesPerDay: 2,
+      },
+      () => draws[i++],
+    );
+    expect(r.dailyCurves).toEqual([[100, 99]]);
+    expect(r.intradayCurves).toEqual([[[100, 90, 99]]]);
+  });
 });
 
 describe('riskOfRuin integration', () => {
